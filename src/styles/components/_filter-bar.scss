@@ -1,0 +1,120 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+// One shared layout for every search + filter row in the app.
+//   Desktop: everything sits on ONE line and stretches to fill it; it only
+//            wraps when the screen is genuinely too narrow for the controls.
+//   Phone:   the search box takes the full row, and the filters sit two per
+//            row (side by side) instead of one long stack.
+// Children: `.filter-bar__search` (wrap a `.search-input`), `.filter-bar__field`
+// (a select, date picker, or label + control), `.filter-bar__end` (buttons).
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: v.$space-3;
+}
+
+.filter-bar__search {
+  flex: 2 1 18rem;
+  min-width: 0;
+
+  // `.search-input--wide` forces a 24rem minimum for standalone use.
+  &.search-input {
+    min-width: 0;
+  }
+}
+
+.filter-bar__field {
+  flex: 1 1 12rem;
+  min-width: 0;
+
+  .form-select,
+  .form-control,
+  .date-picker-trigger {
+    width: 100%;
+  }
+
+  // Bootstrap margins on wrapped form components would push the row out of line.
+  > .mb-4,
+  > .mb-3 {
+    margin-bottom: 0 !important;
+  }
+}
+
+// Phone-only "Filters" button that reveals the rest of a long filter row.
+.filter-bar__toggle {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.filter-bar__end {
+  flex: 0 0 auto;
+  display: flex;
+  gap: v.$space-2;
+  align-items: center;
+}
+
+// Date pickers and other shared form components bring their own caption;
+// make it look like the filter captions so the row lines up.
+.filter-bar__field .form-label-custom {
+  display: flex;
+  align-items: center;
+  margin-bottom: v.$space-2;
+  font-size: v.$font-size-xs;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+// Small caption above a filter (used where several filters need naming).
+.filter-bar__label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: v.$space-2;
+  font-size: v.$font-size-xs;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+
+  svg {
+    color: var(--color-text-muted);
+  }
+}
+
+@include m.respond-down(v.$breakpoint-md) {
+  // With a Filters button next to it, the search shares the row instead of filling it.
+  .filter-bar__search {
+    flex: 1 1 100%;
+  }
+
+  .filter-bar__search.filter-bar__search--inline {
+    flex: 1 1 0;
+  }
+
+  .filter-bar__field {
+    flex: 1 1 calc(50% - #{v.$space-3});
+  }
+
+  .filter-bar__end {
+    flex: 1 1 100%;
+
+    .btn {
+      flex: 1;
+    }
+  }
+}
+
+// ---- Two form fields per row (pairs like name + email) -----------------------
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: v.$space-5;
+
+  @include m.respond-down(v.$breakpoint-md) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

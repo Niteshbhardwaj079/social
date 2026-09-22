@@ -1,0 +1,38 @@
+# Everything on one machine: the app + its own PostgreSQL.
+#   1. copy backend/.env.example to .env at this level and fill JWT_SECRET, APP_URL, SMTP_* ...
+#   2. docker compose up -d
+# To use a database you already have (managed Postgres, another server), delete the "db" service
+# and point DATABASE_URL at it — the app needs nothing else.
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: social
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me}
+      POSTGRES_DB: social
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - social-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U social -d social"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://social:${DB_PASSWORD:-change-me}@db:5432/social
+      NODE_ENV: production
+    ports:
+      - "${PORT:-4000}:4000"
+
+volumes:
+  social-db:

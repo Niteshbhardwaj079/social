@@ -1,0 +1,64 @@
+// Bootstrap 5 SCSS variable overrides. Must be set BEFORE bootstrap/scss/bootstrap
+// is imported in main.scss so bootstrap's own `!default` variables pick these up.
+// Values are expressed in rem against the project's 10px root font-size.
+
+$font-family-sans-serif: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+  Helvetica, Arial, sans-serif;
+
+$font-size-base: 1.4rem; // 14px
+$font-size-sm: 1.2rem; // 12px
+$font-size-lg: 1.6rem; // 16px
+
+$body-bg: #f5f6fa;
+$body-color: #171a2b;
+
+$primary: #4f46e5;
+$secondary: #5c6178;
+$success: #16a34a;
+$warning: #d97706;
+$danger: #dc2626;
+$info: #0284c7;
+$light: #f5f6fa;
+$dark: #171a2b;
+
+$border-radius: 0.8rem;
+$border-radius-sm: 0.6rem;
+$border-radius-lg: 1rem;
+$border-radius-xl: 1.4rem;
+$border-radius-pill: 999rem;
+
+$grid-gutter-width: 2.4rem;
+$spacer: 1rem;
+
+$enable-shadows: false;
+$enable-negative-margins: true;
+$enable-rfs: false;
+
+$btn-border-radius: 0.8rem;
+$btn-font-weight: 500;
+
+// Bootstrap's own input/select defaults (0.375rem/0.75rem padding) render
+// noticeably smaller/thinner than the rest of this design system's custom
+// components (buttons, the date picker trigger). Bump them here — the single
+// place Bootstrap reads these from — so every native form field app-wide
+// gets the same comfortable size in one change.
+$input-padding-y: 0.8rem;
+$input-padding-x: 1.2rem;
+$input-font-size: 1.4rem;
+$input-border-radius: 0.8rem;
+$form-select-padding-y: 0.8rem;
+$form-select-padding-x: 1.2rem;
+$form-select-font-size: 1.4rem;
+
+$card-border-radius: 1.2rem;
+$modal-content-border-radius: 1.4rem;
+// Modal widths in rem (same size as Bootstrap's 300 / 500 / 800 / 1140 px at the base 10.6px root), so
+// dialogs grow with the root font-size instead of shrinking on a 4K screen.
+$modal-sm: 28.3rem;
+$modal-md: 47.2rem;
+$modal-lg: 75.5rem;
+$modal-xl: 107.5rem;
+$dropdown-border-radius: 1rem;
+$badge-border-radius: 999rem;
+
+$link-decoration: none;

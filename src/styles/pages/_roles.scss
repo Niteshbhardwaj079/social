@@ -1,0 +1,183 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.roles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(26rem, 1fr));
+  gap: v.$space-5;
+  margin-bottom: v.$space-7;
+}
+
+.role-icon {
+  width: 4rem;
+  height: 4rem;
+  border-radius: v.$radius-md;
+  @include m.flex-center;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  flex-shrink: 0;
+
+  &--rose {
+    background-color: var(--color-accent-rose-soft);
+    color: var(--color-accent-rose);
+  }
+
+  &--purple {
+    background-color: var(--color-accent-purple-soft);
+    color: var(--color-accent-purple);
+  }
+
+  &--teal {
+    background-color: var(--color-accent-teal-soft);
+    color: var(--color-accent-teal);
+  }
+
+  &--amber {
+    background-color: var(--color-accent-amber-soft);
+    color: var(--color-accent-amber);
+  }
+
+  &--blue {
+    background-color: var(--color-accent-blue-soft);
+    color: var(--color-accent-blue);
+  }
+
+  &--slate {
+    background-color: var(--color-accent-slate-soft);
+    color: var(--color-accent-slate);
+  }
+}
+
+.role-select-card {
+  @include m.card-surface;
+  padding: v.$space-5;
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-4;
+  cursor: pointer;
+  border-width: 2px;
+  transition: border-color v.$transition-fast, box-shadow v.$transition-fast, transform v.$transition-fast;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  &.is-selected {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-color-primary);
+  }
+}
+
+.role-select-card__top {
+  @include m.flex-between;
+}
+
+.role-select-card__body {
+  flex: 1;
+}
+
+.role-select-card__name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: v.$font-size-lg;
+  font-weight: 700;
+  margin-bottom: v.$space-2;
+
+  svg {
+    color: var(--color-text-muted);
+  }
+}
+
+.role-select-card__description {
+  font-size: v.$font-size-sm;
+  color: var(--color-text-secondary);
+  margin: 0;
+  @include m.line-clamp(3);
+}
+
+.role-select-card__footer {
+  @include m.flex-between;
+  padding-top: v.$space-3;
+  border-top: 1px solid var(--color-border);
+}
+
+.role-select-card--new {
+  @include m.flex-center;
+  flex-direction: column;
+  gap: v.$space-2;
+  border: 2px dashed var(--color-border-strong);
+  border-radius: v.$radius-lg;
+  padding: v.$space-5;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  text-align: center;
+  background: none;
+  min-height: 100%;
+  transition: border-color v.$transition-fast, background-color v.$transition-fast;
+
+  &:hover {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-text);
+  }
+
+  &__icon {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 50%;
+    @include m.flex-center;
+    background-color: var(--color-surface-alt);
+    color: inherit;
+  }
+
+  &__title {
+    font-weight: 700;
+    font-size: v.$font-size-base;
+    color: var(--color-text-primary);
+  }
+
+  &__hint {
+    font-size: v.$font-size-xs;
+    max-width: 22rem;
+  }
+}
+
+.permissions-panel {
+  @include m.card-surface;
+}
+
+.permissions-panel__header {
+  padding: v.$space-5 v.$space-6;
+  border-bottom: 1px solid var(--color-border);
+  @include m.flex-between;
+  flex-wrap: wrap;
+  gap: v.$space-3;
+}
+
+.permissions-panel__title-group {
+  display: flex;
+  align-items: center;
+  gap: v.$space-3;
+}
+
+.permissions-panel__subtitle {
+  font-size: v.$font-size-sm;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.permissions-panel__actions {
+  display: flex;
+  gap: v.$space-3;
+}
+
+.permission-matrix th,
+.permission-matrix td {
+  white-space: nowrap;
+}
+
+.permission-matrix td:first-child {
+  white-space: normal;
+}

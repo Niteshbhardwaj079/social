@@ -1,0 +1,395 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+// ---- Storage usage banner --------------------------------------------------
+
+.storage-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: v.$space-4;
+  padding: v.$space-4 v.$space-5;
+  margin-bottom: v.$space-4;
+  border-radius: v.$radius-md;
+  background-color: var(--color-info-soft);
+  color: var(--color-info);
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+  }
+
+  &.is-near-limit {
+    background-color: var(--color-warning-soft);
+    color: var(--color-warning);
+  }
+}
+
+.storage-banner__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.storage-banner__title {
+  font-weight: 600;
+  font-size: v.$font-size-md;
+}
+
+.storage-banner__detail {
+  font-size: v.$font-size-sm;
+  color: var(--color-text-secondary);
+  margin-top: 0.2rem;
+}
+
+.storage-banner__bar {
+  height: 0.6rem;
+  margin-top: v.$space-3;
+  border-radius: 999px;
+  background-color: rgba(127, 127, 127, 0.2);
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background-color: currentColor;
+  }
+}
+
+// ---- Add by link (white card) ---------------------------------------------
+
+.media-add-card {
+  margin-bottom: v.$space-4;
+}
+
+.media-add-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: v.$space-1 v.$space-4;
+  margin-bottom: v.$space-3;
+}
+
+.media-add-card__title {
+  font-weight: 600;
+  font-size: v.$font-size-base;
+  margin: 0;
+}
+
+.media-add-card__hint {
+  font-size: v.$font-size-sm;
+  color: var(--color-text-secondary);
+
+  &.is-warning {
+    color: var(--color-warning);
+    font-weight: 600;
+  }
+}
+
+.media-link-form__row {
+  display: flex;
+  gap: v.$space-3;
+
+  .form-control {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .btn {
+    flex-shrink: 0;
+  }
+}
+
+// ---- Folders + search + sort + view, all on one line (white card) ---------
+
+.media-browse-card {
+  margin-bottom: v.$space-5;
+}
+
+.media-browse {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: v.$space-4;
+  padding: 0 v.$space-4;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+  }
+}
+
+.media-browse__tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: none;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    padding: 0 v.$space-4;
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
+.media-browse__filters {
+  flex: 0 1 52rem;
+  align-items: center;
+  flex-wrap: nowrap;
+  padding: v.$space-3 0;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    flex-basis: auto;
+    padding: v.$space-3 v.$space-4;
+  }
+
+  .filter-bar__search {
+    flex: 1 1 14rem;
+  }
+
+  .media-browse__sort {
+    flex: 0 0 14rem;
+  }
+
+  // Phones: search and sort still share ONE row.
+  @include m.respond-down(v.$breakpoint-md) {
+    .filter-bar__search {
+      flex: 1 1 0;
+    }
+
+    .media-browse__sort {
+      flex: 0 0 12rem;
+    }
+  }
+}
+
+// ---- Cards -----------------------------------------------------------------
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
+  gap: v.$space-4;
+}
+
+.media-card {
+  @include m.card-surface;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+  }
+}
+
+// Checkerboard so transparent PNGs (logos) are visible against the card.
+.media-card__thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  width: 100%;
+  border: none;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  background-color: var(--color-surface-alt);
+  background-image: linear-gradient(45deg, rgba(127, 127, 127, 0.12) 25%, transparent 25%, transparent 75%, rgba(127, 127, 127, 0.12) 75%),
+    linear-gradient(45deg, rgba(127, 127, 127, 0.12) 25%, transparent 25%, transparent 75%, rgba(127, 127, 127, 0.12) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+  @include m.flex-center;
+}
+
+.media-card__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.media-card__video-icon {
+  position: relative;
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 50%;
+  background-color: rgba(10, 11, 26, 0.55);
+  color: #fff;
+  @include m.flex-center;
+}
+
+.media-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-2;
+  padding: v.$space-4;
+  flex: 1;
+}
+
+.media-card__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: v.$space-2;
+}
+
+.media-card__name {
+  font-weight: 600;
+  font-size: v.$font-size-base;
+  @include m.truncate;
+}
+
+.media-card__badge {
+  flex-shrink: 0;
+  padding: 0.2rem v.$space-2;
+  border-radius: 999px;
+  font-size: v.$font-size-xs;
+  font-weight: 600;
+  white-space: nowrap;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-text);
+
+  &--external {
+    background-color: var(--color-success-soft);
+    color: var(--color-success);
+  }
+
+  &--linked {
+    background-color: var(--color-surface-alt);
+    color: var(--color-text-secondary);
+  }
+}
+
+.media-card__meta {
+  font-size: v.$font-size-sm;
+  color: var(--color-text-secondary);
+}
+
+.media-card__usage {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+  }
+
+  &.is-risk {
+    color: var(--color-warning);
+    font-weight: 600;
+  }
+}
+
+.media-card__link {
+  display: flex;
+  align-items: stretch;
+  margin-top: auto;
+  border: 1px solid var(--color-border-strong);
+  border-radius: v.$radius-sm;
+  overflow: hidden;
+}
+
+.media-card__url {
+  flex: 1;
+  min-width: 0;
+  padding: 0.6rem v.$space-2;
+  font-size: v.$font-size-xs;
+  color: var(--color-text-secondary);
+  background-color: var(--color-surface-alt);
+  @include m.truncate;
+}
+
+.media-card__copy {
+  flex-shrink: 0;
+  padding: 0 v.$space-3;
+  border: none;
+  border-inline-start: 1px solid var(--color-border-strong);
+  background-color: var(--color-surface);
+  color: var(--color-primary-text);
+  font-size: v.$font-size-sm;
+  font-weight: 600;
+
+  &:hover {
+    background-color: var(--color-primary-soft);
+  }
+}
+
+.media-card__actions {
+  display: flex;
+  gap: v.$space-2;
+}
+
+// ---- Detail modal + delete / clean-up dialogs -----------------------------
+
+.media-preview-placeholder {
+  aspect-ratio: 16 / 9;
+  border-radius: v.$radius-md;
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  @include m.flex-center;
+
+  &--image {
+    width: 100%;
+    object-fit: contain;
+  }
+}
+
+.media-detail-list {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  row-gap: v.$space-2;
+  font-size: v.$font-size-sm;
+
+  dt {
+    color: var(--color-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    min-width: 0;
+  }
+}
+
+.media-usage-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 v.$space-3;
+  font-size: v.$font-size-sm;
+
+  li {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: v.$space-2;
+    padding: v.$space-2 0;
+    border-bottom: 1px solid var(--color-border);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &--scroll {
+    max-height: 26rem;
+    overflow-y: auto;
+    @include m.custom-scrollbar;
+  }
+}
+
+.media-usage-list__kind {
+  flex-shrink: 0;
+  padding: 0.1rem v.$space-2;
+  border-radius: 999px;
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  font-size: v.$font-size-xs;
+  font-weight: 600;
+}
+
+.media-usage-list__note {
+  margin-inline-start: auto;
+  color: var(--color-text-muted);
+  font-size: v.$font-size-xs;
+}

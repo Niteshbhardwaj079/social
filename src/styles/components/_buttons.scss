@@ -1,0 +1,123 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.btn {
+  font-size: v.$font-size-base;
+  padding-block: 0.8rem;
+  padding-inline: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  @include m.focus-ring;
+}
+
+.btn-sm {
+  font-size: v.$font-size-sm;
+  padding-block: 0.5rem;
+  padding-inline: 1.2rem;
+}
+
+.btn-lg {
+  font-size: v.$font-size-md;
+  padding-block: 1.1rem;
+  padding-inline: 2rem;
+}
+
+.btn-icon {
+  width: 3.6rem;
+  height: 3.6rem;
+  padding: 0;
+  @include m.flex-center;
+  border-radius: v.$radius-md;
+}
+
+.btn-icon-sm {
+  width: 3rem;
+  height: 3rem;
+  padding: 0;
+  @include m.flex-center;
+  border-radius: v.$radius-sm;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+
+  &:hover,
+  &:focus {
+    background-color: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+  }
+}
+
+.btn-soft-primary {
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  border: 1px solid transparent;
+
+  &:hover {
+    background-color: var(--color-primary);
+    color: var(--color-text-inverse);
+  }
+}
+
+.btn-outline-primary-custom {
+  background-color: transparent;
+  color: var(--color-primary-text);
+  border: 1px solid var(--color-primary);
+
+  &:hover,
+  &:focus {
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-text);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
+.btn-outline-secondary-custom {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-strong);
+
+  &:hover {
+    background-color: var(--color-surface-alt);
+    color: var(--color-text-primary);
+  }
+}
+
+.btn-fab {
+  position: fixed;
+  inset-inline-end: v.$space-5;
+  bottom: calc(v.$bottom-nav-height + v.$space-5);
+  width: 5.6rem;
+  height: 5.6rem;
+  border-radius: 50%;
+  @include m.flex-center;
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  box-shadow: var(--shadow-lg);
+  z-index: v.$z-index-sticky;
+  border: none;
+
+  @include m.respond-up(v.$breakpoint-lg) {
+    display: none;
+  }
+}
+
+// Bootstrap's outline-danger uses a fixed dark red, which is too dim on the
+// dark theme — follow the theme's own danger colour instead.
+.btn-outline-danger {
+  --bs-btn-color: var(--color-danger);
+  --bs-btn-border-color: var(--color-danger);
+  --bs-btn-hover-bg: var(--color-danger);
+  --bs-btn-hover-border-color: var(--color-danger);
+  --bs-btn-hover-color: var(--color-text-inverse);
+  --bs-btn-active-bg: var(--color-danger);
+  --bs-btn-active-border-color: var(--color-danger);
+  --bs-btn-active-color: var(--color-text-inverse);
+  --bs-btn-disabled-color: var(--color-danger);
+  --bs-btn-disabled-border-color: var(--color-danger);
+}

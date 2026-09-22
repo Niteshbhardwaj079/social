@@ -1,0 +1,58 @@
+@use './vendor/bootstrap';
+@use './vendor/react-datepicker';
+@use './abstracts/colors';
+
+@use './base/root';
+@use './base/reset';
+@use './base/typography';
+@use './base/animations';
+
+@use './components/buttons';
+@use './components/cards';
+@use './components/badges';
+@use './components/tables';
+@use './components/forms';
+@use './components/modals';
+@use './components/empty-state';
+@use './components/skeleton';
+@use './components/toast';
+@use './components/dropdown-menu';
+@use './components/tooltip';
+@use './components/image-crop';
+@use './components/breadcrumb';
+@use './components/filter-bar';
+@use './components/stat-cards';
+@use './components/avatar';
+@use './components/platform-chip';
+@use './components/tabs';
+@use './components/language';
+
+@use './layout/sidebar';
+@use './layout/topbar';
+@use './layout/bottom-nav';
+@use './layout/dashboard-layout';
+@use './layout/auth-layout';
+
+@use './pages/dashboard';
+@use './pages/composer';
+@use './pages/calendar';
+@use './pages/campaigns';
+@use './pages/recycling';
+@use './pages/links';
+@use './pages/system-emails';
+@use './pages/inbox';
+@use './pages/analytics';
+@use './pages/social-accounts';
+@use './pages/media-library';
+@use './pages/storage-settings';
+@use './pages/ads';
+@use './pages/approvals';
+@use './pages/users';
+@use './pages/roles';
+@use './pages/activity-logs';
+@use './pages/settings';
+@use './pages/guide';
+@use './pages/auth';
+
+// Must stay last: right-to-left overrides win the cascade.
+@use './layout/rtl';

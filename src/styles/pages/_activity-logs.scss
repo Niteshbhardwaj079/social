@@ -1,0 +1,83 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.activity-log-card {
+  padding: v.$space-4;
+  cursor: pointer;
+}
+
+.log-filter-bar {
+  @include m.card-surface;
+  padding: v.$space-5;
+  margin-bottom: v.$space-5;
+}
+
+.log-filter-bar .filter-bar__field {
+  .form-select,
+  .date-picker-trigger {
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+}
+
+.activity-log-details-col {
+  max-width: 18rem;
+}
+
+.activity-log-device-col {
+  max-width: 16rem;
+  font-size: v.$font-size-xs;
+  color: var(--color-text-secondary);
+
+  .text-truncate {
+    max-width: 16rem;
+  }
+}
+
+.activity-detail-list {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  row-gap: v.$space-4;
+  font-size: v.$font-size-sm;
+  margin-bottom: v.$space-5;
+
+  dt {
+    color: var(--color-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    word-break: break-word;
+  }
+}
+
+.activity-diff__box {
+  background-color: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: v.$radius-md;
+  padding: v.$space-4;
+  font-size: v.$font-size-sm;
+  color: var(--color-text-secondary);
+}
+
+// Seven filters + search: on a wide desktop they sit on a fixed 6-column grid so
+// every control lines up and nothing is squeezed —
+//   row 1: Search (2) · User · Action · Section · Date range
+//   row 2: From (2) · To (2) · Show · Clear
+// Narrower screens fall back to the shared wrapping row / phone layout.
+@include m.respond-up(v.$breakpoint-xl) {
+  .log-filter-bar .filter-bar {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    align-items: end;
+  }
+
+  .log-filter-bar .filter-bar__search,
+  .log-filter-bar .filter-bar__field--wide {
+    grid-column: span 2;
+  }
+
+  .log-filter-bar .filter-bar__end .btn {
+    width: 100%;
+  }
+}

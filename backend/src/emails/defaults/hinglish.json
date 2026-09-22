@@ -1,0 +1,116 @@
+{
+  "mail": {
+    "help": "Madad chahiye? Yahan likhein:",
+    "auto": "Yeh {{app_name}} ki taraf se bheja gaya automatic message hai — kripya is email ka jawab na dein.",
+    "passwordReset": {
+      "s": "Apna {{app_name}} password reset karein",
+      "h": "Apna password reset karein",
+      "b": [
+        "Namaste {{user_name}}, humein aapka password reset karne ki request mili hai.",
+        "[Naya password chunne ke liye yahan click karein]({{reset_link}}) — yeh link {{expires_in}} me expire ho jayega.",
+        "Agar aapne yeh request nahi ki thi to is email ko ignore kar dein."
+      ]
+    },
+    "passwordChanged": {
+      "s": "Aapka {{app_name}} password badal diya gaya",
+      "h": "Aapka password badal diya gaya",
+      "b": [
+        "Namaste {{user_name}}, aapka password {{changed_at}} ko badla gaya.",
+        "Agar yeh aapne nahi kiya to turant {{support_email}} se sampark karein."
+      ]
+    },
+    "newSignIn": {
+      "s": "Aapke {{app_name}} account me naya sign-in",
+      "h": "Naya sign-in mila",
+      "b": [
+        "Namaste {{user_name}}, humne {{signed_in_at}} ko {{location}} me {{device}} se naya sign-in dekha.",
+        "Agar yeh aap the to kuch karne ki zaroorat nahi. Agar nahi, to turant apna password badal lein."
+      ]
+    },
+    "invited": {
+      "s": "{{app_name}} par {{company}} me aapko invite kiya gaya hai",
+      "h": "Aapko invite kiya gaya hai",
+      "b": [
+        "{{invited_by}} ne aapko {{app_name}} par {{company}} se {{role}} ke roop me judne ke liye invite kiya hai.",
+        "Shuru karne ke liye [invitation accept karein]({{accept_link}})."
+      ]
+    },
+    "userAdded": {
+      "s": "{{new_user_name}} ko {{company}} me add kiya gaya",
+      "h": "Ek naya user add kiya gaya",
+      "b": [
+        "{{added_by}} ne {{new_user_name}} ({{new_user_email}}) ko {{role}} ke roop me add kiya.",
+        "[Users aur roles dekhein]({{users_url}})"
+      ]
+    },
+    "roleChanged": {
+      "s": "{{app_name}} par aapka role badla gaya",
+      "h": "Aapka role badla gaya",
+      "b": [
+        "Namaste {{user_name}}, {{changed_by}} ne aapka role {{old_role}} se badalkar {{new_role}} kar diya hai."
+      ]
+    },
+    "accountConnected": {
+      "s": "{{provider}} account {{account_name}} connect ho gaya",
+      "h": "Ek social account connect ho gaya",
+      "b": [
+        "{{connected_by}} ne {{connected_at}} ko {{account_name}} ({{provider}}) connect kiya.",
+        "[Social accounts dekhein]({{accounts_url}})"
+      ]
+    },
+    "tokenExpired": {
+      "s": "Apna {{provider}} account dobara connect karein",
+      "h": "Aapke connection par dhyan chahiye",
+      "b": [
+        "{{app_name}} is par post karta rahe, iske liye {{account_name}} ({{provider}}) ko dobara connect karna hoga.",
+        "[Abhi dobara connect karein]({{accounts_url}})"
+      ]
+    },
+    "postPublished": {
+      "s": "Aapki post publish ho gayi",
+      "h": "Aapki post live hai",
+      "b": [
+        "\"{{post_excerpt}}\" ko {{published_at}} ko {{platforms}} par publish kiya gaya."
+      ]
+    },
+    "postFailed": {
+      "s": "Ek post publish nahi ho saki",
+      "h": "Ek post publish nahi ho saki",
+      "b": [
+        "\"{{post_excerpt}}\" ko {{platforms}} par publish nahi kiya ja saka: {{error_reason}}.",
+        "[Dekhein aur dobara try karein]({{posts_url}})"
+      ]
+    },
+    "approvalRequested": {
+      "s": "{{submitted_by}} ne approval ke liye ek post bheji",
+      "h": "Ek post ko aapka review chahiye",
+      "b": [
+        "{{submitted_by}} ne \"{{post_excerpt}}\" ko approval ke liye bheja hai.",
+        "[Abhi review karein]({{approvals_url}})"
+      ]
+    },
+    "approvalDecided": {
+      "s": "Aapki post {{decision}}",
+      "h": "Aapki post par faisla ho gaya",
+      "b": [
+        "{{reviewer}} ne \"{{post_excerpt}}\" par faisla diya: {{decision}}.",
+        "{{reason}}"
+      ]
+    },
+    "newComment": {
+      "s": "{{commenter_name}} ki taraf se naya comment",
+      "h": "Aapko ek naya comment mila hai",
+      "b": [
+        "{{commenter_name}} ne \"{{post_excerpt}}\" par comment kiya: “{{comment_text}}”",
+        "[Inbox me jawab dein]({{inbox_url}})"
+      ]
+    }
+  },
+  "roles": {
+    "superAdmin": "Super Admin",
+    "admin": "Admin",
+    "editor": "Editor",
+    "contributor": "Contributor",
+    "analyst": "Analyst"
+  }
+}

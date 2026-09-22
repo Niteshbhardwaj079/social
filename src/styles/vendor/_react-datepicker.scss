@@ -1,0 +1,152 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+// react-datepicker ships its own plain CSS (imported in DatePickerField.jsx);
+// these overrides re-skin it with our design tokens so it looks native to
+// the app instead of a bolted-on library default.
+
+.date-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: v.$space-2;
+  width: 100%;
+  padding: 0.8rem 1.2rem;
+  border-radius: v.$radius-md;
+  border: 1px solid var(--color-border-strong);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: v.$font-size-base;
+  text-align: left;
+  @include m.focus-ring;
+
+  svg {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.date-picker-trigger__placeholder {
+  color: var(--color-text-muted);
+}
+
+// react-datepicker's own CSS (imported alongside the component, so it can
+// load after ours depending on chunk order) also sets z-index on this class
+// — .app-datepicker-popper is the extra class we pass via popperClassName,
+// giving this rule higher specificity so it always wins the cascade.
+.app-datepicker-popper.react-datepicker-popper {
+  z-index: v.$z-index-tooltip;
+}
+
+.react-datepicker-wrapper {
+  display: block;
+  width: 100%;
+}
+
+.app-datepicker.react-datepicker {
+  font-family: inherit;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: v.$radius-lg;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+}
+
+.app-datepicker {
+  .react-datepicker__month-container {
+    padding-bottom: v.$space-2;
+  }
+
+  .react-datepicker__header {
+    background-color: var(--color-surface-alt);
+    border-bottom: 1px solid var(--color-border);
+    padding-top: v.$space-4;
+  }
+
+  .react-datepicker__current-month {
+    color: var(--color-text-primary);
+    font-size: v.$font-size-base;
+    font-weight: 600;
+  }
+
+  .react-datepicker__day-names {
+    margin-top: v.$space-2;
+  }
+
+  .react-datepicker__day-name {
+    color: var(--color-text-muted);
+    font-size: v.$font-size-xs;
+    font-weight: 600;
+    width: 3.2rem;
+    line-height: 3.2rem;
+  }
+
+  .react-datepicker__day {
+    color: var(--color-text-primary);
+    width: 3.2rem;
+    line-height: 3.2rem;
+    border-radius: 50%;
+    font-size: v.$font-size-sm;
+    margin: 0.1rem;
+
+    &:hover {
+      background-color: var(--color-primary-soft);
+      color: var(--color-primary-text);
+      border-radius: 50%;
+    }
+
+    &--outside-month {
+      color: var(--color-text-muted);
+      opacity: 0.5;
+    }
+
+    &--today {
+      font-weight: 700;
+      color: var(--color-primary-text);
+    }
+
+    &--selected,
+    &--keyboard-selected {
+      background-color: var(--color-primary);
+      color: #fff;
+
+      &:hover {
+        background-color: var(--color-primary-hover);
+        color: #fff;
+      }
+    }
+
+    &--disabled {
+      color: var(--color-text-muted);
+      opacity: 0.35;
+
+      &:hover {
+        background-color: transparent;
+      }
+    }
+  }
+
+  .react-datepicker__navigation {
+    top: v.$space-4;
+
+    &-icon::before {
+      border-color: var(--color-text-secondary);
+      border-width: 2px 2px 0 0;
+      width: 0.7rem;
+      height: 0.7rem;
+    }
+
+    &:hover .react-datepicker__navigation-icon::before {
+      border-color: var(--color-primary);
+    }
+  }
+}

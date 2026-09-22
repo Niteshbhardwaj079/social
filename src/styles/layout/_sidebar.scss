@@ -1,0 +1,266 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.app-sidebar {
+  position: fixed;
+  top: 0;
+  inset-inline-start: 0;
+  bottom: 0;
+  width: v.$sidebar-width;
+  background-color: var(--color-sidebar-bg);
+  border-inline-end: 1px solid var(--color-sidebar-border);
+  z-index: v.$z-index-sidebar;
+  display: flex;
+  flex-direction: column;
+  transition: transform v.$transition-base, width v.$sidebar-collapse-duration;
+  will-change: width;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    transform: translateX(-100%);
+
+    &.is-open {
+      transform: translateX(0);
+    }
+  }
+
+  @include m.respond-up(v.$breakpoint-lg) {
+    &.is-collapsed {
+      width: v.$sidebar-width-collapsed;
+
+      // Icons are truly centered via justify-content here, not by hand-
+      // measuring padding to match an icon's exact pixel width — that
+      // approach kept landing a pixel or two off (or left the icon visibly
+      // off-center with empty space on one side) since the rem-based math
+      // didn't quite match real getBoundingClientRect measurements at this
+      // root font-size. justify-content still animates smoothly here even
+      // though the property itself can't be transitioned, because it's the
+      // *width* that's animating — the browser recomputes centering against
+      // the current width every frame, so the icon glides to center in step
+      // with the rail instead of jumping.
+      .sidebar-brand {
+        justify-content: center;
+        padding-inline: v.$space-2;
+      }
+
+      .sidebar-brand__text,
+      .sidebar-user__text {
+        max-width: 0;
+        opacity: 0;
+      }
+
+      // Height:0 alongside max-width:0 — the name/role text inside still
+      // contributes its own line-height to this flex item's cross-axis
+      // sizing even at zero width, which was quietly growing .sidebar-user
+      // taller than the square aspect-ratio below asked for.
+      .sidebar-user__text {
+        height: 0;
+      }
+
+      .sidebar-close-btn {
+        display: none;
+      }
+
+      // aspect-ratio: 1 instead of hand-matching height to width — the item
+      // is already full-width (from the base rule below), so this locks its
+      // height to whatever that width happens to be, keeping the hover/
+      // active background a true square without needing to keep a height
+      // value in sync every time the width or padding changes.
+      .sidebar-nav-item {
+        justify-content: center;
+        aspect-ratio: 1;
+        padding-inline: 0;
+        gap: 0;
+
+        span {
+          max-width: 0;
+          opacity: 0;
+        }
+      }
+
+      .sidebar-section-label {
+        max-width: 0;
+        opacity: 0;
+        padding-inline: v.$space-3;
+      }
+
+      .sidebar-user {
+        justify-content: center;
+        aspect-ratio: 1;
+        padding: 0.35rem;
+      }
+    }
+  }
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: v.$space-3;
+  padding: v.$space-5;
+  flex-shrink: 0;
+  transition: padding-inline v.$sidebar-collapse-duration;
+}
+
+.sidebar-brand__text {
+  max-width: 20rem;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-width v.$sidebar-collapse-duration, opacity v.$sidebar-collapse-duration;
+}
+
+.sidebar-brand__name {
+  color: var(--color-sidebar-text-active);
+  font-weight: 700;
+  font-size: v.$font-size-lg;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.sidebar-brand__tagline {
+  color: var(--color-sidebar-text);
+  font-size: v.$font-size-xs;
+  white-space: nowrap;
+}
+
+.sidebar-close-btn {
+  // display:none is last so it wins over flex-center's own display:flex —
+  // @include expands inline, and later declarations in the same rule beat
+  // earlier ones at equal specificity regardless of which came from a mixin.
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: auto;
+  flex-shrink: 0;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: v.$radius-md;
+  background: none;
+  border: none;
+  color: var(--color-sidebar-text);
+  display: none;
+
+  &:hover {
+    background-color: var(--color-sidebar-bg-active);
+    color: var(--color-sidebar-text-active);
+  }
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    display: inline-flex;
+  }
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: v.$space-3 v.$space-4 v.$space-6;
+  @include m.custom-scrollbar;
+}
+
+.sidebar-section-label {
+  font-size: v.$font-size-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-sidebar-text);
+  opacity: 0.6;
+  padding: v.$space-4 v.$space-3 v.$space-1;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 20rem;
+  transition: max-width v.$sidebar-collapse-duration, opacity v.$sidebar-collapse-duration, padding-inline v.$sidebar-collapse-duration;
+}
+
+.sidebar-nav-item {
+  // Width is explicit, not left to auto — an anchor styled as a flex
+  // container doesn't reliably stretch to its block parent's width the way
+  // a plain block element does, so it was shrink-wrapping to icon+padding
+  // instead of filling the rail. That self-shrunk box then became the
+  // "100%" the icon's own max-width:100% (global img/svg reset) measured
+  // against, squashing the icon down well under its real 18px size.
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: v.$space-3;
+  padding: v.$space-2 v.$space-3;
+  border-radius: v.$radius-md;
+  color: var(--color-sidebar-text);
+  font-size: v.$font-size-base;
+  font-weight: 500;
+  margin-bottom: 0.2rem;
+  transition: background-color v.$transition-fast, color v.$transition-fast, padding-inline v.$sidebar-collapse-duration,
+    gap v.$sidebar-collapse-duration;
+
+  span {
+    max-width: 20rem;
+    opacity: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: max-width v.$sidebar-collapse-duration, opacity v.$sidebar-collapse-duration;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background-color: var(--color-sidebar-bg-active);
+    color: var(--color-sidebar-text-active);
+  }
+
+  &.is-active {
+    background-color: var(--color-primary);
+    color: #fff;
+  }
+}
+
+.sidebar-footer {
+  padding: v.$space-4;
+  border-top: 1px solid var(--color-sidebar-border);
+  flex-shrink: 0;
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: v.$space-3;
+  padding: v.$space-2;
+  border-radius: v.$radius-md;
+  transition: padding-inline v.$sidebar-collapse-duration;
+
+  &:hover {
+    background-color: var(--color-sidebar-bg-active);
+  }
+}
+
+.sidebar-user__text {
+  flex: 1;
+  min-width: 0;
+  max-width: 20rem;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-width v.$sidebar-collapse-duration, opacity v.$sidebar-collapse-duration;
+}
+
+.sidebar-user__name {
+  color: var(--color-sidebar-text-active);
+  font-size: v.$font-size-sm;
+  font-weight: 600;
+  @include m.truncate;
+}
+
+.sidebar-user__role {
+  color: var(--color-sidebar-text);
+  font-size: v.$font-size-xs;
+  @include m.truncate;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(10, 11, 26, 0.5);
+  z-index: calc(#{v.$z-index-sidebar} - 1);
+
+  @include m.respond-up(v.$breakpoint-lg) {
+    display: none;
+  }
+}

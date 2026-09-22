@@ -1,0 +1,47 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.platform-icon {
+  width: var(--platform-icon-size, 3.2rem);
+  height: var(--platform-icon-size, 3.2rem);
+  background-color: var(--platform-icon-bg, var(--color-primary));
+  border-radius: v.$radius-sm;
+  @include m.flex-center;
+  color: #fff;
+  flex-shrink: 0;
+
+  &--square {
+    border-radius: 0;
+  }
+}
+
+.platform-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: v.$space-2;
+  padding: v.$space-1 v.$space-3;
+  border-radius: v.$radius-pill;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  font-size: v.$font-size-sm;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all v.$transition-fast;
+
+  &.is-selected {
+    background-color: var(--color-primary-soft);
+    border-color: var(--color-primary);
+    color: var(--color-primary-text);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.platform-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: v.$space-3;
+}

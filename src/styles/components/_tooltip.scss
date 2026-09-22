@@ -1,0 +1,102 @@
+@use '../abstracts/variables' as v;
+
+// CSS-only tooltip — no positioning library involved (deliberately, after
+// the react-datepicker floating-ui bug). Add `data-tooltip="label"` to any
+// element; it needs `position: relative` which this rule provides. Add
+// `data-tooltip-position="bottom"` when the element sits at the very top of
+// the viewport (e.g. topbar icons) so the bubble doesn't clip off-screen.
+[data-tooltip] {
+  position: relative;
+
+  &::after,
+  &::before {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity v.$transition-fast, transform v.$transition-fast;
+    z-index: v.$z-index-tooltip;
+  }
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 0.8rem);
+    left: 50%;
+    transform: translateX(-50%) translateY(0.4rem);
+    background-color: var(--color-text-primary);
+    color: var(--color-surface);
+    font-size: v.$font-size-xs;
+    font-weight: 600;
+    padding: 0.5rem 0.9rem;
+    border-radius: v.$radius-sm;
+    white-space: nowrap;
+    box-shadow: var(--shadow-md);
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 0.3rem);
+    left: 50%;
+    transform: translateX(-50%) translateY(0.4rem);
+    border: 0.5rem solid transparent;
+    border-top-color: var(--color-text-primary);
+  }
+
+  &:hover::after,
+  &:hover::before,
+  &:focus-visible::after,
+  &:focus-visible::before {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  &[data-tooltip-position='bottom'] {
+    &::after {
+      bottom: auto;
+      top: calc(100% + 0.8rem);
+      transform: translateX(-50%) translateY(-0.4rem);
+    }
+
+    &::before {
+      bottom: auto;
+      top: calc(100% + 0.3rem);
+      border-top-color: transparent;
+      border-bottom-color: var(--color-text-primary);
+      transform: translateX(-50%) translateY(-0.4rem);
+    }
+
+    &:hover::after,
+    &:hover::before,
+    &:focus-visible::after,
+    &:focus-visible::before {
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+
+  &[data-tooltip-position='right'] {
+    &::after {
+      bottom: auto;
+      top: 50%;
+      left: calc(100% + 0.8rem);
+      transform: translateY(-50%) translateX(-0.4rem);
+    }
+
+    &::before {
+      bottom: auto;
+      top: 50%;
+      left: calc(100% + 0.3rem);
+      border-top-color: transparent;
+      border-right-color: var(--color-text-primary);
+      transform: translateY(-50%) translateX(-0.4rem);
+    }
+
+    &:hover::after,
+    &:hover::before,
+    &:focus-visible::after,
+    &:focus-visible::before {
+      transform: translateY(-50%) translateX(0);
+    }
+  }
+}

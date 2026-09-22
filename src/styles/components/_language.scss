@@ -1,0 +1,222 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+// Dropdown alignment uses logical sides so the menu opens toward the correct edge in RTL too.
+.dropdown-menu-custom--end {
+  inset-inline-end: 0;
+}
+
+.dropdown-menu-custom--start {
+  inset-inline-start: 0;
+}
+
+// ---- Header button: globe + short code ("HI", "AR")
+// Two classes so this beats .topbar-icon-btn (a fixed square) regardless of stylesheet order.
+.topbar-icon-btn.topbar-lang-btn {
+  width: auto;
+  gap: 0.4rem;
+  padding-inline: 0.9rem;
+}
+
+.topbar-lang-btn__code {
+  display: none;
+  font-size: v.$font-size-xs;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+
+  @include m.respond-up(v.$breakpoint-md) {
+    display: inline;
+  }
+}
+
+// ---- The menu itself
+.dropdown-menu-custom.language-menu {
+  min-width: 27rem;
+  max-width: calc(100vw - 2rem);
+}
+
+// On phones the trigger sits mid-cluster, so anchoring to it can push the menu off-screen
+// (worse in RTL). Pin it to the viewport instead, with the same gutter on both sides.
+@include m.respond-down(v.$breakpoint-md) {
+  .dropdown-menu-custom.language-menu {
+    position: fixed !important;
+    top: calc(v.$topbar-height + 0.4rem);
+    inset-inline: v.$space-4;
+    min-width: 0;
+    max-width: none;
+    margin-top: 0 !important;
+  }
+}
+
+.language-menu__panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.language-menu__search {
+  margin: v.$space-2;
+}
+
+.language-menu__list {
+  list-style: none;
+  margin: 0;
+  padding: v.$space-1;
+  max-height: 34rem;
+  overflow-y: auto;
+  @include m.custom-scrollbar;
+}
+
+.language-option {
+  display: flex;
+  align-items: center;
+  gap: v.$space-3;
+  width: 100%;
+  padding: v.$space-2 v.$space-3;
+  border: none;
+  background: none;
+  border-radius: v.$radius-sm;
+  text-align: start;
+  color: var(--color-text-primary);
+
+  &:hover {
+    background-color: var(--color-surface-alt);
+  }
+
+  &.is-active {
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-text);
+  }
+}
+
+.language-option__native {
+  font-size: v.$font-size-base;
+  font-weight: 600;
+}
+
+.language-option__name {
+  margin-inline-start: auto;
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+}
+
+.language-option__check {
+  flex-shrink: 0;
+}
+
+.language-menu__empty {
+  padding: v.$space-3;
+  text-align: center;
+  font-size: v.$font-size-sm;
+  color: var(--color-text-muted);
+}
+
+.language-menu__footer {
+  border-top: 1px solid var(--color-border);
+  padding: v.$space-2 v.$space-3;
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: v.$space-2;
+    padding: v.$space-1 0;
+    font-size: v.$font-size-sm;
+    font-weight: 600;
+    text-decoration: none;
+  }
+}
+
+// ---- Sign-in pages: a roomier pill in the top corner
+.auth-layout__language {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: v.$space-5;
+}
+
+.language-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: v.$radius-pill;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-size: v.$font-size-sm;
+  font-weight: 600;
+
+  &:hover {
+    background-color: var(--color-surface-alt);
+  }
+}
+
+// ---- Settings → Language
+.language-select {
+  max-width: 40rem;
+}
+
+.language-settings__tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: v.$space-3;
+  flex-wrap: wrap;
+}
+
+.language-settings__count {
+  font-size: v.$font-size-sm;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.language-settings__table {
+  .language-settings__col {
+    width: 14rem;
+    text-align: center;
+  }
+}
+
+// ---- System Emails: which language's copy is being edited
+.email-language-bar {
+  display: flex;
+  align-items: center;
+  gap: v.$space-4;
+  flex-wrap: wrap;
+  padding: v.$space-4 v.$space-5;
+  margin-bottom: v.$space-5;
+  @include m.card-surface;
+}
+
+.email-language-bar__icon {
+  width: 3.8rem;
+  height: 3.8rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  @include m.flex-center;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.email-language-bar__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 24rem;
+  min-width: 0;
+}
+
+.email-language-bar__label {
+  margin: 0;
+  font-size: v.$font-size-base;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.email-language-bar__hint {
+  font-size: v.$font-size-sm;
+  color: var(--color-text-muted);
+}
+
+.email-language-bar__select {
+  width: auto;
+  min-width: 28rem;
+  max-width: 100%;
+}

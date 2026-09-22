@@ -1,0 +1,147 @@
+// ---------------------------------------------------------------------------
+// Color tokens as CSS custom properties so the Appearance setting can switch
+// themes at runtime via [data-theme] without a rebuild. SCSS variables below
+// are only used for Bootstrap's own SCSS variable overrides.
+// ---------------------------------------------------------------------------
+
+$brand-primary: #4f46e5; // indigo
+$brand-primary-dark: #4338ca;
+$brand-secondary: #0ea5e9; // sky
+
+:root {
+  // Brand — --color-primary is the only value the Appearance > Brand Color
+  // picker overrides at runtime (inline on the root element). Hover and
+  // soft tints are derived from it with color-mix() (see the @supports
+  // block below) so every themed color stays in sync automatically instead
+  // of needing a hardcoded pair per preset per light/dark mode. These three
+  // are static fallbacks for browsers predating color-mix() support (Safari
+  // <16.2, Chrome/Edge <111, Firefox <113) — an unsupported color-mix()
+  // value makes the property invalid at computed-value time, so without a
+  // fallback declared first, hover/soft states would render as transparent
+  // instead of just not following a custom brand color.
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
+  --color-primary-soft: rgba(79, 70, 229, 0.14);
+  // Primary used as TEXT or an icon colour (links, active tabs, soft badges).
+  // Same as --color-primary on light; the dark theme lightens it so it stays
+  // readable on dark surfaces without also washing out filled buttons.
+  --color-primary-text: var(--color-primary);
+  --shadow-color-primary: 0 10px 24px rgba(79, 70, 229, 0.32);
+  --color-secondary: #0ea5e9;
+
+  // Semantic
+  --color-success: #16a34a;
+  --color-success-soft: #ecfdf3;
+  --color-warning: #d97706;
+  --color-warning-soft: #fffaeb;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fef2f2;
+  --color-info: #0284c7;
+  --color-info-soft: #f0f9ff;
+
+  // Surfaces
+  --color-bg: #f5f6fa;
+  --color-surface: #ffffff;
+  --color-surface-alt: #fafafc;
+  --color-border: #e6e8f0;
+  --color-border-strong: #d6d9e6;
+
+  // Text
+  --color-text-primary: #171a2b;
+  --color-text-secondary: #5c6178;
+  --color-text-muted: #8b8fa3;
+  --color-text-inverse: #ffffff;
+
+  // Sidebar — light chrome to match the rest of the app; the active nav
+  // item carries the color via a solid --color-primary pill instead.
+  --color-sidebar-bg: #ffffff;
+  --color-sidebar-bg-active: #f2f3f9;
+  --color-sidebar-text: #5c6178;
+  --color-sidebar-text-active: #171a2b;
+  --color-sidebar-border: #eceefa;
+
+  // Accent palette — used for icon badges, avatars, and category tags so
+  // cards read as distinct at a glance instead of a wall of one brand color.
+  --color-accent-rose: #e11d48;
+  --color-accent-rose-soft: #ffe4e8;
+  --color-accent-purple: #7c3aed;
+  --color-accent-purple-soft: #f1e8fe;
+  --color-accent-teal: #0d9488;
+  --color-accent-teal-soft: #dcfaf6;
+  --color-accent-amber: #d97706;
+  --color-accent-amber-soft: #fef3c7;
+  --color-accent-blue: #2563eb;
+  --color-accent-blue-soft: #dbeafe;
+  --color-accent-slate: #475569;
+  --color-accent-slate-soft: #e7ebf1;
+
+  // Shadows
+  --shadow-sm: 0 1px 2px rgba(16, 18, 40, 0.06);
+  --shadow-md: 0 4px 12px rgba(16, 18, 40, 0.08);
+  --shadow-lg: 0 12px 32px rgba(16, 18, 40, 0.12);
+}
+
+[data-theme='dark'] {
+  --color-primary: #6366f1;
+  --color-primary-text: #a5b4fc;
+  --color-secondary: #38bdf8;
+
+  --color-success: #22c55e;
+  --color-success-soft: rgba(34, 197, 94, 0.14);
+  --color-warning: #f59e0b;
+  --color-warning-soft: rgba(245, 158, 11, 0.14);
+  --color-danger: #f87171;
+  --color-danger-soft: rgba(248, 113, 113, 0.14);
+  --color-info: #38bdf8;
+  --color-info-soft: rgba(56, 189, 248, 0.14);
+
+  --color-bg: #0f1023;
+  --color-surface: #171833;
+  --color-surface-alt: #1d1f3f;
+  --color-border: #2a2c52;
+  --color-border-strong: #383a66;
+
+  --color-text-primary: #f2f2fb;
+  --color-text-secondary: #b3b5cf;
+  --color-text-muted: #82859f;
+  --color-text-inverse: #14152b;
+
+  --color-sidebar-bg: #0b0c1f;
+  --color-sidebar-bg-active: #1c1e42;
+  --color-sidebar-text: #b3b5cf;
+  --color-sidebar-text-active: #ffffff;
+  --color-sidebar-border: #21234a;
+
+  --color-accent-rose: #fb7185;
+  --color-accent-rose-soft: rgba(251, 113, 133, 0.16);
+  --color-accent-purple: #a78bfa;
+  --color-accent-purple-soft: rgba(167, 139, 250, 0.16);
+  --color-accent-teal: #2dd4bf;
+  --color-accent-teal-soft: rgba(45, 212, 191, 0.16);
+  --color-accent-amber: #fbbf24;
+  --color-accent-amber-soft: rgba(251, 191, 36, 0.16);
+  --color-accent-blue: #60a5fa;
+  --color-accent-blue-soft: rgba(96, 165, 250, 0.16);
+  --color-accent-slate: #94a3b8;
+  --color-accent-slate-soft: rgba(148, 163, 184, 0.16);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.5);
+}
+
+// Progressive enhancement: browsers that understand color-mix() get hover/
+// soft tints that recompute live from whatever --color-primary the brand
+// color picker sets, in both themes. Browsers that don't just keep the
+// static fallbacks declared above.
+@supports (color: color-mix(in srgb, red, blue)) {
+  :root {
+    --color-primary-hover: color-mix(in srgb, var(--color-primary) 88%, white);
+    --color-primary-soft: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    --shadow-color-primary: 0 10px 24px color-mix(in srgb, var(--color-primary) 32%, transparent);
+  }
+
+  [data-theme='dark'] {
+    --color-primary-text: color-mix(in srgb, var(--color-primary) 62%, white);
+  }
+}

@@ -1,0 +1,511 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+// ---- Overview: chart + spend split -----------------------------------------
+
+.ads-chart-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: v.$space-5;
+  margin-bottom: v.$space-5;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ads-tab-count {
+  margin-inline-start: v.$space-2;
+  padding: 0.1rem v.$space-2;
+  border-radius: 999px;
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  font-size: v.$font-size-xs;
+}
+
+.ad-mobile-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: v.$space-2;
+  margin-top: v.$space-3;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  span {
+    font-size: v.$font-size-xs;
+    color: var(--color-text-muted);
+  }
+
+  strong {
+    font-size: v.$font-size-sm;
+    @include m.truncate;
+  }
+}
+
+// ---- Download report menu ---------------------------------------------------
+
+.report-menu {
+  min-width: 30rem;
+}
+
+.report-menu__item {
+  display: flex;
+  align-items: flex-start;
+  gap: v.$space-3;
+  padding: v.$space-3;
+  white-space: normal;
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+    color: var(--color-text-muted);
+  }
+
+  strong {
+    display: block;
+    font-weight: 600;
+  }
+}
+
+.report-menu__desc {
+  display: block;
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+}
+
+// ---- Create ad: stepper -----------------------------------------------------
+
+.ad-stepper {
+  display: flex;
+  gap: v.$space-2;
+  margin: 0 0 v.$space-5;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  @include m.custom-scrollbar;
+}
+
+.ad-stepper__item {
+  flex: 1 0 auto;
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: v.$space-2;
+    width: 100%;
+    padding: v.$space-3 v.$space-4;
+    border: 1px solid var(--color-border);
+    border-radius: v.$radius-md;
+    background-color: var(--color-surface);
+    color: var(--color-text-muted);
+    font-size: v.$font-size-sm;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &:disabled {
+      cursor: default;
+    }
+  }
+
+  &.is-active button {
+    border-color: var(--color-primary);
+    color: var(--color-primary-text);
+    background-color: var(--color-primary-soft);
+  }
+
+  &.is-done button {
+    color: var(--color-text-primary);
+  }
+}
+
+.ad-stepper__number {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  font-size: v.$font-size-xs;
+  @include m.flex-center;
+
+  .is-active & {
+    background-color: var(--color-primary);
+    color: var(--color-text-inverse);
+  }
+
+  .is-done & {
+    background-color: var(--color-success);
+    color: #fff;
+  }
+}
+
+// ---- Create ad: layout ------------------------------------------------------
+
+.ad-create-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36rem;
+  gap: v.$space-5;
+  align-items: start;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ad-create-side {
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-5;
+
+  @include m.respond-up(v.$breakpoint-lg) {
+    position: sticky;
+    top: calc(#{v.$topbar-height} + #{v.$space-4});
+  }
+}
+
+.ad-create-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: v.$space-3;
+  flex-wrap: wrap;
+  padding: v.$space-4 v.$space-6;
+  border-top: 1px solid var(--color-border);
+}
+
+.ad-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: v.$space-3;
+
+  @include m.respond-down(v.$breakpoint-md) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ad-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: v.$space-3;
+  padding: v.$space-4;
+  border: 1px solid var(--color-border);
+  border-radius: v.$radius-md;
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  text-align: start;
+  text-decoration: none;
+
+  &:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+  }
+
+  &.is-selected {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-soft);
+  }
+
+  &.is-locked {
+    opacity: 0.75;
+    border-style: dashed;
+  }
+
+  strong {
+    display: block;
+  }
+}
+
+.ad-choice__icon {
+  flex-shrink: 0;
+  width: 4rem;
+  height: 4rem;
+  border-radius: v.$radius-md;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  @include m.flex-center;
+}
+
+.ad-choice__text {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: v.$font-size-sm;
+  color: var(--color-text-secondary);
+}
+
+.ad-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: v.$space-2;
+}
+
+.ad-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: v.$space-2;
+  padding: v.$space-2 v.$space-4;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: v.$font-size-sm;
+  font-weight: 500;
+
+  &.is-selected {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-text);
+  }
+}
+
+.ad-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: v.$space-2;
+}
+
+.ad-image-option {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: v.$space-1;
+  padding: v.$space-2;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: v.$radius-md;
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  font-size: v.$font-size-xs;
+
+  img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &.is-selected {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary);
+  }
+}
+
+.ad-image-option__name {
+  position: relative;
+  max-width: 100%;
+  @include m.truncate;
+}
+
+.ad-total {
+  padding: v.$space-3 v.$space-4;
+  border-radius: v.$radius-md;
+  background-color: var(--color-surface-alt);
+  font-size: v.$font-size-lg;
+  font-weight: 700;
+}
+
+.ad-review {
+  display: grid;
+  grid-template-columns: 12rem minmax(0, 1fr);
+  row-gap: v.$space-3;
+  margin: 0 0 v.$space-5;
+  font-size: v.$font-size-sm;
+
+  dt {
+    color: var(--color-text-muted);
+    font-weight: 500;
+  }
+
+  dd {
+    margin: 0;
+  }
+
+  @include m.respond-down(v.$breakpoint-sm) {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: v.$space-1;
+
+    dd {
+      margin-bottom: v.$space-3;
+    }
+  }
+}
+
+.ad-estimate {
+  display: grid;
+  gap: v.$space-3;
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    gap: v.$space-3;
+  }
+
+  span {
+    color: var(--color-text-secondary);
+  }
+}
+
+.ad-targeting {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  row-gap: v.$space-2;
+  margin: v.$space-4 0 0;
+  font-size: v.$font-size-sm;
+
+  dt {
+    color: var(--color-text-muted);
+    font-weight: 500;
+  }
+
+  dd {
+    margin: 0;
+  }
+}
+
+// ---- Ad preview -------------------------------------------------------------
+
+.ad-preview {
+  border: 1px solid var(--color-border);
+  border-radius: v.$radius-md;
+  overflow: hidden;
+  background-color: var(--color-surface);
+}
+
+.ad-preview__head {
+  display: flex;
+  align-items: center;
+  gap: v.$space-3;
+  padding: v.$space-3 v.$space-4;
+}
+
+.ad-preview__avatar {
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-weight: 700;
+  @include m.flex-center;
+}
+
+.ad-preview__name {
+  font-weight: 600;
+  font-size: v.$font-size-sm;
+}
+
+.ad-preview__sponsored {
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+}
+
+.ad-preview__text {
+  margin: 0;
+  padding: 0 v.$space-4 v.$space-3;
+  font-size: v.$font-size-sm;
+  overflow-wrap: anywhere;
+}
+
+.ad-preview__media {
+  aspect-ratio: 1.91 / 1;
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  @include m.flex-center;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.ad-preview__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: v.$space-3;
+  padding: v.$space-3 v.$space-4;
+  background-color: var(--color-surface-alt);
+}
+
+.ad-preview__foot-text {
+  min-width: 0;
+}
+
+.ad-preview__url {
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+  @include m.truncate;
+}
+
+.ad-preview__headline {
+  font-weight: 600;
+  font-size: v.$font-size-sm;
+  @include m.truncate;
+}
+
+.ad-preview__cta {
+  flex-shrink: 0;
+  padding: v.$space-2 v.$space-3;
+  border-radius: v.$radius-sm;
+  border: 1px solid var(--color-border-strong);
+  background-color: var(--color-surface);
+  font-size: v.$font-size-xs;
+  font-weight: 600;
+}
+
+// Two or more platform logos for one ad network (e.g. Facebook + Instagram).
+.network-icons {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+
+  .platform-icon {
+    border: 2px solid var(--color-surface);
+  }
+
+  .platform-icon + .platform-icon {
+    margin-inline-start: -0.8rem;
+  }
+}
+
+// Which social profiles an ad network can run as, and whether each is connected.
+.network-placements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: v.$space-2;
+  flex-basis: 100%;
+}
+
+.network-placement {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: v.$font-size-xs;
+  font-weight: 600;
+
+  &.is-ready {
+    color: var(--color-success);
+  }
+
+  &.is-missing {
+    color: var(--color-warning);
+  }
+}
+
+.ad-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.ad-chip__note {
+  font-size: v.$font-size-xs;
+  color: var(--color-warning);
+}

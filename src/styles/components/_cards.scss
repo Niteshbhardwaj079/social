@@ -1,0 +1,325 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.surface-card {
+  @include m.card-surface;
+  padding: v.$space-6;
+}
+
+.kpi-card {
+  @include m.card-surface;
+  padding: v.$space-5;
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-3;
+  transition: box-shadow v.$transition-base, transform v.$transition-base;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  &__top {
+    @include m.flex-between;
+  }
+
+  &__icon {
+    width: 4.4rem;
+    height: 4.4rem;
+    border-radius: v.$radius-md;
+    @include m.flex-center;
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-text);
+
+    &--rose {
+      background-color: var(--color-accent-rose-soft);
+      color: var(--color-accent-rose);
+    }
+
+    &--purple {
+      background-color: var(--color-accent-purple-soft);
+      color: var(--color-accent-purple);
+    }
+
+    &--teal {
+      background-color: var(--color-accent-teal-soft);
+      color: var(--color-accent-teal);
+    }
+
+    &--amber {
+      background-color: var(--color-accent-amber-soft);
+      color: var(--color-accent-amber);
+    }
+
+    &--blue {
+      background-color: var(--color-accent-blue-soft);
+      color: var(--color-accent-blue);
+    }
+
+    &--slate {
+      background-color: var(--color-accent-slate-soft);
+      color: var(--color-accent-slate);
+    }
+  }
+
+  &__label {
+    font-size: v.$font-size-sm;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+  }
+
+  &__value {
+    font-size: v.$font-size-3xl;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  &__delta {
+    font-size: v.$font-size-xs;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: fit-content;
+    padding: 0.2rem 0.7rem;
+    border-radius: v.$radius-pill;
+
+    &.is-positive {
+      color: var(--color-success);
+      background-color: var(--color-success-soft);
+    }
+
+    &.is-negative {
+      color: var(--color-danger);
+      background-color: var(--color-danger-soft);
+    }
+  }
+}
+
+.panel-card {
+  @include m.card-surface;
+
+  &__header {
+    @include m.flex-between;
+    padding: v.$space-5 v.$space-6;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  &__title {
+    font-size: v.$font-size-lg;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  &__body {
+    padding: v.$space-6;
+  }
+
+  &__body--flush {
+    padding: 0;
+  }
+}
+
+.account-card {
+  @include m.card-surface;
+  padding: v.$space-5;
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-4;
+  transition: box-shadow v.$transition-base;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+  }
+
+  &__top {
+    display: flex;
+    align-items: center;
+    gap: v.$space-3;
+  }
+
+  &__icon {
+    width: 4.4rem;
+    height: 4.4rem;
+    border-radius: v.$radius-md;
+    @include m.flex-center;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  &__name {
+    font-weight: 600;
+    @include m.truncate;
+  }
+
+  &__meta {
+    font-size: v.$font-size-xs;
+    color: var(--color-text-muted);
+  }
+
+  &__actions {
+    display: flex;
+    gap: v.$space-2;
+  }
+}
+
+.callout-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: v.$space-3;
+  padding: v.$space-4 v.$space-5;
+  border-radius: v.$radius-md;
+  font-size: v.$font-size-sm;
+  margin-bottom: v.$space-5;
+  color: var(--color-text-secondary);
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  &--info {
+    background-color: var(--color-info-soft);
+
+    svg {
+      color: var(--color-info);
+    }
+  }
+
+  &--warning {
+    background-color: var(--color-warning-soft);
+
+    svg {
+      color: var(--color-warning);
+    }
+  }
+
+  &--success {
+    background-color: var(--color-success-soft);
+
+    svg {
+      color: var(--color-success);
+    }
+  }
+
+  &--danger {
+    background-color: var(--color-danger-soft);
+
+    svg {
+      color: var(--color-danger);
+    }
+  }
+}
+
+.post-list-item {
+  display: flex;
+  align-items: center;
+  gap: v.$space-3;
+  width: 100%;
+  text-align: start;
+  padding: v.$space-3;
+  border-radius: v.$radius-md;
+  background: none;
+  border: 1px solid transparent;
+  transition: background-color v.$transition-fast, border-color v.$transition-fast;
+
+  &:hover {
+    background-color: var(--color-surface-alt);
+    border-color: var(--color-border);
+  }
+
+  &__platforms {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+  }
+
+  &__more {
+    font-size: v.$font-size-xs;
+    color: var(--color-text-muted);
+    font-weight: 600;
+  }
+
+  &__content {
+    flex: 1;
+    min-width: 0;
+    text-align: start;
+  }
+
+  &__text {
+    font-size: v.$font-size-base;
+    color: var(--color-text-primary);
+    margin-bottom: 0.2rem;
+    @include m.line-clamp(1);
+  }
+
+  &__meta {
+    font-size: v.$font-size-xs;
+    color: var(--color-text-muted);
+  }
+}
+
+.post-mobile-card {
+  padding: v.$space-4;
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-3;
+}
+
+.post-mobile-card__top {
+  @include m.flex-between;
+  cursor: pointer;
+}
+
+.post-mobile-card__content {
+  margin: 0;
+  font-size: v.$font-size-base;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  @include m.line-clamp(2);
+}
+
+.post-mobile-card__footer {
+  @include m.flex-between;
+  padding-top: v.$space-3;
+  border-top: 1px solid var(--color-border);
+}
+
+.post-mobile-card__meta {
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+  min-width: 0;
+  @include m.truncate;
+}
+
+.quick-action-card {
+  @include m.card-surface;
+  padding: v.$space-4;
+  display: flex;
+  align-items: center;
+  gap: v.$space-3;
+  cursor: pointer;
+  transition: transform v.$transition-fast, box-shadow v.$transition-fast;
+  border: 1px solid var(--color-border);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  &__icon {
+    width: 4rem;
+    height: 4rem;
+    border-radius: v.$radius-md;
+    @include m.flex-center;
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-text);
+    flex-shrink: 0;
+  }
+
+  &__label {
+    font-weight: 600;
+    font-size: v.$font-size-base;
+  }
+}

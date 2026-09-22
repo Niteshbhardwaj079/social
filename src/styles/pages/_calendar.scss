@@ -1,0 +1,169 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.calendar-toolbar {
+  @include m.flex-between;
+  flex-wrap: wrap;
+  gap: v.$space-3;
+  margin-bottom: v.$space-5;
+}
+
+.calendar-month {
+  @include m.card-surface;
+  overflow: hidden;
+}
+
+.calendar-month__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-bottom: 1px solid var(--color-border);
+}
+
+.calendar-month__weekday {
+  padding: v.$space-3;
+  text-align: center;
+  font-size: v.$font-size-xs;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.calendar-month__week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-month__day {
+  min-height: 11rem;
+  padding: v.$space-2;
+  border-inline-end: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-1;
+  min-width: 0;
+  overflow: hidden;
+
+  &:nth-child(7n) {
+    border-inline-end: none;
+  }
+
+  &.is-outside {
+    background-color: var(--color-surface-alt);
+
+    .calendar-month__day-number {
+      color: var(--color-text-muted);
+    }
+  }
+
+  &.is-today .calendar-month__day-number {
+    background-color: var(--color-primary);
+    color: #fff;
+  }
+}
+
+.calendar-month__day-number {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  @include m.flex-center;
+  font-size: v.$font-size-sm;
+  font-weight: 600;
+}
+
+.calendar-month__day-posts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.calendar-month__post-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: v.$font-size-xs;
+  padding: 0.3rem 0.5rem;
+  border-radius: v.$radius-sm;
+  background-color: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  text-align: start;
+  width: 100%;
+  min-width: 0;
+
+  .table-cell-truncate {
+    max-width: 100%;
+    min-width: 0;
+    flex: 1;
+  }
+}
+
+.calendar-month__more {
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+  padding-inline-start: 0.5rem;
+}
+
+.calendar-week {
+  display: grid;
+  // minmax(0, 1fr) instead of plain 1fr — a bare `1fr` track has an implicit
+  // auto minimum, so it refuses to shrink below its content's width. Long
+  // post chip text was pushing every column (and the whole page) wider than
+  // the viewport, forcing a page-level horizontal scrollbar.
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: v.$space-3;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.calendar-week__day {
+  @include m.card-surface;
+  padding: v.$space-3;
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-2;
+  min-width: 0;
+
+  &.is-today {
+    border-color: var(--color-primary);
+  }
+}
+
+.calendar-week__day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: v.$font-size-sm;
+  font-weight: 600;
+}
+
+.calendar-week__day-posts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.agenda-group {
+  padding: v.$space-4 v.$space-5;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.agenda-group__date {
+  font-size: v.$font-size-sm;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  margin-bottom: v.$space-3;
+}
+
+.agenda-group__post {
+  display: flex;
+  align-items: center;
+  gap: v.$space-3;
+  padding: v.$space-2 0;
+  cursor: pointer;
+}

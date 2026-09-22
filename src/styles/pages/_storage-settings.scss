@@ -1,0 +1,96 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.storage-status {
+  border: 1px solid var(--color-border);
+  border-radius: v.$radius-md;
+  padding: v.$space-4 v.$space-5;
+  margin-bottom: v.$space-4;
+}
+
+.storage-status__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: v.$space-3;
+  margin-bottom: v.$space-3;
+}
+
+.storage-status__list {
+  display: grid;
+  gap: v.$space-2;
+  margin: 0;
+  font-size: v.$font-size-sm;
+
+  > div {
+    display: grid;
+    grid-template-columns: 18rem minmax(0, 1fr);
+    gap: v.$space-3;
+
+    @include m.respond-down(v.$breakpoint-sm) {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+  }
+
+  dt {
+    color: var(--color-text-muted);
+    font-weight: 500;
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.storage-guide {
+  border: 1px solid var(--color-border);
+  border-radius: v.$radius-md;
+  padding: v.$space-3 v.$space-5;
+
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--color-primary-text);
+    padding: v.$space-2 0;
+  }
+
+  .connect-guide__steps {
+    margin-top: v.$space-3;
+  }
+}
+
+.storage-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: v.$space-4;
+  padding: v.$space-4 0;
+  border-bottom: 1px dashed var(--color-border);
+
+  &:last-of-type {
+    border-bottom: none;
+  }
+}
+
+.storage-toggle-row__title {
+  font-weight: 600;
+}
+
+.storage-toggle-row__desc {
+  font-size: v.$font-size-sm;
+  color: var(--color-text-secondary);
+}
+
+.storage-limit-row {
+  display: flex;
+  gap: v.$space-3;
+  max-width: 34rem;
+  margin-bottom: v.$space-2;
+
+  .form-select {
+    width: 9rem;
+    flex-shrink: 0;
+  }
+}

@@ -1,0 +1,30 @@
+@use '../abstracts/variables' as v;
+
+.breadcrumb-trail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: v.$space-2;
+  margin-bottom: v.$space-4;
+  font-size: v.$font-size-sm;
+  color: var(--color-text-secondary);
+}
+
+.breadcrumb-trail__item {
+  display: inline-flex;
+  align-items: center;
+  gap: v.$space-2;
+
+  svg {
+    color: var(--color-text-muted);
+  }
+}
+
+.breadcrumb-trail__link {
+  color: var(--color-primary-text);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

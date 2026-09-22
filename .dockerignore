@@ -1,0 +1,8 @@
+node_modules
+backend/node_modules
+backend/.pgdata
+backend/.env
+.env
+dist
+.git
+*.log

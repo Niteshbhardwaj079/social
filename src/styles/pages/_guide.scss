@@ -1,0 +1,117 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.guide-layout {
+  display: grid;
+  grid-template-columns: 30rem 1fr;
+  gap: v.$space-5;
+  align-items: start;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.guide-chapter-list {
+  padding: v.$space-3;
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-1;
+}
+
+.guide-chapter-item {
+  display: flex;
+  align-items: center;
+  gap: v.$space-3;
+  width: 100%;
+  padding: v.$space-3 v.$space-4;
+  border-radius: v.$radius-md;
+  background: none;
+  border: none;
+  text-align: start;
+  color: var(--color-text-secondary);
+  font-size: v.$font-size-base;
+  font-weight: 500;
+
+  &:hover {
+    background-color: var(--color-surface-alt);
+  }
+
+  &.is-active {
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-text);
+    font-weight: 700;
+  }
+}
+
+.guide-chapter-item__number {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  @include m.flex-center;
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  font-size: v.$font-size-sm;
+  font-weight: 700;
+
+  .is-active > & {
+    background-color: var(--color-primary);
+    color: var(--color-text-inverse);
+  }
+}
+
+.guide-content {
+  padding: v.$space-6;
+}
+
+.guide-content__meta {
+  display: flex;
+  align-items: center;
+  gap: v.$space-2;
+  font-size: v.$font-size-sm;
+  color: var(--color-text-muted);
+  margin-bottom: v.$space-4;
+}
+
+.guide-content__title {
+  font-size: v.$font-size-2xl;
+  font-weight: 700;
+  margin-bottom: v.$space-2;
+}
+
+.guide-content__description {
+  color: var(--color-text-secondary);
+  margin-bottom: v.$space-6;
+}
+
+.guide-content__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-5;
+
+  li {
+    display: flex;
+    gap: v.$space-4;
+  }
+
+  p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+  }
+}
+
+.guide-content__step-number {
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  @include m.flex-center;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  font-weight: 700;
+}

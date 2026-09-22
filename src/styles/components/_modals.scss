@@ -1,0 +1,90 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+// Our backdrop and dialog are siblings inside the same fixed `.modal`
+// wrapper (not siblings at body level like stock Bootstrap markup), so
+// Bootstrap's own z-index:1050 on `.modal-backdrop` — meant to sit below a
+// separate, later `.modal` element — instead out-ranks the dialog inside
+// this shared stacking context and swallows every click on it. Rescope both
+// to a local stacking order so the dialog wins.
+.modal-backdrop {
+  position: absolute;
+  z-index: 0;
+}
+
+.modal-dialog {
+  position: relative;
+  z-index: 1;
+}
+
+// Modals are intentionally always light, even in dark mode — re-pin every
+// color token to its light value here so every component style that reads
+// var(--color-*) inside the modal (inputs, selects, badges, buttons) renders
+// correctly on the white card, instead of picking up the page's dark-theme
+// values through inheritance and needing a parallel set of dark overrides.
+.modal-content {
+  --color-primary-text: var(--color-primary);
+  --color-bg: #f5f6fa;
+  --color-surface: #ffffff;
+  --color-surface-alt: #fafafc;
+  --color-border: #e6e8f0;
+  --color-border-strong: #d6d9e6;
+
+  --color-text-primary: #171a2b;
+  --color-text-secondary: #5c6178;
+  --color-text-muted: #8b8fa3;
+  --color-text-inverse: #ffffff;
+
+  --color-success: #16a34a;
+  --color-success-soft: #ecfdf3;
+  --color-warning: #d97706;
+  --color-warning-soft: #fffaeb;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fef2f2;
+  --color-info: #0284c7;
+  --color-info-soft: #f0f9ff;
+
+  --color-accent-rose: #e11d48;
+  --color-accent-rose-soft: #ffe4e8;
+  --color-accent-purple: #7c3aed;
+  --color-accent-purple-soft: #f1e8fe;
+  --color-accent-teal: #0d9488;
+  --color-accent-teal-soft: #dcfaf6;
+  --color-accent-amber: #d97706;
+  --color-accent-amber-soft: #fef3c7;
+  --color-accent-blue: #2563eb;
+  --color-accent-blue-soft: #dbeafe;
+  --color-accent-slate: #475569;
+  --color-accent-slate-soft: #e7ebf1;
+
+  --shadow-sm: 0 1px 2px rgba(16, 18, 40, 0.06);
+  --shadow-md: 0 4px 12px rgba(16, 18, 40, 0.08);
+  --shadow-lg: 0 12px 32px rgba(16, 18, 40, 0.12);
+
+  border: none;
+  box-shadow: var(--shadow-lg);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.modal-header-custom {
+  padding: v.$space-5 v.$space-6;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.modal-body-custom {
+  padding: v.$space-6;
+  max-height: calc(100vh - 16rem);
+  overflow-y: auto;
+  @include m.custom-scrollbar;
+}
+
+.modal-footer-custom {
+  padding: v.$space-4 v.$space-6;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: v.$space-3;
+  flex-shrink: 0;
+}

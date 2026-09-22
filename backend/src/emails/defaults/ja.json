@@ -1,0 +1,116 @@
+{
+  "mail": {
+    "help": "お困りですか？こちらまでご連絡ください：",
+    "auto": "このメールは {{app_name}} からの自動送信です。返信はご遠慮ください。",
+    "passwordReset": {
+      "s": "{{app_name}} のパスワードを再設定してください",
+      "h": "パスワードの再設定",
+      "b": [
+        "{{user_name}} 様、パスワード再設定のリクエストを受け付けました。",
+        "[こちらをクリックして新しいパスワードを設定]({{reset_link}})してください。このリンクの有効期限は {{expires_in}} です。",
+        "お心当たりがない場合は、このメールを無視してください。"
+      ]
+    },
+    "passwordChanged": {
+      "s": "{{app_name}} のパスワードが変更されました",
+      "h": "パスワードが変更されました",
+      "b": [
+        "{{user_name}} 様、パスワードが {{changed_at}} に変更されました。",
+        "お心当たりがない場合は、すぐに {{support_email}} までご連絡ください。"
+      ]
+    },
+    "newSignIn": {
+      "s": "{{app_name}} アカウントへの新しいログイン",
+      "h": "新しいログインを検出しました",
+      "b": [
+        "{{user_name}} 様、{{signed_in_at}} に {{location}} の {{device}} から新しいログインがありました。",
+        "ご本人の場合は操作は不要です。そうでない場合は、すぐにパスワードを変更してください。"
+      ]
+    },
+    "invited": {
+      "s": "{{app_name}} の {{company}} に招待されました",
+      "h": "招待が届いています",
+      "b": [
+        "{{invited_by}} さんが、{{app_name}} の {{company}} に {{role}} として参加するよう招待しました。",
+        "[招待を承諾]({{accept_link}})して始めましょう。"
+      ]
+    },
+    "userAdded": {
+      "s": "{{new_user_name}} さんが {{company}} に追加されました",
+      "h": "新しいユーザーが追加されました",
+      "b": [
+        "{{added_by}} さんが {{new_user_name}}（{{new_user_email}}）さんを {{role}} として追加しました。",
+        "[ユーザーと役割を確認]({{users_url}})"
+      ]
+    },
+    "roleChanged": {
+      "s": "{{app_name}} での役割が更新されました",
+      "h": "役割が更新されました",
+      "b": [
+        "{{user_name}} 様、{{changed_by}} さんがあなたの役割を {{old_role}} から {{new_role}} に変更しました。"
+      ]
+    },
+    "accountConnected": {
+      "s": "{{provider}} アカウント {{account_name}} を連携しました",
+      "h": "ソーシャルアカウントを連携しました",
+      "b": [
+        "{{connected_by}} さんが {{connected_at}} に {{account_name}}（{{provider}}）を連携しました。",
+        "[ソーシャルアカウントを見る]({{accounts_url}})"
+      ]
+    },
+    "tokenExpired": {
+      "s": "{{provider}} アカウントを再連携してください",
+      "h": "連携の確認が必要です",
+      "b": [
+        "{{app_name}} が引き続き投稿できるよう、{{account_name}}（{{provider}}）の再連携が必要です。",
+        "[今すぐ再連携]({{accounts_url}})"
+      ]
+    },
+    "postPublished": {
+      "s": "投稿が公開されました",
+      "h": "投稿が公開されました",
+      "b": [
+        "「{{post_excerpt}}」が {{published_at}} に {{platforms}} で公開されました。"
+      ]
+    },
+    "postFailed": {
+      "s": "投稿の公開に失敗しました",
+      "h": "投稿の公開に失敗しました",
+      "b": [
+        "「{{post_excerpt}}」を {{platforms}} に公開できませんでした：{{error_reason}}。",
+        "[確認して再試行]({{posts_url}})"
+      ]
+    },
+    "approvalRequested": {
+      "s": "{{submitted_by}} さんが承認待ちの投稿を提出しました",
+      "h": "投稿の確認をお願いします",
+      "b": [
+        "{{submitted_by}} さんが「{{post_excerpt}}」を承認のために提出しました。",
+        "[今すぐ確認]({{approvals_url}})"
+      ]
+    },
+    "approvalDecided": {
+      "s": "投稿の結果：{{decision}}",
+      "h": "投稿の承認結果が出ました",
+      "b": [
+        "「{{post_excerpt}}」に対する {{reviewer}} さんの判断：{{decision}}。",
+        "{{reason}}"
+      ]
+    },
+    "newComment": {
+      "s": "{{commenter_name}} さんからの新しいコメント",
+      "h": "新しいコメントが届きました",
+      "b": [
+        "{{commenter_name}} さんが「{{post_excerpt}}」にコメントしました：「{{comment_text}}」",
+        "[受信トレイで返信]({{inbox_url}})"
+      ]
+    }
+  },
+  "roles": {
+    "superAdmin": "スーパー管理者",
+    "admin": "管理者",
+    "editor": "編集者",
+    "contributor": "投稿者",
+    "analyst": "アナリスト"
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "mail": {
+    "help": "需要帮助？请写信至",
+    "auto": "这是 {{app_name}} 发送的自动邮件，请勿回复此邮件。",
+    "passwordReset": {
+      "s": "重置您的 {{app_name}} 密码",
+      "h": "重置您的密码",
+      "b": [
+        "您好 {{user_name}}，我们收到了重置您密码的请求。",
+        "[点击此处设置新密码]({{reset_link}})，该链接将在 {{expires_in}} 后失效。",
+        "如果这不是您本人的操作，请忽略此邮件。"
+      ]
+    },
+    "passwordChanged": {
+      "s": "您的 {{app_name}} 密码已更改",
+      "h": "您的密码已更改",
+      "b": [
+        "您好 {{user_name}}，您的密码已于 {{changed_at}} 更改。",
+        "如果这不是您本人的操作，请立即联系 {{support_email}}。"
+      ]
+    },
+    "newSignIn": {
+      "s": "您的 {{app_name}} 账号有新的登录",
+      "h": "检测到新登录",
+      "b": [
+        "您好 {{user_name}}，我们在 {{signed_in_at}} 检测到来自 {{location}} 的 {{device}} 登录了您的账号。",
+        "如果是您本人，无需任何操作。如果不是，请立即修改密码。"
+      ]
+    },
+    "invited": {
+      "s": "您被邀请加入 {{app_name}} 上的 {{company}}",
+      "h": "您收到了邀请",
+      "b": [
+        "{{invited_by}} 邀请您以 {{role}} 身份加入 {{app_name}} 上的 {{company}}。",
+        "[接受邀请]({{accept_link}})即可开始使用。"
+      ]
+    },
+    "userAdded": {
+      "s": "{{new_user_name}} 已加入 {{company}}",
+      "h": "新增了一位用户",
+      "b": [
+        "{{added_by}} 将 {{new_user_name}}（{{new_user_email}}）添加为 {{role}}。",
+        "[查看用户与角色]({{users_url}})"
+      ]
+    },
+    "roleChanged": {
+      "s": "您在 {{app_name}} 的角色已更新",
+      "h": "您的角色已更新",
+      "b": [
+        "您好 {{user_name}}，{{changed_by}} 已将您的角色从 {{old_role}} 更改为 {{new_role}}。"
+      ]
+    },
+    "accountConnected": {
+      "s": "{{provider}} 账号 {{account_name}} 已连接",
+      "h": "已连接一个社交账号",
+      "b": [
+        "{{connected_by}} 于 {{connected_at}} 连接了 {{account_name}}（{{provider}}）。",
+        "[查看社交账号]({{accounts_url}})"
+      ]
+    },
+    "tokenExpired": {
+      "s": "请重新连接您的 {{provider}} 账号",
+      "h": "您的连接需要处理",
+      "b": [
+        "需要重新连接 {{account_name}}（{{provider}}），{{app_name}} 才能继续向其发布内容。",
+        "[立即重新连接]({{accounts_url}})"
+      ]
+    },
+    "postPublished": {
+      "s": "您的帖子已发布",
+      "h": "您的帖子已上线",
+      "b": [
+        "“{{post_excerpt}}”已于 {{published_at}} 发布到 {{platforms}}。"
+      ]
+    },
+    "postFailed": {
+      "s": "有帖子发布失败",
+      "h": "有帖子发布失败",
+      "b": [
+        "“{{post_excerpt}}”无法发布到 {{platforms}}：{{error_reason}}。",
+        "[查看并重试]({{posts_url}})"
+      ]
+    },
+    "approvalRequested": {
+      "s": "{{submitted_by}} 提交了一条帖子等待审批",
+      "h": "有帖子需要您审核",
+      "b": [
+        "{{submitted_by}} 提交了“{{post_excerpt}}”等待审批。",
+        "[立即审核]({{approvals_url}})"
+      ]
+    },
+    "approvalDecided": {
+      "s": "您的帖子：{{decision}}",
+      "h": "您的帖子已有审批结果",
+      "b": [
+        "{{reviewer}} 对“{{post_excerpt}}”的审批结果：{{decision}}。",
+        "{{reason}}"
+      ]
+    },
+    "newComment": {
+      "s": "来自 {{commenter_name}} 的新评论",
+      "h": "您有一条新评论",
+      "b": [
+        "{{commenter_name}} 评论了“{{post_excerpt}}”：“{{comment_text}}”",
+        "[在收件箱中回复]({{inbox_url}})"
+      ]
+    }
+  },
+  "roles": {
+    "superAdmin": "超级管理员",
+    "admin": "管理员",
+    "editor": "编辑",
+    "contributor": "贡献者",
+    "analyst": "分析师"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "social-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Social — Node.js + Express + PostgreSQL API (Phase 2)",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "db:dev": "node scripts/dev-db.mjs",
+    "migrate": "node scripts/migrate.mjs",
+    "sync:emails": "node scripts/sync-email-defaults.mjs",
+    "check:emails": "node scripts/sync-email-defaults.mjs --check",
+    "test": "node scripts/test.mjs"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+    "nodemailer": "^10.0.10",
+    "pg": "^8.23.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "embedded-postgres": "^17.10.0-beta.17"
+  }
+}

@@ -1,0 +1,51 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.image-crop__stage {
+  position: relative;
+  margin-inline: auto;
+  overflow: hidden;
+  border-radius: v.$radius-md;
+  background-color: #000;
+  max-width: 100%;
+}
+
+.image-crop__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  user-select: none;
+  pointer-events: none;
+}
+
+.image-crop__box {
+  position: absolute;
+  border: 2px dashed #fff;
+  cursor: move;
+  touch-action: none;
+  // Darkens everything outside the box without a separate overlay element —
+  // a huge box-shadow spread, clipped by the stage's own overflow:hidden.
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+}
+
+.image-crop__handle {
+  position: absolute;
+  right: -0.7rem;
+  bottom: -0.7rem;
+  border-radius: 50%;
+  background-color: #fff;
+  border: 2px solid var(--color-primary);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.image-crop__meta {
+  display: flex;
+  align-items: center;
+  gap: v.$space-2;
+  margin-top: v.$space-3;
+  font-size: v.$font-size-sm;
+  color: var(--color-text-secondary);
+}

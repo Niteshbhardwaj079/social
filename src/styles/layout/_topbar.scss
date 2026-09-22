@@ -1,0 +1,148 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.app-topbar {
+  position: sticky;
+  top: 0;
+  height: v.$topbar-height;
+  padding-top: env(safe-area-inset-top, 0px);
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  z-index: v.$z-index-topbar;
+  display: flex;
+  align-items: center;
+  // Menu button, then search right next to it on the left; only the action
+  // icons are pushed to the far right (see .topbar-actions).
+  justify-content: flex-start;
+  padding-inline: v.$space-5;
+  gap: v.$space-4;
+}
+
+.topbar-search {
+  flex: 1;
+  max-width: 40rem;
+
+  @include m.respond-down(v.$breakpoint-md) {
+    display: none;
+  }
+}
+
+.topbar-actions {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: v.$space-2;
+  flex-shrink: 0;
+}
+
+.topbar-icon-btn {
+  position: relative;
+  @include m.flex-center;
+  width: 3.8rem;
+  height: 3.8rem;
+  border-radius: v.$radius-md;
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+
+  &:hover {
+    background-color: var(--color-surface-alt);
+    color: var(--color-text-primary);
+  }
+}
+
+.topbar-icon-btn__badge {
+  position: absolute;
+  top: 0.3rem;
+  inset-inline-end: 0.3rem;
+  min-width: 1.7rem;
+  height: 1.7rem;
+  padding: 0 0.4rem;
+  border-radius: v.$radius-pill;
+  // Fixed red: the dark theme's --color-danger is a light pink that white text can't sit on.
+  background-color: #dc2626;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.65rem;
+  text-align: center;
+  border: 2px solid var(--color-surface);
+}
+
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: v.$space-2;
+  padding: 0.4rem 1.2rem 0.4rem 0.4rem;
+  border-radius: v.$radius-pill;
+  background-color: var(--color-surface-alt);
+  border: none;
+  color: var(--color-text-primary);
+
+  &:hover {
+    background-color: var(--color-border);
+  }
+
+  > svg {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+}
+
+.user-menu-trigger__info {
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.3;
+  text-align: start;
+
+  @include m.respond-up(v.$breakpoint-md) {
+    display: flex;
+  }
+}
+
+.user-menu-trigger__name {
+  font-size: v.$font-size-sm;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  max-width: 14rem;
+  @include m.truncate;
+}
+
+.user-menu-trigger__role {
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+}
+
+.topbar-brand-mobile {
+  display: none;
+  align-items: center;
+  gap: v.$space-2;
+  font-weight: 700;
+  font-size: v.$font-size-md;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    display: flex;
+  }
+}
+
+// Small phones: the header holds a menu button, the logo and five action buttons, so
+// tighten the spacing, never squash the menu button, and keep only the logo mark.
+@media (max-width: 420px) {
+  .app-topbar {
+    padding-inline: v.$space-3;
+    gap: v.$space-2;
+  }
+
+  .app-topbar > .topbar-icon-btn {
+    flex-shrink: 0;
+  }
+
+  .topbar-actions {
+    gap: 0;
+  }
+
+  .topbar-brand-mobile span {
+    display: none;
+  }
+}

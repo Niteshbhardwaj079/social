@@ -1,0 +1,56 @@
+// 1rem = 10.6px for the entire application. Every component sizes itself in
+// rem so the whole UI scales uniformly from this single declaration — bump
+// this to make every font, field and spacing value bigger app-wide at once.
+html {
+  font-size: 10.6px;
+}
+
+@media (max-width: 374px) {
+  html {
+    font-size: 9.5px;
+  }
+}
+
+// ---- Large screens (Full HD -> QHD -> 4K) ------------------------------------
+// The design is tuned for a 1920 x 1080 screen. On bigger screens the same
+// layout would just get tiny, so the root size grows with the screen and rem
+// carries it into every font, field, gap, icon and modal at once. A 3840 x 2160
+// screen ends up at ~2x, so it looks exactly like the 1920 x 1080 layout, only sharper.
+//
+// Step values (fallback for old browsers, and easy to tune): each pairs a width
+// with a minimum height, so a short-but-wide window (an ultrawide monitor, or a
+// 4K browser with a big toolbar) is not scaled taller than it can hold.
+@media (min-width: 2200px) and (min-height: 1000px) {
+  html {
+    font-size: 12.2px;
+  }
+}
+
+@media (min-width: 2560px) and (min-height: 1200px) {
+  html {
+    font-size: 14.2px;
+  }
+}
+
+@media (min-width: 3200px) and (min-height: 1500px) {
+  html {
+    font-size: 17.5px;
+  }
+}
+
+@media (min-width: 3800px) and (min-height: 1900px) {
+  html {
+    font-size: 20.5px;
+  }
+}
+
+// Where the browser supports min()/clamp() the steps above become a smooth curve:
+// 0.552vw = 10.6px at 1920 wide (21.2px at 3840); 0.98vh = 10.6px at 1080 tall.
+// Whichever is smaller wins, so the UI never outgrows the screen in either direction.
+@supports (font-size: clamp(1px, min(1vw, 1vh), 2px)) {
+  @media (min-width: 1920px) {
+    html {
+      font-size: clamp(10.6px, min(0.552vw, 0.98vh), 26px);
+    }
+  }
+}

@@ -1,0 +1,55 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.avatar {
+  border-radius: 50%;
+  @include m.flex-center;
+  font-weight: 600;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  flex-shrink: 0;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &--xs {
+    width: 2.4rem;
+    height: 2.4rem;
+    font-size: v.$font-size-xs;
+  }
+
+  &--sm {
+    width: 3.2rem;
+    height: 3.2rem;
+    font-size: v.$font-size-sm;
+  }
+
+  &--md {
+    width: 4rem;
+    height: 4rem;
+    font-size: v.$font-size-base;
+  }
+
+  &--lg {
+    width: 5.6rem;
+    height: 5.6rem;
+    font-size: v.$font-size-lg;
+  }
+}
+
+.avatar-stack {
+  display: flex;
+
+  .avatar {
+    border: 2px solid var(--color-surface);
+    margin-inline-start: -0.8rem;
+
+    &:first-child {
+      margin-inline-start: 0;
+    }
+  }
+}

@@ -1,0 +1,61 @@
+import { USER_ROLES, USER_STATUS } from '../../config/constants';
+
+const usersMock = [
+  {
+    id: 'user-1',
+    name: 'Nitesh Bhardwaj',
+    email: 'nitesh@gowebkart.in',
+    role: USER_ROLES.SUPER_ADMIN,
+    status: USER_STATUS.ACTIVE,
+    avatarUrl: null,
+    lastActiveAt: '2026-09-18T06:30:00Z',
+    accountsAssigned: 12,
+    language: 'en',
+  },
+  {
+    id: 'user-2',
+    name: 'Priya Sharma',
+    email: 'priya@gowebkart.in',
+    role: USER_ROLES.EDITOR,
+    status: USER_STATUS.ACTIVE,
+    avatarUrl: null,
+    lastActiveAt: '2026-09-18T05:20:00Z',
+    accountsAssigned: 6,
+    language: 'hi',
+  },
+  {
+    id: 'user-3',
+    name: 'Rahul Verma',
+    email: 'rahul@gowebkart.in',
+    role: USER_ROLES.CONTRIBUTOR,
+    status: USER_STATUS.ACTIVE,
+    avatarUrl: null,
+    lastActiveAt: '2026-09-17T15:40:00Z',
+    accountsAssigned: 4,
+    language: 'gu',
+  },
+  {
+    id: 'user-4',
+    name: 'Anjali Mehta',
+    email: 'anjali@gowebkart.in',
+    role: USER_ROLES.ANALYST,
+    status: USER_STATUS.DISABLED,
+    avatarUrl: null,
+    lastActiveAt: '2026-08-30T09:00:00Z',
+    accountsAssigned: 0,
+    language: 'mr',
+  },
+  {
+    id: 'user-5',
+    name: 'Vikram Singh',
+    email: 'vikram@gowebkart.in',
+    role: USER_ROLES.ADMIN,
+    status: USER_STATUS.INVITED,
+    avatarUrl: null,
+    lastActiveAt: null,
+    accountsAssigned: 0,
+    language: 'en',
+  },
+];
+
+export default usersMock;

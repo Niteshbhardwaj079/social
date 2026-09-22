@@ -1,0 +1,157 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+// The settings menu is deliberately identical to the Guide page's chapter list
+// (same width, spacing, font size and active look) so both side menus feel like one.
+.settings-layout {
+  display: grid;
+  grid-template-columns: 30rem 1fr;
+  gap: v.$space-5;
+  align-items: start;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-layout__nav {
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-1;
+  height: fit-content;
+  @include m.card-surface;
+  padding: v.$space-3;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    flex-direction: row;
+    overflow-x: auto;
+    @include m.custom-scrollbar;
+  }
+}
+
+.settings-layout__nav-item {
+  display: flex;
+  align-items: center;
+  gap: v.$space-3;
+  width: 100%;
+  padding: v.$space-3 v.$space-4;
+  border-radius: v.$radius-md;
+  color: var(--color-text-secondary);
+  font-size: v.$font-size-base;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background-color: var(--color-surface-alt);
+  }
+
+  &.is-active {
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-text);
+    font-weight: 700;
+  }
+}
+
+.settings-layout__nav-icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  @include m.flex-center;
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-muted);
+
+  .is-active > & {
+    background-color: var(--color-primary);
+    color: var(--color-text-inverse);
+  }
+}
+
+.settings-layout__content {
+  min-width: 0;
+}
+
+.theme-option {
+  @include m.flex-center;
+  flex-direction: column;
+  gap: v.$space-2;
+  width: 12rem;
+  height: 9rem;
+  border-radius: v.$radius-md;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  font-size: v.$font-size-sm;
+  font-weight: 500;
+
+  &.is-active {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-text);
+  }
+}
+
+.session-icon {
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: v.$radius-md;
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  @include m.flex-center;
+  flex-shrink: 0;
+}
+
+.brand-color-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: v.$space-4;
+}
+
+.brand-color-swatch {
+  @include m.flex-center;
+  flex-direction: column;
+  gap: v.$space-2;
+  padding: v.$space-3;
+  border-radius: v.$radius-md;
+  border: 1px solid transparent;
+  background: none;
+
+  &:hover {
+    background-color: var(--color-surface-alt);
+  }
+
+  &.is-selected {
+    border-color: var(--color-border-strong);
+    background-color: var(--color-surface-alt);
+  }
+
+  &__dot {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 50%;
+    background-color: var(--swatch-color);
+    @include m.flex-center;
+    color: #fff;
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__label {
+    font-size: v.$font-size-xs;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+  }
+}
+
+.integration-card {
+  @include m.card-surface;
+  padding: v.$space-5;
+  display: flex;
+  align-items: center;
+  gap: v.$space-4;
+}

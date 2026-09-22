@@ -1,0 +1,71 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.toast-stack {
+  position: fixed;
+  top: calc(v.$space-5 + env(safe-area-inset-top, 0px));
+  inset-inline-end: v.$space-5;
+  z-index: v.$z-index-toast;
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-2;
+  width: min(36rem, calc(100vw - #{v.$space-5} * 2));
+
+  @include m.respond-down(v.$breakpoint-md) {
+    top: auto;
+    bottom: calc(v.$bottom-nav-height + v.$space-4 + env(safe-area-inset-bottom, 0px));
+    inset-inline-end: v.$space-4;
+    inset-inline-start: v.$space-4;
+    width: auto;
+  }
+}
+
+.toast-item {
+  @include m.card-surface;
+  padding: v.$space-4;
+  display: flex;
+  align-items: flex-start;
+  gap: v.$space-3;
+  animation: slide-up v.$transition-base;
+
+  &__icon {
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+    @include m.flex-center;
+  }
+
+  &--success .toast-item__icon {
+    background-color: var(--color-success-soft);
+    color: var(--color-success);
+  }
+
+  &--error .toast-item__icon {
+    background-color: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
+  &--info .toast-item__icon {
+    background-color: var(--color-info-soft);
+    color: var(--color-info);
+  }
+
+  &__title {
+    font-weight: 600;
+    font-size: v.$font-size-sm;
+  }
+
+  &__message {
+    font-size: v.$font-size-xs;
+    color: var(--color-text-secondary);
+  }
+
+  &__close {
+    margin-inline-start: auto;
+    color: var(--color-text-muted);
+    background: none;
+    border: none;
+    flex-shrink: 0;
+  }
+}

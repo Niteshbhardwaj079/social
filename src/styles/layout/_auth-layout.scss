@@ -1,0 +1,66 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.auth-layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.auth-layout__form-side {
+  @include m.flex-center;
+  flex-direction: column;
+  padding: v.$space-6;
+  background-color: var(--color-bg);
+}
+
+.auth-layout__inner {
+  width: 100%;
+  max-width: 44rem;
+}
+
+.auth-layout__brand {
+  display: flex;
+  align-items: center;
+  gap: v.$space-2;
+  margin-bottom: v.$space-7;
+  font-weight: 700;
+  font-size: v.$font-size-lg;
+}
+
+.auth-layout__showcase {
+  background: linear-gradient(160deg, var(--color-primary) 0%, #312e81 100%);
+  color: #fff;
+  @include m.flex-center;
+  flex-direction: column;
+  text-align: center;
+  padding: v.$space-9;
+  gap: v.$space-4;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    display: none;
+  }
+}
+
+.auth-layout__showcase-title {
+  font-size: v.$font-size-3xl;
+  font-weight: 700;
+  max-width: 36rem;
+}
+
+.auth-layout__showcase-subtitle {
+  font-size: v.$font-size-md;
+  opacity: 0.85;
+  max-width: 32rem;
+}
+
+.auth-layout__footer {
+  margin-top: v.$space-7;
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+  text-align: center;
+}

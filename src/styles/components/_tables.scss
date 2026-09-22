@@ -1,0 +1,82 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.data-table-wrapper {
+  overflow-x: auto;
+  @include m.custom-scrollbar;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: v.$font-size-base;
+
+  thead th {
+    text-align: start;
+    font-size: v.$font-size-xs;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    padding: v.$space-3 v.$space-4;
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: v.$space-4;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
+    color: var(--color-text-primary);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr {
+    transition: background-color v.$transition-fast;
+  }
+
+  tbody tr:hover {
+    background-color: var(--color-surface-alt);
+  }
+
+  tbody tr.is-selected {
+    background-color: var(--color-primary-soft);
+  }
+
+  td[role='button'],
+  tr[role='button'] {
+    cursor: pointer;
+  }
+}
+
+.table-row-title {
+  font-weight: 600;
+}
+
+.table-row-subtitle {
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+}
+
+.table-cell-truncate {
+  max-width: 32rem;
+  @include m.truncate;
+}
+
+.table-checkbox-col {
+  width: 2.5rem;
+}
+
+.bulk-action-bar {
+  @include m.flex-between;
+  flex-wrap: wrap;
+  gap: v.$space-3;
+  padding: v.$space-3 v.$space-5;
+  border-radius: v.$radius-md;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}

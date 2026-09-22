@@ -1,0 +1,52 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+  // Browsers paint buttons with their own near-black text, which turns
+  // invisible on the dark theme. Inherit the surrounding text colour instead;
+  // every .btn-* class still sets its own colour on top of this.
+  color: inherit;
+}
+
+ul,
+ol {
+  margin: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+// Bootstrap's .flex-grow-1 leaves min-width:auto, which stops truncated text
+// inside it from shrinking and lets it overflow the flex container instead.
+.flex-grow-1 {
+  min-width: 0;
+}

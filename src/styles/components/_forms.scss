@@ -1,0 +1,155 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.form-label-custom {
+  font-size: v.$font-size-sm;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: v.$space-2;
+  display: inline-block;
+}
+
+.form-hint {
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+  margin-top: v.$space-1;
+}
+
+.form-error {
+  font-size: v.$font-size-xs;
+  color: var(--color-danger);
+  margin-top: v.$space-1;
+}
+
+.search-input {
+  position: relative;
+
+  &--wide {
+    min-width: 24rem;
+
+    @include m.respond-down(v.$breakpoint-sm) {
+      min-width: 100%;
+    }
+  }
+
+  svg {
+    position: absolute;
+    inset-inline-start: v.$space-3;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-text-muted);
+  }
+
+  input {
+    padding-inline-start: v.$space-8;
+
+    // Safari gives type="search" inputs their own rounded chrome and a
+    // built-in clear button by default, which fights our own icon/padding
+    // layout and Bootstrap's border-radius. Opt back into plain styling.
+    -webkit-appearance: none;
+    appearance: none;
+  }
+}
+
+// iOS Safari zooms the whole page in when a focused text input's font-size
+// computes under 16px, and doesn't zoom back out on blur — a well-known,
+// jarring bug on any form field sized for desktop density. Bump form
+// fields to the safe threshold only where it matters (touch-sized
+// viewports); desktop keeps its normal 14px sizing.
+@include m.respond-down(v.$breakpoint-md) {
+  .form-control,
+  .form-select {
+    font-size: 1.6rem;
+  }
+}
+
+.auth-card {
+  @include m.card-surface;
+  padding: v.$space-8;
+  width: 100%;
+  max-width: 44rem;
+
+  @include m.respond-down(v.$breakpoint-sm) {
+    padding: v.$space-6;
+    border: none;
+    box-shadow: none;
+  }
+}
+
+.character-counter {
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+
+  &.is-warning {
+    color: var(--color-warning);
+  }
+
+  &.is-danger {
+    color: var(--color-danger);
+  }
+}
+
+// Bootstrap compiles form control colors from SCSS variables at build time,
+// so they don't follow our CSS custom properties into dark mode on their
+// own — re-point the ones used throughout the app here.
+[data-theme='dark'] {
+  .form-control,
+  .form-select {
+    background-color: var(--color-surface-alt);
+    border-color: var(--color-border);
+    color: var(--color-text-primary);
+
+    &::placeholder {
+      color: var(--color-text-muted);
+    }
+
+    &:focus {
+      background-color: var(--color-surface-alt);
+      border-color: var(--color-primary);
+      color: var(--color-text-primary);
+      box-shadow: 0 0 0 0.25rem var(--color-primary-soft);
+    }
+
+    &:disabled {
+      background-color: var(--color-surface);
+      color: var(--color-text-muted);
+    }
+  }
+
+  .form-check-input {
+    background-color: var(--color-surface-alt);
+    border-color: var(--color-border-strong);
+
+    &:checked {
+      background-color: var(--color-primary);
+      border-color: var(--color-primary);
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 0.25rem var(--color-primary-soft);
+    }
+  }
+
+  .btn-danger {
+    background-color: var(--color-danger);
+    border-color: var(--color-danger);
+  }
+
+  .btn-outline-secondary {
+    color: var(--color-text-secondary);
+    border-color: var(--color-border-strong);
+
+    &:hover {
+      background-color: var(--color-surface-alt);
+      color: var(--color-text-primary);
+    }
+  }
+
+  .text-danger {
+    color: var(--color-danger) !important;
+  }
+
+  .btn-link {
+    color: var(--color-primary-text);
+  }
+}

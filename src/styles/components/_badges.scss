@@ -1,0 +1,97 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.icon-badge {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  @include m.flex-center;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-text);
+
+  &--teal {
+    background-color: var(--color-accent-teal-soft);
+    color: var(--color-accent-teal);
+  }
+
+  &--blue {
+    background-color: var(--color-accent-blue-soft);
+    color: var(--color-accent-blue);
+  }
+
+  &--rose {
+    background-color: var(--color-accent-rose-soft);
+    color: var(--color-accent-rose);
+  }
+
+  &--purple {
+    background-color: var(--color-accent-purple-soft);
+    color: var(--color-accent-purple);
+  }
+
+  &--slate {
+    background-color: var(--color-accent-slate-soft);
+    color: var(--color-accent-slate);
+  }
+
+  &--amber {
+    background-color: var(--color-accent-amber-soft);
+    color: var(--color-accent-amber);
+  }
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: v.$font-size-xs;
+  font-weight: 600;
+  padding: 0.4rem 1rem;
+  border-radius: v.$radius-pill;
+  white-space: nowrap;
+
+  &::before {
+    content: '';
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background-color: currentColor;
+  }
+
+  &--draft {
+    color: var(--color-text-secondary);
+    background-color: var(--color-surface-alt);
+  }
+
+  &--scheduled {
+    color: var(--color-info);
+    background-color: var(--color-info-soft);
+  }
+
+  &--published {
+    color: var(--color-success);
+    background-color: var(--color-success-soft);
+  }
+
+  &--failed,
+  &--rejected {
+    color: var(--color-danger);
+    background-color: var(--color-danger-soft);
+  }
+
+  &--pending {
+    color: var(--color-warning);
+    background-color: var(--color-warning-soft);
+  }
+
+  &--connected {
+    color: var(--color-success);
+    background-color: var(--color-success-soft);
+  }
+
+  &--disconnected {
+    color: var(--color-text-muted);
+    background-color: var(--color-surface-alt);
+  }
+}

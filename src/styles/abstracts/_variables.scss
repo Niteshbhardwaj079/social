@@ -1,0 +1,80 @@
+@use 'sass:math';
+
+// ---------------------------------------------------------------------------
+// Core scale. Root font-size is fixed at 10px in base/_root.scss, so
+// 1rem === 10px everywhere in this project. Use rem() below to convert a
+// design-spec px value into rem without doing the math by hand.
+// ---------------------------------------------------------------------------
+@function rem($px) {
+  @return math.div($px, 10) * 1rem;
+}
+
+// Spacing scale (rem)
+$space-1: 0.4rem; // 4px
+$space-2: 0.8rem; // 8px
+$space-3: 1.2rem; // 12px
+$space-4: 1.6rem; // 16px
+$space-5: 2rem; // 20px
+$space-6: 2.4rem; // 24px
+$space-7: 3.2rem; // 32px
+$space-8: 4rem; // 40px
+$space-9: 4.8rem; // 48px
+$space-10: 6.4rem; // 64px
+
+// Font sizes (rem)
+$font-size-xs: 1.1rem; // 11px
+$font-size-sm: 1.2rem; // 12px
+$font-size-base: 1.4rem; // 14px
+$font-size-md: 1.6rem; // 16px
+$font-size-lg: 1.8rem; // 18px
+$font-size-xl: 2rem; // 20px
+$font-size-2xl: 2.4rem; // 24px
+$font-size-3xl: 3rem; // 30px
+$font-size-4xl: 3.6rem; // 36px
+
+// Border radius
+$radius-sm: 0.6rem;
+$radius-md: 1rem;
+$radius-lg: 1.4rem;
+$radius-xl: 2rem;
+$radius-pill: 999rem;
+
+// Layout
+$sidebar-width: 26rem;
+$sidebar-width-collapsed: 7.2rem;
+$topbar-height: 6.4rem;
+$bottom-nav-height: 6.4rem;
+
+// Breakpoints (px is correct here — media queries are not affected by the
+// root font-size and must match standard device widths)
+$breakpoint-xs: 375px;
+$breakpoint-sm: 576px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 992px;
+$breakpoint-xl: 1200px;
+$breakpoint-xxl: 1400px;
+
+// Transitions
+$transition-fast: 0.15s ease;
+$transition-base: 0.25s ease;
+$transition-slow: 0.4s ease;
+// Dedicated, snappier duration for the sidebar collapse/expand animation —
+// shared between _sidebar.scss and _dashboard-layout.scss (the rail's own
+// width and the content area's margin-left) so both finish in lockstep.
+$sidebar-collapse-duration: 0.15s ease;
+
+// Z-index scale
+$z-index-sticky: 1020;
+$z-index-topbar: 1030;
+$z-index-sidebar: 1035;
+$z-index-bottom-nav: 1030;
+$z-index-modal-backdrop: 1040;
+$z-index-modal: 1050;
+// Dropdown popovers (DropdownMenu) render as siblings of page content, so
+// they need to float above the sidebar/topbar chrome (and even modals, for
+// a dropdown opened from inside one) — not below it like a plain z-index:1000
+// would put them. A popover near the sidebar edge was silently rendering
+// behind it and swallowing clicks until this was raised above 1050.
+$z-index-dropdown: 1060;
+$z-index-toast: 1080;
+$z-index-tooltip: 1090;

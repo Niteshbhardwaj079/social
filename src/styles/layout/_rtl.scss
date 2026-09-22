@@ -1,0 +1,99 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+// Right-to-left (Arabic). Most of the app mirrors on its own because layout uses
+// flex/grid and logical properties (inline-start / inline-end). What is left is
+// Bootstrap's physical-side utilities, native form controls, directional icons and
+// the mobile sidebar drawer that slides in from a fixed edge.
+[dir='rtl'] {
+  // ---- Bootstrap utilities used in the markup
+  .ms-auto {
+    margin-left: 0 !important;
+    margin-right: auto !important;
+  }
+
+  .ms-0 {
+    margin-right: 0 !important;
+  }
+
+  .ms-2 {
+    margin-left: 0 !important;
+    margin-right: 0.8rem !important;
+  }
+
+  .me-1 {
+    margin-right: 0 !important;
+    margin-left: 0.4rem !important;
+  }
+
+  .text-start {
+    text-align: right !important;
+  }
+
+  .text-end {
+    text-align: left !important;
+  }
+
+  .end-0 {
+    right: auto !important;
+    left: 0 !important;
+  }
+
+  // ---- Checkboxes, radios and switches
+  .form-check {
+    padding-left: 0;
+    padding-right: 1.5em;
+
+    .form-check-input {
+      float: right;
+      margin-left: 0;
+      margin-right: -1.5em;
+    }
+  }
+
+  .form-switch {
+    padding-left: 0;
+    padding-right: 2.5em;
+
+    .form-check-input {
+      margin-left: 0;
+      margin-right: -2.5em;
+      background-position: right center;
+
+      &:checked {
+        background-position: left center;
+      }
+    }
+  }
+
+  // ---- Native selects keep their arrow on the reading-end side
+  .form-select {
+    padding-right: 1.2rem;
+    padding-left: 3.6rem;
+    background-position: left 1.2rem center;
+  }
+
+  // ---- Icons that point somewhere must point the other way
+  .icon-directional {
+    transform: scaleX(-1);
+  }
+
+  // ---- Mobile sidebar drawer slides in from the right edge
+  .app-sidebar {
+    @include m.respond-down(v.$breakpoint-lg) {
+      transform: translateX(100%);
+
+      &.is-open {
+        transform: translateX(0);
+      }
+    }
+  }
+
+  // ---- These are pictures of things, not text: never mirror them
+  .email-preview-frame,
+  .image-crop__stage,
+  .recharts-wrapper,
+  .email-code-editor {
+    direction: ltr;
+  }
+}

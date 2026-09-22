@@ -1,0 +1,205 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.app-shell {
+  min-height: 100vh;
+  background-color: var(--color-bg);
+}
+
+.app-main {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+
+  @include m.respond-up(v.$breakpoint-lg) {
+    margin-inline-start: v.$sidebar-width;
+    transition: margin-inline-start v.$sidebar-collapse-duration;
+    will-change: margin-inline-start;
+
+    .app-shell.is-sidebar-collapsed & {
+      margin-inline-start: v.$sidebar-width-collapsed;
+    }
+  }
+}
+
+.app-content {
+  flex: 1;
+  width: 100%;
+  // On an ultrawide monitor the page would stretch edge to edge; past this width
+  // the content stays centred instead. (Normal and 4K-scaled screens never reach it.)
+  max-width: 200rem;
+  margin-inline: auto;
+  padding: v.$space-6;
+  padding-bottom: v.$space-6;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    padding: v.$space-4;
+    padding-bottom: calc(#{v.$bottom-nav-height} + #{v.$space-6} + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.page-header {
+  @include m.flex-between;
+  flex-wrap: wrap;
+  gap: v.$space-3;
+  margin-bottom: v.$space-6;
+}
+
+.page-header__actions {
+  display: flex;
+  gap: v.$space-3;
+  flex-wrap: wrap;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: v.$space-5;
+  margin-bottom: v.$space-6;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include m.respond-down(v.$breakpoint-sm) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: v.$space-5;
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.two-col-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: v.$space-5;
+
+  @include m.respond-down(v.$breakpoint-md) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// ---- Dashboard lists: grow with the data, then scroll ----------------------
+
+// Recent Posts / Scheduled Posts / Recent Activity stay a fixed, tidy height and get
+// their own scrollbar once there is more than fits, instead of stretching the page.
+.dashboard-scroll {
+  max-height: 38rem;
+  overflow-y: auto;
+  @include m.custom-scrollbar;
+
+  &--padded {
+    padding-inline-end: v.$space-4;
+  }
+}
+
+// ---- Followers growth card -------------------------------------------------
+
+.growth-summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: v.$space-2 v.$space-3;
+}
+
+.growth-summary__total {
+  font-size: v.$font-size-3xl;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.growth-summary__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem v.$space-2;
+  border-radius: 999px;
+  font-size: v.$font-size-sm;
+  font-weight: 600;
+
+  &.is-up {
+    background-color: var(--color-success-soft);
+    color: var(--color-success);
+  }
+
+  &.is-down {
+    background-color: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+}
+
+.growth-summary__caption {
+  font-size: v.$font-size-sm;
+  color: var(--color-text-muted);
+}
+
+.growth-card__body {
+  padding-top: v.$space-2;
+}
+
+.growth-tooltip {
+  padding: v.$space-3 v.$space-4;
+  border-radius: v.$radius-md;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text-primary);
+}
+
+.growth-tooltip__date {
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+}
+
+.growth-tooltip__value {
+  font-weight: 700;
+}
+
+.growth-tooltip__delta {
+  font-size: v.$font-size-xs;
+  font-weight: 600;
+
+  &.is-up {
+    color: var(--color-success);
+  }
+
+  &.is-down {
+    color: var(--color-danger);
+  }
+}
+
+// Each platform's follower count under the chart.
+.growth-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: v.$space-3;
+  margin-top: v.$space-4;
+  padding-top: v.$space-4;
+  border-top: 1px solid var(--color-border);
+}
+
+.growth-platforms__item {
+  display: inline-flex;
+  align-items: center;
+  gap: v.$space-2;
+  padding: v.$space-2 v.$space-3;
+  border-radius: v.$radius-md;
+  background-color: var(--color-surface-alt);
+}
+
+.growth-platforms__count {
+  font-weight: 700;
+  font-size: v.$font-size-sm;
+}
+
+.growth-platforms__share {
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+}

@@ -1,0 +1,116 @@
+{
+  "mail": {
+    "help": "¿Necesitas ayuda? Escribe a",
+    "auto": "Este es un mensaje automático de {{app_name}}; por favor, no respondas a este correo.",
+    "passwordReset": {
+      "s": "Restablece tu contraseña de {{app_name}}",
+      "h": "Restablece tu contraseña",
+      "b": [
+        "Hola {{user_name}}, hemos recibido una solicitud para restablecer tu contraseña.",
+        "[Haz clic aquí para elegir una contraseña nueva]({{reset_link}}); este enlace caduca en {{expires_in}}.",
+        "Si no lo solicitaste, puedes ignorar este correo con tranquilidad."
+      ]
+    },
+    "passwordChanged": {
+      "s": "Se cambió tu contraseña de {{app_name}}",
+      "h": "Se cambió tu contraseña",
+      "b": [
+        "Hola {{user_name}}, tu contraseña se cambió el {{changed_at}}.",
+        "Si no fuiste tú, contacta de inmediato con {{support_email}}."
+      ]
+    },
+    "newSignIn": {
+      "s": "Nuevo inicio de sesión en tu cuenta de {{app_name}}",
+      "h": "Nuevo inicio de sesión detectado",
+      "b": [
+        "Hola {{user_name}}, hemos detectado un nuevo inicio de sesión desde {{device}} en {{location}} el {{signed_in_at}}.",
+        "Si fuiste tú, no hace falta hacer nada. Si no, cambia tu contraseña ahora mismo."
+      ]
+    },
+    "invited": {
+      "s": "Te han invitado a {{company}} en {{app_name}}",
+      "h": "Has sido invitado",
+      "b": [
+        "{{invited_by}} te ha invitado a unirte a {{company}} en {{app_name}} como {{role}}.",
+        "[Acepta la invitación]({{accept_link}}) para empezar."
+      ]
+    },
+    "userAdded": {
+      "s": "{{new_user_name}} se ha añadido a {{company}}",
+      "h": "Se ha añadido un usuario nuevo",
+      "b": [
+        "{{added_by}} ha añadido a {{new_user_name}} ({{new_user_email}}) como {{role}}.",
+        "[Revisar usuarios y roles]({{users_url}})"
+      ]
+    },
+    "roleChanged": {
+      "s": "Tu rol en {{app_name}} se ha actualizado",
+      "h": "Tu rol se ha actualizado",
+      "b": [
+        "Hola {{user_name}}, {{changed_by}} ha cambiado tu rol de {{old_role}} a {{new_role}}."
+      ]
+    },
+    "accountConnected": {
+      "s": "Se conectó la cuenta de {{provider}} {{account_name}}",
+      "h": "Se conectó una cuenta social",
+      "b": [
+        "{{connected_by}} conectó {{account_name}} ({{provider}}) el {{connected_at}}.",
+        "[Ver cuentas sociales]({{accounts_url}})"
+      ]
+    },
+    "tokenExpired": {
+      "s": "Vuelve a conectar tu cuenta de {{provider}}",
+      "h": "Tu conexión necesita atención",
+      "b": [
+        "{{account_name}} ({{provider}}) debe volver a conectarse para que {{app_name}} pueda seguir publicando en ella.",
+        "[Reconectar ahora]({{accounts_url}})"
+      ]
+    },
+    "postPublished": {
+      "s": "Tu publicación se ha publicado",
+      "h": "Tu publicación ya está en línea",
+      "b": [
+        "\"{{post_excerpt}}\" se publicó en {{platforms}} el {{published_at}}."
+      ]
+    },
+    "postFailed": {
+      "s": "Una publicación no se pudo publicar",
+      "h": "Una publicación no se pudo publicar",
+      "b": [
+        "No se pudo publicar \"{{post_excerpt}}\" en {{platforms}}: {{error_reason}}.",
+        "[Revisar y reintentar]({{posts_url}})"
+      ]
+    },
+    "approvalRequested": {
+      "s": "{{submitted_by}} envió una publicación para su aprobación",
+      "h": "Una publicación necesita tu revisión",
+      "b": [
+        "{{submitted_by}} envió \"{{post_excerpt}}\" para su aprobación.",
+        "[Revisarla ahora]({{approvals_url}})"
+      ]
+    },
+    "approvalDecided": {
+      "s": "Tu publicación: {{decision}}",
+      "h": "Se tomó una decisión sobre tu publicación",
+      "b": [
+        "Decisión de {{reviewer}} sobre \"{{post_excerpt}}\": {{decision}}.",
+        "{{reason}}"
+      ]
+    },
+    "newComment": {
+      "s": "Nuevo comentario de {{commenter_name}}",
+      "h": "Tienes un comentario nuevo",
+      "b": [
+        "{{commenter_name}} comentó en \"{{post_excerpt}}\": “{{comment_text}}”",
+        "[Responder en la bandeja de entrada]({{inbox_url}})"
+      ]
+    }
+  },
+  "roles": {
+    "superAdmin": "Superadministrador",
+    "admin": "Administrador",
+    "editor": "Editor",
+    "contributor": "Colaborador",
+    "analyst": "Analista"
+  }
+}

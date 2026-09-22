@@ -1,0 +1,7 @@
+// Loads Bootstrap 5 with our variable overrides applied first. Kept as a
+// standalone @import-only module (instead of inline in main.scss) because
+// Sass requires every @use rule in a file to precede any @import — this file
+// is @use'd first from main.scss so Bootstrap's CSS lands before our own
+// component/page overrides in the final cascade.
+@import '../abstracts/bootstrap-config';
+@import '../../../node_modules/bootstrap/scss/bootstrap';

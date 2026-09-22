@@ -1,0 +1,42 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.recycling-post-picker {
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-2;
+  max-height: 24rem;
+  overflow-y: auto;
+  @include m.custom-scrollbar;
+}
+
+.recycling-post-picker__item {
+  display: flex;
+  align-items: center;
+  gap: v.$space-3;
+  padding: v.$space-3;
+  border: 1px solid var(--color-border);
+  border-radius: v.$radius-md;
+  cursor: pointer;
+  transition: border-color v.$transition-fast, background-color v.$transition-fast;
+
+  &:hover {
+    background-color: var(--color-surface-alt);
+  }
+
+  &.is-selected {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-soft);
+  }
+
+  input[type='radio'] {
+    flex-shrink: 0;
+  }
+}
+
+.recycling-post-picker__text {
+  flex: 1;
+  min-width: 0;
+  font-size: v.$font-size-sm;
+  @include m.line-clamp(1);
+}
