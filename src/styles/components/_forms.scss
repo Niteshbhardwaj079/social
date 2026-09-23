@@ -153,3 +153,13 @@
     color: var(--color-primary-text);
   }
 }
+
+.utm-preview {
+  display: block;
+  padding: v.$space-3;
+  border-radius: v.$radius-md;
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  font-size: v.$font-size-sm;
+  word-break: break-all;
+}

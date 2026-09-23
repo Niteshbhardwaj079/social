@@ -8,6 +8,7 @@ import TextField from '../../components/forms/TextField';
 import DatePickerField from '../../components/forms/DatePickerField';
 import AdPreview from '../../components/ads/AdPreview';
 import NetworkIcons from '../../components/ads/NetworkIcons';
+import UtmBuilderModal from '../../components/common/UtmBuilderModal';
 import { createAd, createBulkAd, getAdAccounts, getAdCreativeTemplates, isPlacementConnected } from '../../services/api/adsApi';
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { getPosts } from '../../services/api/postsApi';
@@ -71,6 +72,9 @@ function CreateAd() {
   const [templates, setTemplates] = useState([]);
   const [isLaunching, setIsLaunching] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  // Phase 6: UTM builder. Which destination URL field it's editing — 'primary' or a variation index —
+  // or null when closed; a single shared modal instance covers the primary creative and every variation.
+  const [utmTarget, setUtmTarget] = useState(null);
 
   useEffect(() => {
     Promise.all([getAdAccounts(), getPosts(), getMediaItems(), getAdCreativeTemplates()]).then(([accountData, postList, mediaList, templateList]) => {
@@ -200,6 +204,14 @@ function CreateAd() {
 
   function removeVariation(index) {
     setForm((current) => ({ ...current, variations: current.variations.filter((_, i) => i !== index) }));
+  }
+
+  const utmInitialUrl = utmTarget === 'primary' ? form.destinationUrl : utmTarget !== null ? form.variations[utmTarget]?.destinationUrl || '' : '';
+
+  function applyUtmUrl(taggedUrl) {
+    if (utmTarget === 'primary') update({ destinationUrl: taggedUrl });
+    else if (utmTarget !== null) updateVariation(utmTarget, { destinationUrl: taggedUrl });
+    setUtmTarget(null);
   }
 
   // Phase 5: Creative Library. Prefills the primary creative's fields from a saved template — a plain
@@ -435,6 +447,9 @@ function CreateAd() {
                       </div>
                     </div>
                     <TextField id="adUrl" label="Where should the button go?" type="url" value={form.destinationUrl} onChange={(event) => update({ destinationUrl: event.target.value })} placeholder="https://yoursite.com/offer" hint="Tip: paste a short link from the Link Shortener to see how many clicks come from this ad." />
+                    <button type="button" className="btn btn-link p-0 mb-4" onClick={() => setUtmTarget('primary')}>
+                      Add campaign tracking (UTM)
+                    </button>
                     <div className="mb-2">
                       <span className="form-label-custom d-block">Image (from your Media Library)</span>
                       <div className="ad-image-grid">
@@ -481,6 +496,9 @@ function CreateAd() {
                           </div>
                         </div>
                         <TextField id={`variationUrl-${index}`} label="Where should the button go?" type="url" value={variation.destinationUrl} onChange={(event) => updateVariation(index, { destinationUrl: event.target.value })} placeholder="https://yoursite.com/offer" />
+                        <button type="button" className="btn btn-link p-0 mb-4" onClick={() => setUtmTarget(index)}>
+                          Add campaign tracking (UTM)
+                        </button>
                         <div className="mb-0">
                           <span className="form-label-custom d-block">Image</span>
                           <div className="ad-image-grid">
@@ -654,6 +672,8 @@ function CreateAd() {
           </div>
         </aside>
       </div>
+
+      <UtmBuilderModal isOpen={utmTarget !== null} onClose={() => setUtmTarget(null)} onApply={applyUtmUrl} initialUrl={utmInitialUrl} />
     </div>
   );
 }

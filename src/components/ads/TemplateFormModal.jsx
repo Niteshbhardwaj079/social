@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Modal from '../common/Modal';
 import Icon from '../common/Icon';
+import UtmBuilderModal from '../common/UtmBuilderModal';
 import TextField from '../forms/TextField';
 import { AD_CTAS } from '../../config/adPlatforms';
 
@@ -10,6 +11,7 @@ const EMPTY_FORM = { name: '', headline: '', text: '', cta: 'Learn more', destin
 function TemplateFormModal({ isOpen, onClose, onSubmit, template, images }) {
   const isEditing = Boolean(template);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [isUtmBuilderOpen, setIsUtmBuilderOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -56,6 +58,18 @@ function TemplateFormModal({ isOpen, onClose, onSubmit, template, images }) {
           </div>
         </div>
         <TextField id="templateUrl" label="Where should the button go?" type="url" value={form.destinationUrl} onChange={(event) => update({ destinationUrl: event.target.value })} placeholder="https://yoursite.com/offer" />
+        <button type="button" className="btn btn-link p-0 mb-4" onClick={() => setIsUtmBuilderOpen(true)}>
+          Add campaign tracking (UTM)
+        </button>
+        <UtmBuilderModal
+          isOpen={isUtmBuilderOpen}
+          onClose={() => setIsUtmBuilderOpen(false)}
+          initialUrl={form.destinationUrl}
+          onApply={(taggedUrl) => {
+            update({ destinationUrl: taggedUrl });
+            setIsUtmBuilderOpen(false);
+          }}
+        />
         <div className="mb-0">
           <span className="form-label-custom d-block">Image (from your Media Library)</span>
           <div className="ad-image-grid">

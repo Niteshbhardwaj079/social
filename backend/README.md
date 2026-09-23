@@ -399,9 +399,17 @@ validated by the same `cleanCredentials()` every platform uses, stored in the sa
   not a link back to the template, so editing the resulting ad never changes what's saved in the library.
   Read is open to anyone signed in; create/update/delete needs `canPublishPosts` (Editor+), the same bar
   as creating an ad itself.
+- **UTM Builder** (Phase 6) — a campaign-tracked (`utm_source`/`utm_medium`/`utm_campaign`/`utm_term`/
+  `utm_content`) version of a destination URL. Deliberately **zero backend surface**: building a tagged
+  URL is just adding query parameters to a link the client already controls, so it's a pure frontend
+  utility (`src/utils/utm.js` + a shared `UtmBuilderModal`) with no new table, no new endpoint. Reachable
+  from three places a destination URL is authored: the ad wizard's own link field (single ad and every
+  bulk variation independently), a Creative Library template's link field, and the Link Shortener's
+  "Build UTM Link" action (chains straight into the existing Create Link form, pre-filled, since a UTM
+  link is usually meant to be shortened too).
 - Not built yet: editing a launched ad's targeting/creative/budget after it is live (only pause/resume/delete
-  are wired up), a UTM builder, an automated-rules engine, and the five deferred ad networks above. The
-  database hierarchy from this rework (`ad_sets`/`ad_creatives` as independent, reusable rows) was built
+  are wired up), an automated-rules engine, and the five deferred ad networks above. The database
+  hierarchy from this rework (`ad_sets`/`ad_creatives` as independent, reusable rows) was built
   specifically so those are additions on top of this schema, not another rework.
 
 ### Link Shortener
@@ -426,6 +434,10 @@ could silently differ between a local dev database and wherever it's actually de
   tool, not scoped to who created it, since the whole point is a marketing utility the team uses together.
 - The redirect route works even when this process only serves the API (`SERVE_FRONTEND=false` / split
   hosting) — it is registered before the front-end's catch-all, not inside it.
+- The page's "Build UTM Link" action opens the shared UTM Builder (see the Ads section's Phase 6 entry —
+  it's a pure frontend utility, no backend of its own) and hands the resulting tagged URL straight to
+  this same Create Link form, pre-filled, since a campaign-tracked link is usually meant to be shortened
+  too.
 
 ### Media & storage
 

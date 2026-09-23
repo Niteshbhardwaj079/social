@@ -1,12 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '../common/Modal';
+import UtmBuilderModal from '../common/UtmBuilderModal';
 import TextField from '../forms/TextField';
 import brand from '../../config/brand';
 
 const EMPTY_FORM_VALUES = { destinationUrl: '', customSlug: '', label: '' };
 
-function CreateLinkModal({ isOpen, onClose, onSubmit }) {
+// `prefillUrl` lets the page's own "Build UTM Link" action hand off an already-tagged URL — see
+// LinkShortener.jsx, which opens UtmBuilderModal first, then this modal pre-filled with the result.
+function CreateLinkModal({ isOpen, onClose, onSubmit, prefillUrl }) {
   const [formValues, setFormValues] = useState(EMPTY_FORM_VALUES);
+  const [isUtmBuilderOpen, setIsUtmBuilderOpen] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && prefillUrl) setFormValues((current) => ({ ...current, destinationUrl: prefillUrl }));
+  }, [isOpen, prefillUrl]);
 
   function handleChange(field, value) {
     setFormValues((current) => ({ ...current, [field]: value }));
@@ -40,6 +48,18 @@ function CreateLinkModal({ isOpen, onClose, onSubmit }) {
           value={formValues.destinationUrl}
           onChange={(event) => handleChange('destinationUrl', event.target.value)}
           required
+        />
+        <button type="button" className="btn btn-link p-0 mb-4" onClick={() => setIsUtmBuilderOpen(true)}>
+          Add campaign tracking (UTM)
+        </button>
+        <UtmBuilderModal
+          isOpen={isUtmBuilderOpen}
+          onClose={() => setIsUtmBuilderOpen(false)}
+          initialUrl={formValues.destinationUrl}
+          onApply={(taggedUrl) => {
+            handleChange('destinationUrl', taggedUrl);
+            setIsUtmBuilderOpen(false);
+          }}
         />
         <TextField
           id="linkLabel"

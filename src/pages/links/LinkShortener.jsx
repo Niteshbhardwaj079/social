@@ -6,6 +6,7 @@ import ErrorState from '../../components/common/ErrorState';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import CreateLinkModal from '../../components/links/CreateLinkModal';
 import LinkDetailModal from '../../components/links/LinkDetailModal';
+import UtmBuilderModal from '../../components/common/UtmBuilderModal';
 import { SkeletonTable } from '../../components/common/LoadingSkeleton';
 import { StatCardGrid } from '../../components/common/StatCard';
 import { BulkActionBar, Pager, RowCheckbox, SelectAllCheckbox, TableToolbar } from '../../components/common/DataTableParts';
@@ -28,6 +29,8 @@ function LinkShortener() {
   const [links, setLinks] = useState([]);
   const [requestStatus, setRequestStatus] = useState(REQUEST_STATUS.LOADING);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isUtmBuilderOpen, setIsUtmBuilderOpen] = useState(false);
+  const [utmPrefillUrl, setUtmPrefillUrl] = useState('');
   const [activeLinkId, setActiveLinkId] = useState(null);
   const [linkPendingDelete, setLinkPendingDelete] = useState(null);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
@@ -60,10 +63,19 @@ function LinkShortener() {
       (newLink) => {
         setLinks((current) => [newLink, ...current]);
         setIsCreateModalOpen(false);
+        setUtmPrefillUrl('');
         showToast({ type: 'success', title: 'Short link created', message: `${brand.website}/l/${newLink.slug}` });
       },
       (error) => showToast({ type: 'error', title: 'Could not create that link', message: apiErrorMessage(error) })
     );
+  }
+
+  // "Build UTM Link": build the tagged URL first, then hand it straight to the normal Create Link
+  // modal, pre-filled — a UTM link is usually meant to be shortened too, not a separate feature.
+  function handleUtmBuilt(taggedUrl) {
+    setIsUtmBuilderOpen(false);
+    setUtmPrefillUrl(taggedUrl);
+    setIsCreateModalOpen(true);
   }
 
   function handleCopy(link) {
@@ -129,10 +141,16 @@ function LinkShortener() {
         subtitle={t('pages.links')}
         guideChapterId="links"
         actions={
-          <button type="button" className="btn btn-primary" onClick={() => setIsCreateModalOpen(true)}>
-            <Icon name="Link2" size={16} />
-            Create Link
-          </button>
+          <>
+            <button type="button" className="btn btn-outline-secondary-custom" onClick={() => setIsUtmBuilderOpen(true)}>
+              <Icon name="Tags" size={16} />
+              Build UTM Link
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => setIsCreateModalOpen(true)}>
+              <Icon name="Link2" size={16} />
+              Create Link
+            </button>
+          </>
         }
       />
 
@@ -274,7 +292,17 @@ function LinkShortener() {
         isDanger
       />
 
-      <CreateLinkModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onSubmit={handleCreateSubmit} />
+      <CreateLinkModal
+        isOpen={isCreateModalOpen}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setUtmPrefillUrl('');
+        }}
+        onSubmit={handleCreateSubmit}
+        prefillUrl={utmPrefillUrl}
+      />
+
+      <UtmBuilderModal isOpen={isUtmBuilderOpen} onClose={() => setIsUtmBuilderOpen(false)} onApply={handleUtmBuilt} />
 
       <LinkDetailModal link={activeLink} onClose={() => setActiveLinkId(null)} />
 
