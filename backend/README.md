@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 245 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 253 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -38,6 +38,7 @@ Email uses **any SMTP server** you give it (`SMTP_*`); with none set, emails are
 | Analytics | `GET /api/analytics/overview?range=7d\|30d\|90d` · `GET /api/analytics/content` |
 | Inbox | `GET /api/inbox` · `GET /inbox/assignable-users` · `POST /:id/reply` (Editor+) · `POST /:id/read` · `PATCH /:id/status` · `PATCH /:id/assign` |
 | Ads | `GET /api/ads/accounts` · `POST /accounts/:network/test` · `PUT /accounts/:network` (connect, Super Admin / Admin) · `DELETE /accounts/:network` · `GET/POST /api/ads` · `GET /:id` · `PATCH /status` (bulk pause/resume, Editor+) · `DELETE /api/ads` (bulk) |
+| Links | `GET/POST /api/links` · `DELETE /api/links` (bulk) · `DELETE /api/links/:id` — plus the real redirect itself, `GET /l/:slug` (not under `/api`, no sign-in needed — anyone with the short link) |
 | Operations | `GET /api/health` · `GET /api/activity-logs` · `DELETE /api/activity-logs` (Super Admin / Admin) |
 
 Errors are always `{ "error": { "code", "message", "details?" } }`.
@@ -326,6 +327,25 @@ spend/impressions/clicks and the ad's real review status back into `ad_campaign_
 - Not built yet: editing a launched ad's targeting/creative/budget after it is live (only pause/resume/delete
   are wired up), and the five deferred ad networks above.
 
+### Link Shortener
+
+A real link shortener on this app's own domain — no third-party service, so it never costs anything as
+traffic grows. `POST /api/links` creates a real short link (`short_links`); `GET /l/:slug` (a plain,
+top-level route in `app.js`, not under `/api`, and not gated behind sign-in — the whole point is that
+anyone can follow it) records a real click (`short_link_clicks`, just a timestamp — no IP/user-agent is
+kept, since the UI never needed more than "how many, when") and 302-redirects to the real destination.
+Total clicks and the 14-day chart are both derived from that table at read time, the same "count it, don't
+cache it" choice `campaignService.js` already makes for post counts.
+
+- A slug can be chosen or left to auto-generate (a short random one, retried on the rare collision); either
+  way it's normalized to lowercase letters/digits/hyphens only, and a handful of words this app itself
+  already uses as top-level paths (`api`, `media`, `l`, `config.js`) are refused so a short link can never
+  shadow a real route.
+- Anyone signed in (except Analyst, same as posts/media) can create or delete a link — this is a shared team
+  tool, not scoped to who created it, since the whole point is a marketing utility the team uses together.
+- The redirect route works even when this process only serves the API (`SERVE_FRONTEND=false` / split
+  hosting) — it is registered before the front-end's catch-all, not inside it.
+
 ### Media & storage
 
 `GET /api/storage` says where uploads go right now; the Media Library uses it before every upload, and it is safe for
@@ -412,10 +432,11 @@ pattern as everything already built above; none of them are blocked on this proj
 keys, only on the integration work (or, for a couple of them, a review process this project itself — not the
 client — would need to pass) itself.
 
-Two whole pages have no backend at all, by design so far — nobody has asked for them and each is really its
-own module: the **Link Shortener** (would need its own redirect/click-tracking system) and the **Roles tab**
-of Users & Roles (custom permission editing would touch the whole role system this app already has baked
-into `permissions.js`). Both are honestly still mock data, not silently faked.
+One page has no backend at all, by design so far — nobody has asked for it and it would really touch the
+whole app: the **Roles tab** of Users & Roles (custom permission editing would mean reworking the role
+system this app already has baked into `permissions.js` — every `canPublishPosts`/`canManageUsers`/etc.
+check across the whole backend assumes one of five fixed roles, not an arbitrary per-role permission set).
+Still honestly mock data, not silently faked.
 
 A full audit (2026-09-23) also found three Settings forms that looked real but weren't — Account, General
 and Security all just showed a success toast and changed nothing. Fixed: Account (name + password, both real;
@@ -424,7 +445,9 @@ timezone) now call the real endpoints that already existed but nothing on the fr
 now shows this person's real, currently-signed-in devices (from `auth_tokens`, the same table the "new
 sign-in" email already reads) with a working Revoke, and Two-Factor Authentication is honestly labelled
 "Coming soon" instead of a switch that silently did nothing. Campaign editing was also wired up — the PATCH
-endpoint already existed; the web app just never had an Edit button.
+endpoint already existed; the web app just never had an Edit button. The **Link Shortener** got a full real
+backend the same day (see its own section above) — it was the other page with no backend at all; now only
+Roles is left in that state.
 
 **Still not translated**: page titles/nav use the 21-language system throughout, but most pages' own body
 content (loading states, empty states, chart/table headers, filter options, confirm dialogs, toast messages)

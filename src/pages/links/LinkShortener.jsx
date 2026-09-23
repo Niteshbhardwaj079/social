@@ -12,6 +12,7 @@ import { BulkActionBar, Pager, RowCheckbox, SelectAllCheckbox, TableToolbar } fr
 import usePagination from '../../hooks/usePagination';
 import useRowSelection from '../../hooks/useRowSelection';
 import { getLinks, createLink, deleteLink, deleteLinks } from '../../services/api/linksApi';
+import { apiErrorMessage } from '../../services/api/axiosClient';
 import { REQUEST_STATUS } from '../../config/constants';
 import { formatDate } from '../../utils/formatters';
 import { copyToClipboard } from '../../utils/clipboard';
@@ -55,11 +56,14 @@ function LinkShortener() {
   }, []);
 
   function handleCreateSubmit(formValues) {
-    createLink(formValues).then((newLink) => {
-      setLinks((current) => [newLink, ...current]);
-      setIsCreateModalOpen(false);
-      showToast({ type: 'success', title: 'Short link created', message: `${brand.website}/l/${newLink.slug}` });
-    });
+    createLink(formValues).then(
+      (newLink) => {
+        setLinks((current) => [newLink, ...current]);
+        setIsCreateModalOpen(false);
+        showToast({ type: 'success', title: 'Short link created', message: `${brand.website}/l/${newLink.slug}` });
+      },
+      (error) => showToast({ type: 'error', title: 'Could not create that link', message: apiErrorMessage(error) })
+    );
   }
 
   function handleCopy(link) {
@@ -75,21 +79,27 @@ function LinkShortener() {
 
   function handleBulkDeleteConfirmed() {
     const ids = [...selection.selectedIds];
-    deleteLinks(ids).then(() => {
-      setLinks((current) => current.filter((link) => !ids.includes(link.id)));
-      selection.clear();
-      setIsBulkDeleteOpen(false);
-      showToast({ type: 'success', title: `${ids.length} ${ids.length === 1 ? 'link' : 'links'} deleted` });
-    });
+    deleteLinks(ids).then(
+      () => {
+        setLinks((current) => current.filter((link) => !ids.includes(link.id)));
+        selection.clear();
+        setIsBulkDeleteOpen(false);
+        showToast({ type: 'success', title: `${ids.length} ${ids.length === 1 ? 'link' : 'links'} deleted` });
+      },
+      (error) => showToast({ type: 'error', title: 'Could not delete those links', message: apiErrorMessage(error) })
+    );
   }
 
   function handleDeleteConfirmed() {
     if (!linkPendingDelete) return;
-    deleteLink(linkPendingDelete.id).then(() => {
-      setLinks((current) => current.filter((link) => link.id !== linkPendingDelete.id));
-      setLinkPendingDelete(null);
-      showToast({ type: 'success', title: 'Link deleted' });
-    });
+    deleteLink(linkPendingDelete.id).then(
+      () => {
+        setLinks((current) => current.filter((link) => link.id !== linkPendingDelete.id));
+        setLinkPendingDelete(null);
+        showToast({ type: 'success', title: 'Link deleted' });
+      },
+      (error) => showToast({ type: 'error', title: 'Could not delete that link', message: apiErrorMessage(error) })
+    );
   }
 
   const activeLink = links.find((link) => link.id === activeLinkId) || null;

@@ -21,6 +21,7 @@ import dashboardRoutes from './dashboard.js';
 import analyticsRoutes from './analytics.js';
 import inboxRoutes from './inbox.js';
 import adsRoutes from './ads.js';
+import linkRoutes from './links.js';
 
 const router = Router();
 
@@ -52,6 +53,7 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/inbox', inboxRoutes);
 router.use('/ads', adsRoutes);
+router.use('/links', linkRoutes);
 
 router.get(
   '/activity-logs',

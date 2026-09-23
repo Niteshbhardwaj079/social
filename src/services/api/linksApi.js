@@ -1,5 +1,7 @@
 import { mockRequest } from '../mock/mockRequest';
 import linksMockData from '../mock/linksMock';
+import { API_ENABLED } from '../../config/runtime';
+import axiosClient from './axiosClient';
 
 let linksStore = [...linksMockData];
 
@@ -12,10 +14,12 @@ function slugify(value) {
 }
 
 export function getLinks() {
+  if (API_ENABLED) return axiosClient.get('/links').then((response) => response.data.links);
   return mockRequest([...linksStore]);
 }
 
 export function createLink({ destinationUrl, customSlug, label }) {
+  if (API_ENABLED) return axiosClient.post('/links', { destinationUrl, customSlug, label }).then((response) => response.data.link);
   const slug = slugify(customSlug || label || Math.random().toString(36).slice(2, 8));
   const newLink = {
     id: `link-${Date.now()}`,
@@ -32,11 +36,13 @@ export function createLink({ destinationUrl, customSlug, label }) {
 }
 
 export function deleteLink(linkId) {
+  if (API_ENABLED) return axiosClient.delete(`/links/${linkId}`).then((response) => response.data);
   linksStore = linksStore.filter((link) => link.id !== linkId);
   return mockRequest({ success: true });
 }
 
 export function deleteLinks(linkIds) {
+  if (API_ENABLED) return axiosClient.delete('/links', { data: { ids: linkIds } }).then((response) => response.data);
   const idSet = new Set(linkIds);
   linksStore = linksStore.filter((link) => !idSet.has(link.id));
   return mockRequest({ success: true, deleted: idSet.size });

@@ -31,13 +31,15 @@ performs (who did what, when, from which device/IP), with real filters, CSV expo
 real replies sent back to the real platform, real assign-to-a-teammate and open/pending/closed workflow, and
 a notification the moment a new one comes in — and **Ads**: real Meta (Facebook & Instagram) ad campaigns,
 created and run through Meta's own Marketing API on the client's own ad account, with real day-by-day spend,
-impressions, clicks and review status kept fresh in the background. Every module now has a real backend;
-what's left is a handful of specific, documented gaps — Google Business posting, engagement metrics for a
-few platforms, Inbox for X, four of the six ad networks, and two standalone pages with no backend at all
-yet (Link Shortener, custom Roles) — each deferred for its own honest reason rather than guessed. Also
-fixed: three Settings forms (Account, General, Security) that looked real but only showed a success toast
-and saved nothing — they now call the real endpoints. Not yet started: translating most pages' own body
-content (only nav/titles use the 21-language system today) — see backend/README.md for the full detail.
+impressions, clicks and review status kept fresh in the background. Also a real **Link Shortener** — short
+links on the client's own domain (no third-party service, so it never costs anything as traffic grows),
+with real click tracking. Every module now has a real backend except the **Roles tab**'s custom permission
+editing, which would touch the whole role system; the remaining gaps are a handful of specific, documented
+platform limits — Google Business posting, engagement metrics for a few platforms, Inbox for X, four of the
+six ad networks — each deferred for its own honest reason rather than guessed. Also fixed: three Settings
+forms (Account, General, Security) that looked real but only showed a success toast and saved nothing —
+they now call the real endpoints. Not yet started: translating most pages' own body content (only nav/
+titles use the 21-language system today) — see backend/README.md for the full detail.
 
 ## Run it on your machine
 

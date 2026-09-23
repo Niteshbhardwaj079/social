@@ -10,6 +10,7 @@ import { logger } from './utils/logger.js';
 import { apiLimiter } from './middleware/rateLimit.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/index.js';
+import { resolveAndRecordClick } from './services/shortLinkService.js';
 
 /** Builds the Express app (no listening, no database work — that is server.js / bootstrap.js). */
 export function createApp() {
@@ -76,6 +77,21 @@ export function createApp() {
 
   // Files uploaded to "Server" storage (see src/storage/local.js) — served from wherever MEDIA_LOCAL_DIR points.
   app.use('/media', express.static(config.media.localDir, { index: false, maxAge: '30d', immutable: true }));
+
+  // The Link Shortener's real redirect — on this same domain, so it works whether or not this process
+  // also serves the built front-end (SERVE_FRONTEND=false / split hosting included).
+  app.get('/l/:slug', async (req, res, next) => {
+    try {
+      const destination = await resolveAndRecordClick(req.params.slug);
+      if (!destination) {
+        res.status(404).type('text/plain').send('This short link does not exist.');
+        return;
+      }
+      res.redirect(302, destination);
+    } catch (error) {
+      next(error);
+    }
+  });
 
   serveFrontend(app);
   app.use(errorHandler);
