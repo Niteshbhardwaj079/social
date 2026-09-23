@@ -8,6 +8,6 @@
 //
 // When the API server itself serves this app it replaces this file with apiEnabled: true automatically.
 window.__APP_CONFIG__ = {
-  apiEnabled: false,
-  apiBaseUrl: '/api',
+  apiEnabled: true,
+  apiBaseUrl: 'https://social-api-5sry.onrender.com/api',
 };
