@@ -49,6 +49,10 @@ const schema = z.object({
   // How often the recycling queue is checked for a repost whose time has come (minutes, 0 = off). Recycling
   // intervals are counted in days, so this needs nowhere near the post scheduler's 30-second granularity.
   RECYCLING_INTERVAL_MIN: z.coerce.number().int().min(0).max(1440).default(30),
+  // How often published posts' real engagement (likes/comments/shares/views) is re-fetched from the
+  // platforms that support it (minutes, 0 = off). Modest by default — this calls each platform's own API
+  // once per due post per pass, so it should not run as often as the post scheduler.
+  ANALYTICS_REFRESH_INTERVAL_MIN: z.coerce.number().int().min(0).max(10080).default(120),
   // Most checks per minute per IP that call a social platform (test / connect / sync).
   PROVIDER_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(30),
   // Facebook retires old Graph API versions after about two years: bump this instead of editing code.
@@ -143,6 +147,10 @@ export const config = Object.freeze({
   },
   recycling: {
     intervalMs: env.RECYCLING_INTERVAL_MIN * 60 * 1000,
+  },
+  analytics: {
+    refreshIntervalMin: env.ANALYTICS_REFRESH_INTERVAL_MIN,
+    refreshIntervalMs: env.ANALYTICS_REFRESH_INTERVAL_MIN * 60 * 1000,
   },
   media: {
     localDir: path.resolve(backendRoot, env.MEDIA_LOCAL_DIR || 'data/media'),

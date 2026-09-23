@@ -10,7 +10,7 @@ const THREADS_BASE = 'https://graph.threads.net/v1.0';
 // Meta answers an expired or revoked token with HTTP 400 and error code 190 rather than 401.
 const isTokenProblem = (response) => response.data?.error?.code === 190 || response.data?.error?.type === 'OAuthException';
 
-async function graphGet(base, path, { label, token, appSecret, fields }) {
+export async function graphGet(base, path, { label, token, appSecret, fields }) {
   const query = { fields };
   // Apps that require it reject calls without a proof that the caller knows the App Secret.
   if (appSecret) query.appsecret_proof = crypto.createHmac('sha256', appSecret).update(token).digest('hex');

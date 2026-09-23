@@ -1,7 +1,6 @@
-import { listAccounts } from './socialAccountService.js';
 import { listPosts } from './postService.js';
 import { listActivity } from './auditService.js';
-import { getFollowerHistory, getFollowerDelta } from './analyticsService.js';
+import { getFollowerHistory, getFollowerDelta, windowedTotals, engagementTrendBreakdown, platformPerformanceRollup } from './analyticsService.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const RANGE_DAYS = { '7d': 7, '30d': 30, '90d': 90 };
@@ -25,29 +24,41 @@ function postsPerWeek(publishedAt) {
 }
 
 /**
- * Everything the Dashboard shows, from real data. `engagement`/`reach` are honestly 0 — that needs each
- * platform's own per-post insights API, a separate and much larger piece of work than this — never a
- * guessed or placeholder number standing in for a real one.
+ * Everything the Dashboard shows, from real data. Engagement/reach come from post_targets' real
+ * likes/comments/shares/views, background-refreshed from each supported platform's own API
+ * (see providers/metrics.js) — never a guessed or placeholder number standing in for a real one.
  */
 export async function getDashboardOverview() {
-  const [accounts, posts, activity, followersByRange, followerDelta] = await Promise.all([
-    listAccounts(),
+  const [posts, activity, followersByRange, followerDelta, totals, engagementTrend, platformPerformance] = await Promise.all([
     listPosts(),
     listActivity({ limit: 10 }),
     Promise.all(Object.entries(RANGE_DAYS).map(async ([key, days]) => [key, await getFollowerHistory(days)])).then(Object.fromEntries),
     getFollowerDelta(7),
+    windowedTotals(7),
+    engagementTrendBreakdown(30),
+    platformPerformanceRollup(30),
   ]);
 
-  const connected = accounts.filter((account) => account.status === 'connected');
   const publishedThisMonth = posts.filter((post) => post.status === 'published' && new Date(post.updatedAt) >= startOfMonth()).length;
   const publishedLastMonth = posts.filter(
     (post) => post.status === 'published' && new Date(post.updatedAt) >= startOfPrevMonth() && new Date(post.updatedAt) < startOfMonth()
   ).length;
+  const engagementRate = followerDelta.current > 0 ? Number(((totals.engagementCurrent / followerDelta.current) * 100).toFixed(1)) : 0;
+  const previousEngagementRate = followerDelta.current > 0 ? Number(((totals.engagementPrevious / followerDelta.current) * 100).toFixed(1)) : 0;
 
   return {
     kpis: [
       { key: 'followers', label: 'Total Followers', value: followerDelta.current, delta: followerDelta.delta, isPositive: (followerDelta.delta ?? 0) >= 0, icon: 'Users', accent: 'blue' },
-      { key: 'engagement', label: 'Engagement Rate', value: 0, suffix: '%', delta: null, isPositive: true, icon: 'Heart', accent: 'rose' },
+      {
+        key: 'engagement',
+        label: 'Engagement Rate',
+        value: engagementRate,
+        suffix: '%',
+        delta: percentChange(totals.engagementCurrent, totals.engagementPrevious),
+        isPositive: engagementRate >= previousEngagementRate,
+        icon: 'Heart',
+        accent: 'rose',
+      },
       {
         key: 'posts',
         label: 'Posts This Month',
@@ -57,13 +68,21 @@ export async function getDashboardOverview() {
         icon: 'FileText',
         accent: 'purple',
       },
-      { key: 'reach', label: 'Total Reach', value: 0, delta: null, isPositive: true, icon: 'Radar', accent: 'teal' },
+      {
+        key: 'reach',
+        label: 'Total Reach',
+        value: totals.reachCurrent,
+        delta: percentChange(totals.reachCurrent, totals.reachPrevious),
+        isPositive: totals.reachCurrent >= totals.reachPrevious,
+        icon: 'Radar',
+        accent: 'teal',
+      },
     ],
     followersGrowth: followersByRange['30d'],
     followersGrowthByRange: followersByRange,
-    engagementTrend: [],
+    engagementTrend,
     postsPublished: postsPerWeek(posts.filter((post) => post.status === 'published').map((post) => post.updatedAt)),
-    platformPerformance: connected.map((account) => ({ platform: account.platform, followers: account.followers, engagement: 0 })),
+    platformPerformance,
     recentActivity: activity.map((entry) => ({
       id: String(entry.id),
       user: entry.actor?.name || 'Someone',

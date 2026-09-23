@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 216 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 222 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -34,6 +34,7 @@ Email uses **any SMTP server** you give it (`SMTP_*`); with none set, emails are
 | Posts | `GET/POST /api/posts` · `GET/PATCH/DELETE /:id` · `POST /bulk` · `POST /:id/retry` · `/:id/approve` · `/:id/reject` |
 | Storage | `GET /api/storage` (everyone) · `POST /providers/:key/test` · `PUT /providers/:key` (connect) · `DELETE /provider` · `PUT /preferences` (Super Admin / Admin) |
 | Media | `GET /api/media` · `GET /media/folders` · `POST /media` (upload) · `POST /media/link` · `PATCH/DELETE /media/:id` · `POST /media/bulk-delete` |
+| Analytics | `GET /api/analytics/overview?range=7d\|30d\|90d` · `GET /api/analytics/content` |
 | Operations | `GET /api/health` · `GET /api/activity-logs` · `DELETE /api/activity-logs` (Super Admin / Admin) |
 
 Errors are always `{ "error": { "code", "message", "details?" } }`.
@@ -224,6 +225,32 @@ written by `recordActivity()` from inside the service that actually did the thin
   the point it logs, and a real diff is not worth a speculative refactor across every "updated" action just to fill in
   a page column — the same "don't invent it" rule as everywhere else in this API.
 
+### Analytics (real per-post engagement)
+
+`GET /api/analytics/overview` (Followers/Engagement/Reach/Posts Published KPIs, an engagement-over-time
+chart, platform performance) and `GET /api/analytics/content` (top posts by real engagement) are built
+from `post_targets`' own `likes`/`comments`/`shares`/`views` columns, kept up to date by a background pass
+(`ANALYTICS_REFRESH_INTERVAL_MIN`, default 2 hours) that re-fetches each published post's real numbers from
+the platform it was posted to — see `src/providers/metrics.js`.
+
+- **Supported today**: Bluesky, Mastodon, X, Facebook Pages, Instagram Business, YouTube — all read with the
+  same credentials already used to publish, no extra permission beyond what posting itself needs.
+- **Deliberately not attempted, and why** (same "don't guess a restricted or unverified API" rule as Google
+  Business posting): **Threads** — its Insights API is new enough (2024) that this codebase does not have
+  confident, verified knowledge of its stable metric names. **LinkedIn** — reading a post's own engagement
+  back needs the Marketing Developer Platform partner tier, not the basic posting access this app uses; most
+  real client apps could never get it. **TikTok** — an unaudited app's video is `SELF_ONLY` and the publish
+  call only returns an async `publish_id`, never a fetchable video id. **Pinterest, Google Business** — not
+  researched with enough confidence yet.
+- **"Reach"/"views" is one column, not two**: YouTube's `viewCount` and X's `impression_count` both land in
+  `post_targets.views` — different platforms, similar-enough concept ("how many times this was seen"), the
+  same way `followers` already unifies very different platform concepts under one column. The mock page had
+  a fourth "Impressions" KPI with no genuinely distinct real source — rather than show the Reach number
+  again under a different label, the real fourth KPI is **Posts Published** (a real, different number).
+- `before`/`after`-style history does not exist for these numbers — only the latest known count is kept, so
+  the "Engagement Over Time" chart is built by attributing each post's current numbers to the day it was
+  published, not a true minute-by-minute timeline (no platform hands this app one).
+
 ### Media & storage
 
 `GET /api/storage` says where uploads go right now; the Media Library uses it before every upload, and it is safe for
@@ -302,8 +329,8 @@ test/           integration tests (node:test)
 
 ## Not built yet (next)
 
-Google Business posting (its Local Post API is restricted to allowlisted partners, unlike every other platform here),
-Ads, Inbox, and per-post engagement/reach analytics (Meta Insights, YouTube Analytics, X's own metrics… — a real API
-per platform, not yet built). Every one of these follows the same bring-your-own-key pattern as everything already
-built above; none of them are blocked on this project having its own platform keys, only on the integration work
+Ads and Inbox. Google Business posting, and per-post engagement for Threads/LinkedIn/TikTok/Pinterest, are
+deliberately deferred rather than guessed — see the Social accounts and Analytics sections above for why each
+one specifically. Every one of these follows the same bring-your-own-key pattern as everything already built
+above; none of them are blocked on this project having its own platform keys, only on the integration work
 itself. The web app keeps using demo data for those until their APIs exist.

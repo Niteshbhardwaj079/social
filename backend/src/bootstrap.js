@@ -8,6 +8,7 @@ import { startOutboxWorker } from './services/mailer.js';
 import { startSocialAccountChecker } from './services/socialAccountService.js';
 import { startScheduler } from './services/postService.js';
 import { startRecyclingScheduler } from './services/recyclingService.js';
+import { startMetricsRefresher } from './services/analyticsService.js';
 import { logger } from './utils/logger.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -42,6 +43,7 @@ export function startBackgroundJobs() {
   const stopAccountChecks = startSocialAccountChecker();
   const stopScheduler = startScheduler();
   const stopRecycling = startRecyclingScheduler();
+  const stopMetricsRefresh = startMetricsRefresher();
   const cleanup = setInterval(() => {
     deleteExpiredTokens().catch((error) => logger.error('Token cleanup failed', error));
   }, DAY_MS);
@@ -51,6 +53,7 @@ export function startBackgroundJobs() {
     stopAccountChecks();
     stopScheduler();
     stopRecycling();
+    stopMetricsRefresh();
     clearInterval(cleanup);
   };
 }

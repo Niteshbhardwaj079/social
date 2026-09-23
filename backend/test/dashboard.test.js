@@ -45,12 +45,13 @@ describe('the dashboard', () => {
     assert.ok(first.body.followersGrowth.at(-1).followers >= 120, 'today\'s point on the growth chart reflects the real count');
     assert.deepEqual(
       first.body.platformPerformance.find((row) => row.platform === 'bluesky'),
-      { platform: 'bluesky', followers: 120, engagement: 0 }
+      { platform: 'bluesky', followers: 120, engagement: 0, reach: 0, posts: 0 }
     );
     assert.ok(first.body.recentActivity.some((entry) => entry.action === 'social connected'), 'a dotted action code is humanized (dot -> space)');
-    // Honestly zero, not an invented number — there is no per-post insights source yet.
+    // Honestly zero, not an invented number — no post has been published (and checked) yet.
     assert.equal(first.body.kpis.find((kpi) => kpi.key === 'engagement').value, 0);
-    assert.deepEqual(first.body.engagementTrend, []);
+    assert.equal(first.body.engagementTrend.length, 30, 'a real 30-day series, zeroed rather than empty, since no post has published yet');
+    assert.ok(first.body.engagementTrend.every((day) => day.likes === 0 && day.comments === 0 && day.shares === 0));
 
     // Follower count changes for real (Sync now) -> the dashboard reflects the new real number.
     platform = blueskyPlatform(150);

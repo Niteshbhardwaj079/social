@@ -19,15 +19,16 @@ Media Library" option in the composer so a file already uploaded doesn't need re
 Google Drive — Amazon S3, Cloudflare R2, Backblaze B2, Wasabi, DigitalOcean Spaces, or any other S3-compatible service),
 **notifications** (the bell icon: a post published/failed/needing approval, or a connected account losing access —
 real, per-person, with an opt-out per type in Settings), and **campaigns** (group posts together, with real post
-counts rolled up live — no invented engagement numbers, since there's no analytics source for those yet), and
+counts rolled up live), and
 **content recycling** (auto-reshare a published post every 14/30/60/90 days by copying it into a fresh post and
-publishing that, on a background timer), a **Dashboard** built entirely from what actually happened — real
-follower counts (tracked over time, so the growth chart is real too), real posts, and a real activity feed; only
-engagement/reach stay at an honest 0 until per-post platform insights are built — and an **Activity Logs** page
-backed by every real action the API performs (who did what, when, from which device/IP), with real filters,
-CSV export and bulk delete.
-Ads, Inbox, and per-post engagement/reach analytics still show built-in demo data until their APIs are built — the
-same bring-your-own-key pattern as everything above, just not built yet.
+publishing that, on a background timer), **analytics** (real per-post likes/comments/shares/views for Bluesky,
+Mastodon, X, Facebook, Instagram and YouTube, kept fresh by a background job — Threads/LinkedIn/TikTok/Pinterest
+are honestly not attempted yet, each for its own documented reason), a **Dashboard** built entirely from what
+actually happened — real follower counts (tracked over time, so the growth chart is real too), real posts, real
+engagement, and a real activity feed — and an **Activity Logs** page backed by every real action the API
+performs (who did what, when, from which device/IP), with real filters, CSV export and bulk delete.
+Ads and Inbox still show built-in demo data until their APIs are built — the same bring-your-own-key pattern as
+everything above, just not built yet.
 
 ## Run it on your machine
 
