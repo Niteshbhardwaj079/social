@@ -219,3 +219,25 @@ export const AD_METRICS = [
   { key: 'clicks', label: 'Clicks' },
   { key: 'conversions', label: 'Results' },
 ];
+
+// Automated Rules (Phase 8) — pause/resume only, never budget (see backend/README.md's Ads section for
+// why). "Results" is deliberately excluded: it's never tracked, so a rule could never honestly evaluate it.
+export const AD_RULE_METRICS = [
+  { key: 'spend', label: 'Spend', unit: 'currency' },
+  { key: 'impressions', label: 'Impressions', unit: 'number' },
+  { key: 'clicks', label: 'Clicks', unit: 'number' },
+  { key: 'ctr', label: 'CTR', unit: 'percent' },
+  { key: 'cpc', label: 'Avg. CPC', unit: 'currency' },
+];
+
+export const AD_RULE_COMPARATORS = [
+  { key: 'gt', label: 'is more than' },
+  { key: 'lt', label: 'is less than' },
+];
+
+export const AD_RULE_ACTIONS = [
+  { key: 'pause', label: 'Pause the ad' },
+  { key: 'resume', label: 'Resume the ad' },
+];
+
+export const AD_RULE_WINDOWS = [1, 3, 7, 14, 30];

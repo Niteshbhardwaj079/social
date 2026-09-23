@@ -19,6 +19,7 @@ export const ACTIVITY_ACTION_META = {
   paused: { label: 'Paused', icon: 'PauseCircle', accent: 'slate' },
   resumed: { label: 'Resumed', icon: 'PlayCircle', accent: 'teal' },
   synced: { label: 'Synced', icon: 'RefreshCw', accent: 'blue' },
+  automated: { label: 'Automated', icon: 'Zap', accent: 'purple' },
 };
 
 export const ACTIVITY_SECTIONS = [

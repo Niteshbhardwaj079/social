@@ -11,6 +11,7 @@ import { startRecyclingScheduler } from './services/recyclingService.js';
 import { startMetricsRefresher } from './services/analyticsService.js';
 import { startInboxRefresher } from './services/inboxService.js';
 import { startAdsRefresher } from './services/adsService.js';
+import { startAdRulesEvaluator } from './services/adRuleService.js';
 import { logger } from './utils/logger.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -48,6 +49,7 @@ export function startBackgroundJobs() {
   const stopMetricsRefresh = startMetricsRefresher();
   const stopInboxRefresh = startInboxRefresher();
   const stopAdsRefresh = startAdsRefresher();
+  const stopAdRules = startAdRulesEvaluator();
   const cleanup = setInterval(() => {
     deleteExpiredTokens().catch((error) => logger.error('Token cleanup failed', error));
   }, DAY_MS);
@@ -60,6 +62,7 @@ export function startBackgroundJobs() {
     stopMetricsRefresh();
     stopInboxRefresh();
     stopAdsRefresh();
+    stopAdRules();
     clearInterval(cleanup);
   };
 }

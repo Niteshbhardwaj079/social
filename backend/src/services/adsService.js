@@ -37,7 +37,7 @@ const num = (value) => (value === null || value === undefined ? 0 : Number(value
 // ------------------------------------------------------------------ Facebook connection status
 // Ads never stores its own credentials — everything comes from the Facebook row in Social Accounts
 // (its optional `adsAccessToken` field). This is the one place that reads it for Meta Ads purposes.
-async function facebookAdsCredentials() {
+export async function facebookAdsCredentials() {
   const credentials = await getCredentials('facebook');
   if (!credentials) return { connected: false, hasToken: false, hasPermission: false, credentials: null };
   if (!credentials.adsAccessToken) return { connected: true, hasToken: false, hasPermission: false, credentials: null };

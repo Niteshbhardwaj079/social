@@ -17,6 +17,7 @@ import {
   updateCampaignsStatus,
 } from '../services/adsService.js';
 import { createTemplate, deleteTemplate, listTemplates, updateTemplate } from '../services/adCreativeTemplateService.js';
+import { createRule, deleteRule, listRules, updateRule } from '../services/adRuleService.js';
 
 const router = Router();
 router.use(authenticate);
@@ -113,6 +114,49 @@ router.delete(
   validate({ params: z.object({ id: z.string().uuid() }) }),
   async (req, res) => {
     await deleteTemplate({ id: req.valid.params.id, actor: req.user, ip: req.ip, userAgent: req.get('user-agent') });
+    res.json({ success: true });
+  }
+);
+
+// Phase 8: Automated Rules — pause/resume only, never budget (see adRuleService.js's header comment).
+// Registered before GET /:id below, same reason as /templates above.
+const ruleSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  adAccountId: z.string().uuid('Choose an ad account'),
+  metric: z.enum(['spend', 'impressions', 'clicks', 'ctr', 'cpc']),
+  comparator: z.enum(['gt', 'lt']),
+  threshold: z.coerce.number().min(0),
+  windowDays: z.coerce.number().int().refine((value) => [1, 3, 7, 14, 30].includes(value), 'Choose a real window'),
+  action: z.enum(['pause', 'resume']),
+  isActive: z.boolean().default(true),
+  cooldownHours: z.coerce.number().int().min(1).max(720).default(24),
+});
+
+router.get('/rules', async (_req, res) => res.json({ rules: await listRules() }));
+
+router.post(
+  '/rules',
+  validate({ body: ruleSchema }),
+  async (req, res) => {
+    const rule = await createRule({ actor: req.user, input: req.valid.body, ip: req.ip, userAgent: req.get('user-agent') });
+    res.status(201).json({ rule });
+  }
+);
+
+router.patch(
+  '/rules/:id',
+  validate({ params: z.object({ id: z.string().uuid() }), body: ruleSchema }),
+  async (req, res) => {
+    const rule = await updateRule({ id: req.valid.params.id, actor: req.user, input: req.valid.body, ip: req.ip, userAgent: req.get('user-agent') });
+    res.json({ rule });
+  }
+);
+
+router.delete(
+  '/rules/:id',
+  validate({ params: z.object({ id: z.string().uuid() }) }),
+  async (req, res) => {
+    await deleteRule({ id: req.valid.params.id, actor: req.user, ip: req.ip, userAgent: req.get('user-agent') });
     res.json({ success: true });
   }
 );

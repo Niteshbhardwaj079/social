@@ -14,6 +14,7 @@ import AdsPerformanceChart from '../../components/ads/AdsPerformanceChart';
 import DownloadReportMenu from '../../components/ads/DownloadReportMenu';
 import NetworkIcons from '../../components/ads/NetworkIcons';
 import TemplateFormModal from '../../components/ads/TemplateFormModal';
+import RuleFormModal from '../../components/ads/RuleFormModal';
 import usePagination from '../../hooks/usePagination';
 import useRowSelection from '../../hooks/useRowSelection';
 import useMediaQuery from '../../hooks/useMediaQuery';
@@ -27,15 +28,19 @@ import {
   createAdCreativeTemplate,
   updateAdCreativeTemplate,
   deleteAdCreativeTemplate,
+  getAdRules,
+  createAdRule,
+  updateAdRule,
+  deleteAdRule,
 } from '../../services/api/adsApi';
 import { getMediaItems } from '../../services/api/mediaApi';
 import { apiErrorMessage } from '../../services/api/axiosClient';
-import { AD_DATE_RANGES, AD_NETWORKS, AD_OBJECTIVES, AD_STATUS, AD_STATUS_LABELS } from '../../config/adPlatforms';
+import { AD_DATE_RANGES, AD_NETWORKS, AD_OBJECTIVES, AD_RULE_COMPARATORS, AD_RULE_METRICS, AD_STATUS, AD_STATUS_LABELS } from '../../config/adPlatforms';
 import { getPlatformByKey, PLATFORMS } from '../../config/platforms';
 import { MEDIA_TYPE, REQUEST_STATUS } from '../../config/constants';
 import { adsToday, CONVERSIONS_NOT_TRACKED, percentChange, seriesForAds, spendByPlatform, sliceRange, sumDaily, totalsForAds } from '../../utils/adMetrics';
 import { downloadAdsDailyCsv, downloadAdsSummaryCsv, printAdsReport } from '../../utils/adReports';
-import { formatCompactNumber, formatCurrency, formatDate, formatNumber, formatPercent } from '../../utils/formatters';
+import { formatCompactNumber, formatCurrency, formatDate, formatNumber, formatPercent, formatRelativeTime } from '../../utils/formatters';
 import { useToast } from '../../components/common/ToastProvider';
 import { useI18n } from '../../i18n/useI18n';
 
@@ -44,6 +49,7 @@ const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'accounts', label: 'Ad accounts' },
   { key: 'library', label: 'Creative Library' },
+  { key: 'rules', label: 'Automated Rules' },
 ];
 
 // Compared with the period just before; a huge jump means there was nothing to compare with.
@@ -56,17 +62,27 @@ const objectiveLabel = (key) => AD_OBJECTIVES.find((objective) => objective.key 
 
 const EMPTY_AD_ACCOUNTS = { facebookConnected: false, hasAdsToken: false, hasAdsPermission: false, accounts: [] };
 
+// Turns a rule's raw fields into the one-line English sentence its card shows — e.g.
+// "If Spend is more than ₹1,000 over the last 7 days → Pause the ad".
+function describeRule(rule) {
+  const metric = AD_RULE_METRICS.find((item) => item.key === rule.metric);
+  const comparator = AD_RULE_COMPARATORS.find((item) => item.key === rule.comparator);
+  const value = metric?.unit === 'currency' ? formatCurrency(rule.threshold) : metric?.unit === 'percent' ? formatPercent(rule.threshold) : formatNumber(rule.threshold);
+  return `If ${metric?.label || rule.metric} ${comparator?.label || rule.comparator} ${value} over the last ${rule.windowDays} ${rule.windowDays === 1 ? 'day' : 'days'}`;
+}
+
 function Ads() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = ['accounts', 'library'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'overview';
+  const activeTab = ['accounts', 'library', 'rules'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'overview';
 
   const [ads, setAds] = useState([]);
   const [adAccountsData, setAdAccountsData] = useState(EMPTY_AD_ACCOUNTS);
   const [templates, setTemplates] = useState([]);
+  const [rules, setRules] = useState([]);
   const [images, setImages] = useState([]);
   const [requestStatus, setRequestStatus] = useState(REQUEST_STATUS.LOADING);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -80,15 +96,19 @@ function Ads() {
   const [isTemplateFormOpen, setIsTemplateFormOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [deleteTemplateTarget, setDeleteTemplateTarget] = useState(null);
+  const [isRuleFormOpen, setIsRuleFormOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState(null);
+  const [deleteRuleTarget, setDeleteRuleTarget] = useState(null);
   const selection = useRowSelection();
 
   function load() {
     setRequestStatus(REQUEST_STATUS.LOADING);
-    Promise.all([getAds(), getAdAccounts(), getAdCreativeTemplates(), getMediaItems()])
-      .then(([adList, accountData, templateList, mediaList]) => {
+    Promise.all([getAds(), getAdAccounts(), getAdCreativeTemplates(), getAdRules(), getMediaItems()])
+      .then(([adList, accountData, templateList, ruleList, mediaList]) => {
         setAds(adList);
         setAdAccountsData(accountData);
         setTemplates(templateList);
+        setRules(ruleList);
         setImages(mediaList.filter((item) => item.type === MEDIA_TYPE.IMAGE));
         setRequestStatus(REQUEST_STATUS.SUCCEEDED);
       })
@@ -117,6 +137,36 @@ function Ads() {
       setTemplates((current) => current.filter((item) => item.id !== id));
       setDeleteTemplateTarget(null);
       showToast({ type: 'success', title: 'Template deleted' });
+    });
+  }
+
+  function handleCreateOrUpdateRule(payload) {
+    const request = editingRule ? updateAdRule(editingRule.id, payload) : createAdRule(payload);
+    request
+      .then((rule) => {
+        setRules((current) => (editingRule ? current.map((item) => (item.id === rule.id ? rule : item)) : [rule, ...current]));
+        setIsRuleFormOpen(false);
+        setEditingRule(null);
+        showToast({ type: 'success', title: editingRule ? 'Rule updated' : 'Rule created', message: rule.name });
+      })
+      .catch((error) => showToast({ type: 'error', title: 'Could not save the rule', message: apiErrorMessage(error) }));
+  }
+
+  function handleToggleRule(rule) {
+    updateAdRule(rule.id, { ...rule, isActive: !rule.isActive })
+      .then((updated) => {
+        setRules((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+        showToast({ type: 'success', title: updated.isActive ? 'Rule turned on' : 'Rule turned off', message: updated.name });
+      })
+      .catch((error) => showToast({ type: 'error', title: 'Could not update the rule', message: apiErrorMessage(error) }));
+  }
+
+  function handleDeleteRuleConfirmed() {
+    const id = deleteRuleTarget.id;
+    deleteAdRule(id).then(() => {
+      setRules((current) => current.filter((item) => item.id !== id));
+      setDeleteRuleTarget(null);
+      showToast({ type: 'success', title: 'Rule deleted' });
     });
   }
 
@@ -456,6 +506,77 @@ function Ads() {
             </div>
           )}
         </>
+      ) : activeTab === 'rules' ? (
+        <>
+          <div className="callout-banner callout-banner--info">
+            <Icon name="Zap" size={16} />
+            <span>
+              A rule watches a real number and <strong>pauses or resumes an ad automatically</strong> when it crosses your threshold — it never changes budget or spends anything on
+              your behalf. Every time a rule acts, it's a real Meta call, logged in Activity Logs, exactly like a manual pause/resume.
+            </span>
+          </div>
+
+          <div className="d-flex justify-content-end mb-4">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                setEditingRule(null);
+                setIsRuleFormOpen(true);
+              }}
+              disabled={adAccountsData.accounts.length === 0}
+            >
+              <Icon name="Plus" size={16} /> New Rule
+            </button>
+          </div>
+
+          {rules.length === 0 ? (
+            <EmptyState
+              icon="Zap"
+              title="No automated rules yet"
+              description={adAccountsData.accounts.length === 0 ? 'Set up an ad account first, then create a rule.' : 'Create a rule to pause or resume ads automatically based on real performance.'}
+              actionLabel={adAccountsData.accounts.length > 0 ? 'New Rule' : undefined}
+              onAction={adAccountsData.accounts.length > 0 ? () => setIsRuleFormOpen(true) : undefined}
+            />
+          ) : (
+            <div className="d-flex flex-column gap-3">
+              {rules.map((rule) => (
+                <div key={rule.id} className="panel-card">
+                  <div className="panel-card__body d-flex align-items-center gap-3 flex-wrap">
+                    <div className="flex-grow-1">
+                      <div className="d-flex align-items-center gap-2 mb-1">
+                        <span className="table-row-title">{rule.name}</span>
+                        <StatusBadge status={rule.isActive ? 'active' : 'paused'} label={rule.isActive ? 'Active' : 'Off'} />
+                      </div>
+                      <p className="text-secondary-custom small mb-1">{describeRule(rule)} → {rule.action === 'pause' ? 'Pause the ad' : 'Resume the ad'}</p>
+                      <p className="text-muted-custom small mb-0">
+                        {rule.adAccountName} · {rule.lastFiredAt ? `Last acted ${formatRelativeTime(rule.lastFiredAt)}` : 'Has not fired yet'}
+                      </p>
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                      <div className="form-check form-switch mb-0" title={rule.isActive ? 'Turn off' : 'Turn on'}>
+                        <input className="form-check-input" type="checkbox" role="switch" checked={rule.isActive} onChange={() => handleToggleRule(rule)} aria-label={`${rule.isActive ? 'Turn off' : 'Turn on'} ${rule.name}`} />
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary-custom"
+                        onClick={() => {
+                          setEditingRule(rule);
+                          setIsRuleFormOpen(true);
+                        }}
+                      >
+                        <Icon name="Pencil" size={14} /> Edit
+                      </button>
+                      <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setDeleteRuleTarget(rule)}>
+                        <Icon name="Trash2" size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       ) : (
         <>
           {connectedCount === 0 ? (
@@ -713,6 +834,26 @@ function Ads() {
         onConfirm={handleDeleteTemplateConfirmed}
         title={`Delete "${deleteTemplateTarget?.name}"?`}
         message="This removes the template from your library. Ads already built from it are not affected."
+        confirmLabel="Delete"
+        isDanger
+      />
+
+      <RuleFormModal
+        isOpen={isRuleFormOpen}
+        onClose={() => {
+          setIsRuleFormOpen(false);
+          setEditingRule(null);
+        }}
+        onSubmit={handleCreateOrUpdateRule}
+        rule={editingRule}
+        accounts={adAccountsData.accounts}
+      />
+      <ConfirmDialog
+        isOpen={Boolean(deleteRuleTarget)}
+        onClose={() => setDeleteRuleTarget(null)}
+        onConfirm={handleDeleteRuleConfirmed}
+        title={`Delete "${deleteRuleTarget?.name}"?`}
+        message="This rule will never act again. It does not undo anything it already did."
         confirmLabel="Delete"
         isDanger
       />

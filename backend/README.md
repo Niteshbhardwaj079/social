@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 277 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 285 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -455,10 +455,41 @@ validated by the same `cleanCredentials()` every platform uses, stored in the sa
     value to filter by. An "Ad Set" filter was deliberately not added: this app's hierarchy always
     creates exactly one ad set per campaign today, so it would be redundant with Campaign, not a
     genuinely different filter.
+- **Automated Rules (Phase 8)** — `ad_rules` + `ad_rule_runs` (migration `021_ad_rules.sql`). A rule
+  watches one real metric (spend, impressions, clicks, CTR, avg. CPC — never "results", since that's
+  never tracked, so a rule could never honestly evaluate it) across one ad account's ads and, when a
+  threshold is crossed, **pauses or resumes** the ad — deliberately **never touches budget**, the same
+  "Social has no role in ad spend" boundary held throughout this whole rework (the user's own explicit
+  call when asked, rather than assumed). Firing a rule calls the exact same real
+  `setMetaAdStatus`/Meta pause-resume a person would trigger by hand — automation here means
+  "the existing real action, triggered automatically," not a new kind of action.
+  - **Safety is built into the evaluation, not bolted on**: a per-(rule, ad) `cooldown_hours` (default
+    24) stops a rule flip-flopping the same ad every pass; a "pause" rule only ever considers currently-
+    `active` ads and a "resume" rule only `paused` ones (never a redundant no-op, never touches a
+    draft); CTR/CPC are treated as **undefined, not `0`**, when their denominator (impressions/clicks)
+    is genuinely zero, so a rule can never pause a just-launched ad with no real data yet by reading a
+    missing metric as a fake zero; a `MAX_ACTIONS_PER_PASS` cap (20) bounds how many ads one
+    misconfigured rule can act on in a single pass — the rest are simply picked up next pass, not lost.
+    Every firing gets a real `ad_rule_runs` row (for the cooldown check) and a real Activity Logs entry
+    (`ads.rule_fired`, actor `null` — same system-triggered convention as the post scheduler), so nothing
+    happens invisibly.
+  - **Same honest failure handling as every other Ads action**: one ad's real Meta error during
+    evaluation never stops the rest of the pass, and never touches the Facebook connection's own status
+    — that is a different, unrelated fact (see the Phase 7/9 hardening entries above for why this
+    distinction matters).
+  - Evaluated on the same cadence as the metrics refresher (`ADS_REFRESH_INTERVAL_MIN`) via its own
+    timer (`adRuleService.js`'s `startAdRulesEvaluator`, wired in `bootstrap.js`) rather than chained
+    onto the refresher directly, to avoid a circular import between the two service files — rules only
+    ever act on data the refresher just synced, so evaluating any more often would just re-check stale
+    numbers anyway.
+  - Create/edit/delete needs `canManageAccounts` (Super Admin/Admin) — a higher bar than creating an ad
+    by hand, since a rule acts autonomously and repeatedly rather than once per click. Read is open to
+    anyone signed in, matching the rest of Ads.
 - Not built yet: editing a launched ad's targeting/creative/budget after it is live (only pause/resume/delete
-  are wired up), an automated-rules engine, and the five deferred ad networks above. The database
-  hierarchy from this rework (`ad_sets`/`ad_creatives` as independent, reusable rows) was built
-  specifically so those are additions on top of this schema, not another rework.
+  are wired up), rule actions beyond pause/resume (e.g. budget changes — deliberately out of scope, see
+  above), and the five deferred ad networks above. The database hierarchy from this rework
+  (`ad_sets`/`ad_creatives` as independent, reusable rows) was built specifically so features like this
+  one are additions on top of this schema, not another rework.
 
 ### Link Shortener
 

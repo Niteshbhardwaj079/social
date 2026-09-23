@@ -49,6 +49,15 @@ const map = {
   'ads.template_saved': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Saved creative template "${e.meta?.name || ''}"` },
   'ads.template_updated': { actionType: 'updated', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Updated creative template "${e.meta?.name || ''}"` },
   'ads.template_deleted': { actionType: 'deleted', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Deleted creative template "${e.meta?.name || ''}"` },
+  'ads.rule_created': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Created automated rule "${e.meta?.name || ''}"` },
+  'ads.rule_updated': { actionType: 'updated', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Updated automated rule "${e.meta?.name || ''}"${e.meta?.isActive === false ? ' (turned off)' : ''}` },
+  'ads.rule_deleted': { actionType: 'deleted', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Deleted automated rule "${e.meta?.name || ''}"` },
+  'ads.rule_fired': {
+    actionType: 'automated',
+    section: 'Ads',
+    target: (e) => e.meta?.ruleName || '',
+    details: (e) => `Rule "${e.meta?.ruleName || ''}" ${e.meta?.ruleAction === 'pause' ? 'paused' : 'resumed'} an ad (${e.meta?.metric} ${e.meta?.comparator === 'gt' ? '>' : '<'} ${e.meta?.threshold})`,
+  },
 
   'storage.connected': { actionType: 'connected', section: 'Storage', target: (e) => e.entityId || '', details: (e) => `Connected ${e.entityId || 'a storage provider'}` },
   'storage.disconnected': { actionType: 'disconnected', section: 'Storage', target: () => '', details: () => 'Disconnected the storage provider' },

@@ -8,6 +8,7 @@ import axiosClient from './axiosClient';
 let adsStore = API_ENABLED ? [] : [...adsMockData];
 let accountsStore = API_ENABLED ? [] : adAccountsMock.map((account) => ({ ...account }));
 let templatesStore = [];
+let rulesStore = [];
 
 // ------------------------------------------------------------------ ad accounts
 // Ad accounts are discovered from the client's own Facebook connection (Social Accounts) — there is
@@ -128,6 +129,34 @@ export function updateAdCreativeTemplate(id, payload) {
 export function deleteAdCreativeTemplate(id) {
   if (API_ENABLED) return axiosClient.delete(`/ads/templates/${id}`).then((response) => response.data);
   templatesStore = templatesStore.filter((template) => template.id !== id);
+  return mockRequest({ success: true });
+}
+
+// ---------------------------------------------------------- automated rules (Phase 8)
+// Pause/resume only — never budget. See backend/README.md's Ads section for the full safety design
+// (cooldown, undefined-metric skip, per-pass action cap).
+export function getAdRules() {
+  if (API_ENABLED) return axiosClient.get('/ads/rules').then((response) => (rulesStore = response.data.rules));
+  return mockRequest([...rulesStore]);
+}
+
+export function createAdRule(payload) {
+  if (API_ENABLED) return axiosClient.post('/ads/rules', payload).then((response) => response.data.rule);
+  const account = accountsStore.find((item) => item.id === payload.adAccountId);
+  const newRule = { id: `rule-${Date.now()}`, adAccountName: account?.name || '', lastFiredAt: null, createdAt: new Date().toISOString(), ...payload };
+  rulesStore = [newRule, ...rulesStore];
+  return mockRequest(newRule);
+}
+
+export function updateAdRule(id, payload) {
+  if (API_ENABLED) return axiosClient.patch(`/ads/rules/${id}`, payload).then((response) => response.data.rule);
+  rulesStore = rulesStore.map((rule) => (rule.id === id ? { ...rule, ...payload } : rule));
+  return mockRequest(rulesStore.find((rule) => rule.id === id));
+}
+
+export function deleteAdRule(id) {
+  if (API_ENABLED) return axiosClient.delete(`/ads/rules/${id}`).then((response) => response.data);
+  rulesStore = rulesStore.filter((rule) => rule.id !== id);
   return mockRequest({ success: true });
 }
 
