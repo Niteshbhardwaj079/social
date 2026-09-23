@@ -8,11 +8,11 @@ import TextField from '../../components/forms/TextField';
 import DatePickerField from '../../components/forms/DatePickerField';
 import AdPreview from '../../components/ads/AdPreview';
 import NetworkIcons from '../../components/ads/NetworkIcons';
-import { createAd, getAdAccounts, isPlacementConnected } from '../../services/api/adsApi';
+import { createAd, createBulkAd, getAdAccounts, isPlacementConnected } from '../../services/api/adsApi';
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { getPosts } from '../../services/api/postsApi';
 import { getMediaItems } from '../../services/api/mediaApi';
-import { AD_CTAS, AD_INTERESTS, AD_LOCATIONS, AD_OBJECTIVES, AD_STATUS, getAdNetwork } from '../../config/adPlatforms';
+import { AD_CTAS, AD_INTERESTS, AD_LOCATIONS, AD_OBJECTIVES, AD_STATUS, MAX_AD_VARIATIONS, getAdNetwork } from '../../config/adPlatforms';
 import { getPlatformByKey } from '../../config/platforms';
 import { MEDIA_TYPE, POST_STATUS } from '../../config/constants';
 import { estimateResults } from '../../utils/adMetrics';
@@ -40,6 +40,10 @@ function initialForm() {
     text: '',
     cta: 'Learn more',
     destinationUrl: '',
+    // Phase 4: bulk ad creation. Extra creative variations beyond the one above — each one shares this
+    // same ad account/platforms/audience/budget/schedule, differing only in their own headline/text/
+    // cta/destinationUrl/image. Empty means a normal single ad; one or more means a bulk request.
+    variations: [],
     locations: ['India'],
     ageMin: 18,
     ageMax: 45,
@@ -102,6 +106,10 @@ function CreateAd() {
       if (!form.text.trim()) list[2].push('Write the ad text.');
       if (!form.headline.trim()) list[2].push('Add a headline.');
       if (!/^https?:\/\/\S+\.\S+/i.test(form.destinationUrl.trim())) list[2].push('Enter the full link people should go to (starting with https://).');
+      const incompleteVariation = form.variations.some(
+        (variation) => !variation.text.trim() || !variation.headline.trim() || !/^https?:\/\/\S+\.\S+/i.test(variation.destinationUrl.trim())
+      );
+      if (incompleteVariation) list[2].push('Fill in the text, headline and link for every variation, or remove the incomplete one.');
     }
     if (form.locations.length === 0) list[3].push('Pick at least one location.');
     if (form.ageMin > form.ageMax) list[3].push('The minimum age must not be above the maximum age.');
@@ -132,7 +140,7 @@ function CreateAd() {
       return;
     }
     setIsLaunching(true);
-    createAd({
+    const shared = {
       name: form.name.trim() || form.headline.trim() || (form.isBoost ? 'Boosted post' : 'Untitled ad'),
       objective: form.objective,
       adAccountId: form.adAccountId,
@@ -141,24 +149,55 @@ function CreateAd() {
       budget: Number(form.budget),
       startDate: form.startDate,
       endDate: form.endDate,
-      ...(form.isBoost
-        ? { sourcePostId: form.postId }
-        : { creative: { headline: form.headline, text: form.text, cta: form.cta, destinationUrl: form.destinationUrl, mediaId: form.mediaId || null } }),
       audience: { locations: form.locations, ageMin: form.ageMin, ageMax: form.ageMax, gender: form.gender, interests: form.interests },
       status: asDraft ? AD_STATUS.DRAFT : undefined,
-    })
-      .then((ad) => {
+    };
+    const isBulk = !form.isBoost && form.variations.length > 0;
+    const request = isBulk
+      ? createBulkAd({
+          ...shared,
+          creatives: [
+            { headline: form.headline, text: form.text, cta: form.cta, destinationUrl: form.destinationUrl, mediaId: form.mediaId || null },
+            ...form.variations.map((variation) => ({ ...variation, mediaId: variation.mediaId || null })),
+          ],
+        })
+      : createAd({
+          ...shared,
+          ...(form.isBoost
+            ? { sourcePostId: form.postId }
+            : { creative: { headline: form.headline, text: form.text, cta: form.cta, destinationUrl: form.destinationUrl, mediaId: form.mediaId || null } }),
+        });
+
+    request
+      .then((result) => {
+        const count = isBulk ? result.length : 1;
         showToast({
           type: 'success',
           title: asDraft ? 'Saved as draft' : 'Ad submitted',
-          message: asDraft ? ad.name : 'The platform will review it, usually within 24 hours.',
+          message: isBulk
+            ? `${count} ad variations ${asDraft ? 'saved' : 'submitted — the platform will review them, usually within 24 hours'}.`
+            : asDraft
+              ? result.name
+              : 'The platform will review it, usually within 24 hours.',
         });
-        navigate(`/ads/${ad.id}`);
+        navigate(isBulk ? '/ads' : `/ads/${result.id}`);
       })
       .catch((error) => {
         setIsLaunching(false);
         showToast({ type: 'error', title: apiErrorMessage(error, 'The ad could not be launched.') });
       });
+  }
+
+  function addVariation() {
+    setForm((current) => (current.variations.length + 1 >= MAX_AD_VARIATIONS ? current : { ...current, variations: [...current.variations, { headline: '', text: '', cta: 'Learn more', destinationUrl: '', mediaId: '' }] }));
+  }
+
+  function updateVariation(index, patch) {
+    setForm((current) => ({ ...current, variations: current.variations.map((variation, i) => (i === index ? { ...variation, ...patch } : variation)) }));
+  }
+
+  function removeVariation(index) {
+    setForm((current) => ({ ...current, variations: current.variations.filter((_, i) => i !== index) }));
   }
 
   function pickPost(postId) {
@@ -178,6 +217,8 @@ function CreateAd() {
       platforms: canBoost ? ['facebook'] : form.platforms,
       text: post.content,
       mediaId: post.media?.[0]?.id || '',
+      // A real boost is a single, specific Facebook post — bulk variations don't apply to it.
+      variations: canBoost ? [] : form.variations,
     });
   }
 
@@ -347,7 +388,7 @@ function CreateAd() {
                         <Icon name="Info" size={16} />
                         <span>
                           Starting from this post’s text and image — edit anything below, or{' '}
-                          <button type="button" className="btn btn-link p-0 align-baseline" onClick={() => update({ isBoost: true })}>
+                          <button type="button" className="btn btn-link p-0 align-baseline" onClick={() => update({ isBoost: true, variations: [] })}>
                             boost the real post instead
                           </button>{' '}
                           if it’s already live on Facebook.
@@ -382,6 +423,58 @@ function CreateAd() {
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    {form.variations.map((variation, index) => (
+                      <div key={index} className="surface-card mt-4 mb-0">
+                        <div className="d-flex align-items-center justify-content-between mb-3">
+                          <div className="form-label-custom mb-0">Variation {index + 2}</div>
+                          <button type="button" className="btn btn-sm btn-outline-secondary-custom" onClick={() => removeVariation(index)}>
+                            <Icon name="X" size={14} /> Remove
+                          </button>
+                        </div>
+                        <div className="mb-4">
+                          <label htmlFor={`variationText-${index}`} className="form-label-custom">Ad text</label>
+                          <textarea id={`variationText-${index}`} className="form-control" rows={3} maxLength={500} value={variation.text} onChange={(event) => updateVariation(index, { text: event.target.value })} placeholder="What do you want people to know?" />
+                        </div>
+                        <div className="form-grid-2">
+                          <TextField id={`variationHeadline-${index}`} label="Headline" value={variation.headline} onChange={(event) => updateVariation(index, { headline: event.target.value })} maxLength={80} placeholder="Short and clear" />
+                          <div className="mb-4">
+                            <label htmlFor={`variationCta-${index}`} className="form-label-custom">Button</label>
+                            <select id={`variationCta-${index}`} className="form-select" value={variation.cta} onChange={(event) => updateVariation(index, { cta: event.target.value })}>
+                              {AD_CTAS.map((cta) => <option key={cta} value={cta}>{cta}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <TextField id={`variationUrl-${index}`} label="Where should the button go?" type="url" value={variation.destinationUrl} onChange={(event) => updateVariation(index, { destinationUrl: event.target.value })} placeholder="https://yoursite.com/offer" />
+                        <div className="mb-0">
+                          <span className="form-label-custom d-block">Image</span>
+                          <div className="ad-image-grid">
+                            <button type="button" className={`ad-image-option ${variation.mediaId === '' ? 'is-selected' : ''}`.trim()} onClick={() => updateVariation(index, { mediaId: '' })}>
+                              <Icon name="ImageOff" size={20} /> None
+                            </button>
+                            {images.slice(0, 8).map((image) => (
+                              <button key={image.id} type="button" className={`ad-image-option ${variation.mediaId === image.id ? 'is-selected' : ''}`.trim()} onClick={() => updateVariation(index, { mediaId: image.id })} title={image.name}>
+                                {image.url ? <img src={image.url} alt={image.name} /> : <Icon name="Image" size={20} />}
+                                <span className="ad-image-option__name">{image.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="mt-4">
+                      {form.variations.length + 1 < MAX_AD_VARIATIONS ? (
+                        <button type="button" className="btn btn-outline-secondary-custom" onClick={addVariation}>
+                          <Icon name="Plus" size={16} /> Add another variation
+                        </button>
+                      ) : null}
+                      {form.variations.length > 0 ? (
+                        <p className="form-hint mt-2 mb-0">
+                          Creating {form.variations.length + 1} ad variations, testing different headlines/images — all sharing this same audience, budget and schedule (up to {MAX_AD_VARIATIONS} at a time).
+                        </p>
+                      ) : null}
                     </div>
                   </>
                 )}
@@ -465,6 +558,17 @@ function CreateAd() {
                   {form.isBoost ? (
                     <>
                       <dt>Creative</dt><dd>Boosting your existing Facebook post directly — its real text, image and engagement.</dd>
+                    </>
+                  ) : form.variations.length > 0 ? (
+                    <>
+                      <dt>Creative</dt>
+                      <dd>
+                        {form.variations.length + 1} variations, one ad each, sharing this audience/budget/schedule:
+                        <ul className="mb-0 ps-3">
+                          <li>{form.headline || '(untitled)'}</li>
+                          {form.variations.map((variation, index) => <li key={index}>{variation.headline || '(untitled)'}</li>)}
+                        </ul>
+                      </dd>
                     </>
                   ) : (
                     <>

@@ -80,6 +80,29 @@ export function createAd(payload) {
   return mockRequest(newAd);
 }
 
+// Phase 4: bulk ad creation — several creative variations sharing one campaign/ad set/audience/budget.
+export function createBulkAd(payload) {
+  if (API_ENABLED) return axiosClient.post('/ads/bulk', payload).then((response) => response.data.ads);
+  const startsInFuture = new Date(payload.startDate) > new Date();
+  const status = payload.status || (startsInFuture ? 'scheduled' : 'inReview');
+  const account = accountsStore.find((item) => item.id === payload.adAccountId);
+  const { creatives, ...shared } = payload;
+  const newAds = creatives.map((creative, index) => ({
+    id: `ad-${Date.now()}-${index}`,
+    createdAt: new Date().toISOString(),
+    createdBy: 'Nitesh Bhardwaj',
+    daily: [],
+    network: account?.network || 'meta',
+    adAccountName: account?.name || '',
+    ...shared,
+    name: `${shared.name} — variation ${index + 1}`,
+    creative,
+    status,
+  }));
+  adsStore = [...newAds, ...adsStore];
+  return mockRequest(newAds);
+}
+
 export function updateAdsStatus(adIds, status) {
   if (API_ENABLED) return axiosClient.patch('/ads/status', { ids: adIds, status }).then((response) => response.data);
   const idSet = new Set(adIds);

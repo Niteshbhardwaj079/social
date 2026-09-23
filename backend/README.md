@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 261 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 265 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -371,11 +371,29 @@ validated by the same `cleanCredentials()` every platform uses, stored in the sa
   regardless of what the client sends, as defence in depth on top of the picker only offering Facebook for
   a boost. `POST /api/ads`'s `creative`/`sourcePostId` fields are mutually exclusive (a zod `.refine()`,
   never both, never neither).
+- **`POST /api/ads/bulk`: several creative variations, one shared campaign/ad set.** Creative testing —
+  2 to `MAX_BULK_VARIATIONS` (6) fresh creatives, all sharing one audience/budget/schedule/platforms (one
+  `ad_campaigns` row, one `ad_sets` row, one `ads`+`ad_creatives` pair per variation). The cap is a
+  practical/UX limit, **not a money-safety one** — every variation competes for the same one ad set's
+  budget, so more variations never multiplies real ad spend, only how many creatives split that one
+  budget's delivery; it exists so a request stays a reviewable batch and Meta's own per-ad-set learning
+  phase isn't fragmented across too many creatives at once (a widely recommended Meta Ads practice, not an
+  API-enforced rule). Deliberately does not offer boosting an existing post here — `bulkCreateSchema` only
+  accepts an array of fresh creatives, never `sourcePostId` — since a boost creative is forced
+  Facebook-only and mixing that with fresh, multi-placement creatives under one ad set would mean guessing
+  how Meta resolves per-creative placement eligibility, which this codebase does not have verified
+  confidence in (same reasoning as boost itself staying Facebook-only). `adsMeta.js`'s single-ad
+  `createMetaCampaign` was split into four composable calls (`createMetaCampaignObject`/`createMetaAdSet`/
+  `createMetaAdCreative`/`createMetaAd`) so bulk creation can call the campaign/ad-set steps once and loop
+  only the creative+ad pair — `createMetaCampaign` itself is unchanged behaviour, just a thin wrapper
+  around those same four calls now. Atomic like the single-ad path: every Meta call for the whole batch
+  happens first, and only once all of them succeed does anything get written to the database — a mid-batch
+  Meta failure leaves nothing saved, not a partially-launched batch.
 - Not built yet: editing a launched ad's targeting/creative/budget after it is live (only pause/resume/delete
-  are wired up), bulk ad creation with variation limits, a creative/template library, a UTM builder, an
-  automated-rules engine, and the five deferred ad networks above. The database hierarchy from this rework
-  (`ad_sets`/`ad_creatives` as independent, reusable rows) was built specifically so those are additions on
-  top of this schema, not another rework.
+  are wired up), a creative/template library, a UTM builder, an automated-rules engine, and the five
+  deferred ad networks above. The database hierarchy from this rework (`ad_sets`/`ad_creatives` as
+  independent, reusable rows) was built specifically so those are additions on top of this schema, not
+  another rework.
 
 ### Link Shortener
 

@@ -2,13 +2,17 @@ import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createClient, setupOwner, startServer } from './helpers.js';
 import { query } from '../src/db/pool.js';
-import { refreshAdMetrics } from '../src/services/adsService.js';
+import { MAX_BULK_VARIATIONS, refreshAdMetrics } from '../src/services/adsService.js';
 
 const realFetch = globalThis.fetch;
 const reply = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 let adStatusOverride = () => null;
 let lastAdCreativeForm = null;
+let campaignCallCount = 0;
+let adSetCallCount = 0;
+let creativeCallCount = 0;
+let adCallCount = 0;
 
 // The organic Page token used for Facebook posting ('fb-token-123') and the Ads-scoped User token
 // are deliberately different tokens on deliberately different accounts (see providers/adsMeta.js's
@@ -39,15 +43,25 @@ function stub(url, init) {
   }
 
   if (path.endsWith('/search') && url.searchParams.get('type') === 'adinterest') return reply(200, { data: [{ id: 'interest-1', name: url.searchParams.get('q') }] });
-  if (path.endsWith('/act_meta-act-1/campaigns') && method === 'POST') return reply(200, { id: 'campaign-1' });
-  if (path.endsWith('/act_meta-act-1/adsets') && method === 'POST') return reply(200, { id: 'adset-1' });
+  if (path.endsWith('/act_meta-act-1/campaigns') && method === 'POST') {
+    campaignCallCount += 1;
+    return reply(200, { id: 'campaign-1' });
+  }
+  if (path.endsWith('/act_meta-act-1/adsets') && method === 'POST') {
+    adSetCallCount += 1;
+    return reply(200, { id: 'adset-1' });
+  }
   if (path.endsWith('/act_meta-act-1/adimages') && method === 'POST') return reply(200, { images: { 'photo.png': { hash: 'hash-1' } } });
   if (path.endsWith('/act_meta-act-1/adcreatives') && method === 'POST') {
+    creativeCallCount += 1;
     lastAdCreativeForm = Object.fromEntries(new URLSearchParams(init.body));
     return reply(200, { id: 'creative-1' });
   }
   if (path.endsWith('/page-1/feed') && method === 'POST') return reply(200, { post_id: 'page-1_555', id: 'page-1_555' });
-  if (path.endsWith('/act_meta-act-1/ads') && method === 'POST') return reply(200, { id: 'ad-1' });
+  if (path.endsWith('/act_meta-act-1/ads') && method === 'POST') {
+    adCallCount += 1;
+    return reply(200, { id: 'ad-1' });
+  }
   if (path.endsWith('/ad-1') && method === 'GET') return adStatusOverride(url) ?? reply(200, { effective_status: 'ACTIVE' });
   if (path.endsWith('/ad-1/insights') && method === 'GET') {
     return reply(200, { data: [{ date_start: '2026-09-22', spend: '12.50', impressions: '500', clicks: '10' }, { date_start: '2026-09-23', spend: '8.00', impressions: '300', clicks: '6' }] });
@@ -90,6 +104,18 @@ function adPayload(overrides = {}) {
     creative: { headline: 'Big offer', text: 'Up to 40% off', cta: 'Shop now', destinationUrl: 'https://gowebkart.in/offer' },
     audience: { locations: ['India'], ageMin: 18, ageMax: 45, gender: 'all', interests: ['Fashion'] },
     ...overrides,
+  };
+}
+
+function bulkAdPayload(overrides = {}) {
+  const base = adPayload(overrides);
+  delete base.creative;
+  return {
+    ...base,
+    creatives: overrides.creatives || [
+      { headline: 'Headline A', text: 'Variation A text', cta: 'Shop now', destinationUrl: 'https://gowebkart.in/a' },
+      { headline: 'Headline B', text: 'Variation B text', cta: 'Learn more', destinationUrl: 'https://gowebkart.in/b' },
+    ],
   };
 }
 
@@ -352,5 +378,70 @@ describe('Phase 3: an existing post as an ad', () => {
   it('a Contributor cannot boost a post either — same permission as any other ad', async () => {
     const response = await contributor.post('/ads', { ...adPayload({ adAccountId, name: 'Contributor boost' }), creative: undefined, sourcePostId: publishedPostId });
     assert.equal(response.status, 403);
+  });
+});
+
+describe('Phase 4: bulk ad creation (several creative variations, one shared ad set)', () => {
+  let adAccountId;
+
+  before(async () => {
+    adAccountId = (await owner.get('/ads/accounts')).body.accounts[0].id;
+  });
+
+  it('rejects fewer than 2 variations or more than the cap', async () => {
+    const tooFew = await owner.post('/ads/bulk', bulkAdPayload({ adAccountId, creatives: [{ headline: 'Only one', text: 'x', cta: 'Learn more', destinationUrl: 'https://gowebkart.in/1' }] }));
+    assert.equal(tooFew.status, 400);
+
+    const tooMany = Array.from({ length: MAX_BULK_VARIATIONS + 1 }, (_, index) => ({ headline: `H${index}`, text: 'x', cta: 'Learn more', destinationUrl: 'https://gowebkart.in/x' }));
+    const overCap = await owner.post('/ads/bulk', bulkAdPayload({ adAccountId, creatives: tooMany }));
+    assert.equal(overCap.status, 400);
+  });
+
+  it('a Contributor cannot bulk-create; an Editor can', async () => {
+    assert.equal((await contributor.post('/ads/bulk', bulkAdPayload({ adAccountId }))).status, 403);
+  });
+
+  it('creates one campaign, one shared ad set, and one creative+ad per variation', async () => {
+    campaignCallCount = 0;
+    adSetCallCount = 0;
+    creativeCallCount = 0;
+    adCallCount = 0;
+
+    const response = await owner.post('/ads/bulk', bulkAdPayload({ adAccountId, name: 'Diwali variations' }));
+    assert.equal(response.status, 201);
+    assert.equal(response.body.ads.length, 2);
+
+    // The campaign and ad set are created exactly once for the whole batch, never once per variation.
+    assert.equal(campaignCallCount, 1);
+    assert.equal(adSetCallCount, 1);
+    assert.equal(creativeCallCount, 2);
+    assert.equal(adCallCount, 2);
+
+    const [adA, adB] = response.body.ads;
+    assert.equal(adA.creative.headline, 'Headline A');
+    assert.equal(adB.creative.headline, 'Headline B');
+    assert.equal(adA.status, 'inReview');
+    assert.equal(adB.status, 'inReview');
+
+    const adRows = (await query('SELECT ad_set_id, ad_creative_id FROM ads WHERE id = ANY($1)', [[adA.id, adB.id]])).rows;
+    assert.equal(adRows[0].ad_set_id, adRows[1].ad_set_id, 'both variations share one ad set');
+    assert.notEqual(adRows[0].ad_creative_id, adRows[1].ad_creative_id, 'each variation has its own creative row');
+
+    const adSetRow = (await query('SELECT budget, platforms FROM ad_sets WHERE id = $1', [adRows[0].ad_set_id])).rows[0];
+    assert.equal(Number(adSetRow.budget), 500);
+    assert.deepEqual(adSetRow.platforms, ['facebook']);
+  });
+
+  it('saves every variation as a draft without ever calling Meta', async () => {
+    campaignCallCount = 0;
+    creativeCallCount = 0;
+    const response = await owner.post('/ads/bulk', bulkAdPayload({ adAccountId, name: 'Draft variations', status: 'draft' }));
+    assert.equal(response.status, 201);
+    assert.equal(response.body.ads.length, 2);
+    assert.ok(response.body.ads.every((ad) => ad.status === 'draft'));
+    assert.equal(campaignCallCount, 0);
+    assert.equal(creativeCallCount, 0);
+    const adRows = (await query('SELECT external_ad_id FROM ads WHERE id = ANY($1)', [response.body.ads.map((ad) => ad.id)])).rows;
+    assert.ok(adRows.every((row) => row.external_ad_id === null));
   });
 });

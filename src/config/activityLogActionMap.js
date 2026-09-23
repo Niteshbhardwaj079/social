@@ -37,6 +37,16 @@ const map = {
   'campaign.updated': { actionType: 'updated', section: 'Campaigns', target: (e) => e.meta?.name || '', details: (e) => `Updated campaign "${e.meta?.name || ''}"` },
   'campaign.deleted': { actionType: 'deleted', section: 'Campaigns', target: (e) => e.meta?.name || '', details: (e) => `Deleted campaign "${e.meta?.name || ''}"` },
 
+  'ads.accounts_synced': { actionType: 'synced', section: 'Ads', target: () => 'Ad accounts', details: (e) => `Synced ad accounts — found ${e.meta?.found ?? 0}` },
+  'ads.launched': { actionType: 'launched', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Launched ad "${e.meta?.name || ''}"` },
+  'ads.boosted_post': { actionType: 'launched', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Boosted an existing post as "${e.meta?.name || ''}"` },
+  'ads.saved_draft': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Saved ad draft "${e.meta?.name || ''}"` },
+  'ads.bulk_launched': { actionType: 'launched', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Launched ${e.meta?.count ?? ''} ad variations for "${e.meta?.name || ''}"` },
+  'ads.bulk_saved_draft': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Saved ${e.meta?.count ?? ''} ad variations as drafts for "${e.meta?.name || ''}"` },
+  'ads.paused': { actionType: 'paused', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Paused "${e.meta?.name || ''}"` },
+  'ads.resumed': { actionType: 'resumed', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Resumed "${e.meta?.name || ''}"` },
+  'ads.deleted': { actionType: 'deleted', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Deleted "${e.meta?.name || ''}"` },
+
   'storage.connected': { actionType: 'connected', section: 'Storage', target: (e) => e.entityId || '', details: (e) => `Connected ${e.entityId || 'a storage provider'}` },
   'storage.disconnected': { actionType: 'disconnected', section: 'Storage', target: () => '', details: () => 'Disconnected the storage provider' },
   'storage.preferences_updated': { actionType: 'updated', section: 'Storage', target: () => '', details: () => 'Updated storage preferences' },

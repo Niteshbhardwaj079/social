@@ -15,10 +15,15 @@ export const ACTIVITY_ACTION_META = {
   enabled: { label: 'Enabled', icon: 'ToggleRight', accent: 'teal' },
   disabled: { label: 'Disabled', icon: 'ToggleLeft', accent: 'slate' },
   needs_attention: { label: 'Needs attention', icon: 'AlertTriangle', accent: 'rose' },
+  launched: { label: 'Launched', icon: 'Rocket', accent: 'blue' },
+  paused: { label: 'Paused', icon: 'PauseCircle', accent: 'slate' },
+  resumed: { label: 'Resumed', icon: 'PlayCircle', accent: 'teal' },
+  synced: { label: 'Synced', icon: 'RefreshCw', accent: 'blue' },
 };
 
 export const ACTIVITY_SECTIONS = [
   'Campaigns',
+  'Ads',
   'Social Accounts',
   'Approvals',
   'Posts',

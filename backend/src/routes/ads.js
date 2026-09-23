@@ -6,11 +6,13 @@ import { validate } from '../middleware/validate.js';
 import { isPlatform } from '../providers/index.js';
 import { notFound } from '../utils/httpError.js';
 import {
+  createBulkCampaign,
   createCampaign,
   deleteCampaigns,
   getCampaign,
   listAdAccounts,
   listCampaigns,
+  MAX_BULK_VARIATIONS,
   syncAdAccounts,
   updateCampaignsStatus,
 } from '../services/adsService.js';
@@ -61,6 +63,26 @@ const createSchema = z
     path: ['creative'],
   });
 
+// Phase 4: bulk ad creation — several fresh creative variations sharing one campaign/ad set/audience/
+// budget. No `sourcePostId` here at all (boosting isn't offered for a bulk batch — see
+// adsService.createBulkCampaign's own comment for why), enforced by this schema's shape, not a runtime check.
+const bulkCreateSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  objective: z.enum(['awareness', 'traffic', 'engagement', 'leads', 'sales']),
+  adAccountId: z.string().uuid('Choose an ad account'),
+  platforms: z.array(z.string().refine(isPlatform, 'Unknown platform')).min(1),
+  budgetType: z.enum(['daily', 'lifetime']),
+  budget: z.coerce.number().min(100),
+  startDate: z.string().date(),
+  endDate: z.string().date(),
+  creatives: z
+    .array(creativeSchema)
+    .min(2, 'Add at least 2 variations — for just one, use the regular Create ad flow.')
+    .max(MAX_BULK_VARIATIONS, `Up to ${MAX_BULK_VARIATIONS} variations at a time.`),
+  audience: audienceSchema,
+  status: z.enum(['draft']).optional(),
+});
+
 router.get('/', async (_req, res) => res.json({ ads: await listCampaigns() }));
 
 router.get(
@@ -80,6 +102,16 @@ router.post(
   async (req, res) => {
     const ad = await createCampaign({ actor: req.user, input: req.valid.body, ip: req.ip, userAgent: req.get('user-agent') });
     res.status(201).json({ ad });
+  }
+);
+
+router.post(
+  '/bulk',
+  providerLimiter,
+  validate({ body: bulkCreateSchema }),
+  async (req, res) => {
+    const ads = await createBulkCampaign({ actor: req.user, input: req.valid.body, ip: req.ip, userAgent: req.get('user-agent') });
+    res.status(201).json({ ads });
   }
 );
 

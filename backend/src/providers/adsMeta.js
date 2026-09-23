@@ -123,6 +123,89 @@ const CAMPAIGN_OBJECTIVE = { awareness: 'OUTCOME_AWARENESS' };
 const OPTIMIZATION = { awareness: { optimization_goal: 'REACH', billing_event: 'IMPRESSIONS' } };
 const DEFAULT_OPTIMIZATION = { optimization_goal: 'LINK_CLICKS', billing_event: 'LINK_CLICKS' };
 
+/** Creates just the campaign object. Returns its Meta id. */
+export async function createMetaCampaignObject({ accessToken, externalAccountId, name, objective, launch }) {
+  const created = await graphCall('POST', `${externalAccountId}/campaigns`, {
+    token: accessToken,
+    form: { name, objective: CAMPAIGN_OBJECTIVE[objective] || 'OUTCOME_TRAFFIC', status: launch ? 'ACTIVE' : 'PAUSED', special_ad_categories: [] },
+  });
+  return created.id;
+}
+
+/** Creates just the ad set (budget, schedule, targeting, placements) under an existing campaign. Returns its Meta id. */
+export async function createMetaAdSet({ accessToken, externalAccountId, campaignExternalId, name, launch, objective, audience, platforms, budgetType, budget, startDate, endDate }) {
+  const interestIds = await resolveInterestIds(accessToken, audience.interests || []);
+  const targeting = buildTargeting(audience, platforms);
+  if (interestIds.length) targeting.flexible_spec = [{ interests: interestIds }];
+  const { optimization_goal, billing_event } = OPTIMIZATION[objective] || DEFAULT_OPTIMIZATION;
+  // Meta bills in the ad account's smallest currency unit (paise for INR, cents for USD — every
+  // currency this app's ad wizard is used with has 2 decimal places; zero-decimal currencies like JPY
+  // are not handled specially since AD_LOCATIONS never offers one today).
+  const minorBudget = Math.round(Number(budget) * 100);
+  const form = {
+    name,
+    campaign_id: campaignExternalId,
+    status: launch ? 'ACTIVE' : 'PAUSED',
+    optimization_goal,
+    billing_event,
+    targeting,
+    start_time: `${startDate}T00:00:00+0000`,
+  };
+  if (budgetType === 'daily') form.daily_budget = minorBudget;
+  else {
+    form.lifetime_budget = minorBudget;
+    form.end_time = `${endDate}T23:59:59+0000`;
+  }
+  const created = await graphCall('POST', `${externalAccountId}/adsets`, { token: accessToken, form });
+  return created.id;
+}
+
+/**
+ * Creates just the ad creative. Returns its Meta id.
+ *
+ * `boostExternalPostId` (Phase 3, "existing post → ad"): when set, this is a real **boost** of an
+ * already-published Facebook Page post — Meta's own `<page_id>_<post_id>` combined id, exactly the
+ * value Facebook returns and this app already stores as `post_targets.external_id` for a published
+ * Facebook post (see providers/publishers.js's `publishFacebook`). The creative then reuses that
+ * post's own text/image directly via `object_story_id`, so `creative`/`imageUrl` are not used at all
+ * in that case — there is nothing to upload or restate, which is exactly what a real "Boost Post"
+ * button does. Deliberately Facebook-only: Instagram's own equivalent field for boosting an existing
+ * IG media is a different, less-documented corner of the API this codebase does not have verified
+ * confidence in — content-reuse (a fresh creative copying the post's text/image) is offered for an
+ * Instagram-sourced post instead, at the call site in adsService.js.
+ */
+export async function createMetaAdCreative({ accessToken, externalAccountId, name, creative, pageId, instagramActorId, imageUrl, boostExternalPostId }) {
+  if (boostExternalPostId) {
+    const created = await graphCall('POST', `${externalAccountId}/adcreatives`, { token: accessToken, form: { name, object_story_id: boostExternalPostId } });
+    return created.id;
+  }
+  let imageHash;
+  if (imageUrl) {
+    const uploaded = await graphCall('POST', `${externalAccountId}/adimages`, { token: accessToken, form: { url: imageUrl } });
+    imageHash = Object.values(uploaded.images || {})[0]?.hash;
+  }
+  const linkData = {
+    message: creative.text,
+    link: creative.destinationUrl,
+    name: creative.headline,
+    call_to_action: { type: CTA_TYPES[creative.cta] || 'LEARN_MORE', value: { link: creative.destinationUrl } },
+  };
+  if (imageHash) linkData.image_hash = imageHash;
+  const objectStorySpec = { page_id: pageId, link_data: linkData };
+  if (instagramActorId) objectStorySpec.instagram_actor_id = instagramActorId;
+  const created = await graphCall('POST', `${externalAccountId}/adcreatives`, { token: accessToken, form: { name, object_story_spec: objectStorySpec } });
+  return created.id;
+}
+
+/** Creates just the ad, linking an existing ad set and creative. Returns its Meta id. */
+export async function createMetaAd({ accessToken, externalAccountId, name, adSetExternalId, creativeExternalId, launch }) {
+  const created = await graphCall('POST', `${externalAccountId}/ads`, {
+    token: accessToken,
+    form: { name, adset_id: adSetExternalId, creative: { creative_id: creativeExternalId }, status: launch ? 'ACTIVE' : 'PAUSED' },
+  });
+  return created.id;
+}
+
 /**
  * Creates the full Meta object chain (campaign → ad set → creative → ad) for one Social ad, and
  * returns the four external ids to store. `accessToken` is the Ads-scoped User token (not the Page
@@ -131,94 +214,41 @@ const DEFAULT_OPTIMIZATION = { optimization_goal: 'LINK_CLICKS', billing_event: 
  * Facebook Page even for an Instagram-only ad); passing the id is enough, no Page token is needed
  * here, the Ads token's own permission on the ad account/Business Manager covers it.
  *
- * `boostExternalPostId` (Phase 3, "existing post → ad"): when set, this is a real **boost** of an
- * already-published Facebook Page post — Meta's own `<page_id>_<post_id>` combined id, exactly the
- * value Facebook returns and this app already stores as `post_targets.external_id` for a published
- * Facebook post (see providers/publishers.js's `publishFacebook`). The creative then reuses that
- * post's own text/image directly via `object_story_id`, so `campaign.creative`/`imageUrl` are not
- * used at all in that case — there is nothing to upload or restate, which is exactly what a real
- * "Boost Post" button does. Deliberately Facebook-only: Instagram's own equivalent field for boosting
- * an existing IG media is a different, less-documented corner of the API this codebase does not have
- * verified confidence in — content-reuse (a fresh creative copying the post's text/image) is offered
- * for an Instagram-sourced post instead, at the call site in adsService.js.
+ * Thin wrapper around the four composable calls above (kept as one function for the single-ad create
+ * path in adsService.js) — Phase 4's bulk creation calls those four directly instead, so it can create
+ * one campaign/ad set once and loop just the creative+ad pair per variation, without repeating the
+ * campaign/ad-set Meta calls.
  */
 export async function createMetaCampaign({ accessToken, externalAccountId, campaign, pageId, instagramActorId, imageUrl, boostExternalPostId }) {
-  const act = externalAccountId;
   const launch = campaign.status !== 'draft';
-  const metaStatus = launch ? 'ACTIVE' : 'PAUSED';
-
-  const createdCampaign = await graphCall('POST', `${act}/campaigns`, {
-    token: accessToken,
-    form: {
-      name: campaign.name,
-      objective: CAMPAIGN_OBJECTIVE[campaign.objective] || 'OUTCOME_TRAFFIC',
-      status: metaStatus,
-      special_ad_categories: [],
-    },
-  });
-
-  const interestIds = await resolveInterestIds(accessToken, campaign.audience.interests || []);
-  const targeting = buildTargeting(campaign.audience, campaign.platforms);
-  if (interestIds.length) targeting.flexible_spec = [{ interests: interestIds }];
-  const { optimization_goal, billing_event } = OPTIMIZATION[campaign.objective] || DEFAULT_OPTIMIZATION;
-  // Meta bills in the ad account's smallest currency unit (paise for INR, cents for USD — every
-  // currency this app's ad wizard is used with has 2 decimal places; zero-decimal currencies like JPY
-  // are not handled specially since AD_LOCATIONS never offers one today).
-  const minorBudget = Math.round(Number(campaign.budget) * 100);
-  const adSetForm = {
+  const externalCampaignId = await createMetaCampaignObject({ accessToken, externalAccountId, name: campaign.name, objective: campaign.objective, launch });
+  const externalAdsetId = await createMetaAdSet({
+    accessToken,
+    externalAccountId,
+    campaignExternalId: externalCampaignId,
     name: `${campaign.name} — ad set`,
-    campaign_id: createdCampaign.id,
-    status: metaStatus,
-    optimization_goal,
-    billing_event,
-    targeting,
-    start_time: `${campaign.startDate}T00:00:00+0000`,
-  };
-  if (campaign.budgetType === 'daily') adSetForm.daily_budget = minorBudget;
-  else {
-    adSetForm.lifetime_budget = minorBudget;
-    adSetForm.end_time = `${campaign.endDate}T23:59:59+0000`;
-  }
-  const createdAdSet = await graphCall('POST', `${act}/adsets`, { token: accessToken, form: adSetForm });
-
-  let createdCreative;
-  if (boostExternalPostId) {
-    createdCreative = await graphCall('POST', `${act}/adcreatives`, {
-      token: accessToken,
-      form: { name: `${campaign.name} — creative`, object_story_id: boostExternalPostId },
-    });
-  } else {
-    let imageHash;
-    if (imageUrl) {
-      const uploaded = await graphCall('POST', `${act}/adimages`, { token: accessToken, form: { url: imageUrl } });
-      imageHash = Object.values(uploaded.images || {})[0]?.hash;
-    }
-    const linkData = {
-      message: campaign.creative.text,
-      link: campaign.creative.destinationUrl,
-      name: campaign.creative.headline,
-      call_to_action: { type: CTA_TYPES[campaign.creative.cta] || 'LEARN_MORE', value: { link: campaign.creative.destinationUrl } },
-    };
-    if (imageHash) linkData.image_hash = imageHash;
-    const objectStorySpec = { page_id: pageId, link_data: linkData };
-    if (instagramActorId) objectStorySpec.instagram_actor_id = instagramActorId;
-    createdCreative = await graphCall('POST', `${act}/adcreatives`, {
-      token: accessToken,
-      form: { name: `${campaign.name} — creative`, object_story_spec: objectStorySpec },
-    });
-  }
-
-  const createdAd = await graphCall('POST', `${act}/ads`, {
-    token: accessToken,
-    form: { name: campaign.name, adset_id: createdAdSet.id, creative: { creative_id: createdCreative.id }, status: metaStatus },
+    launch,
+    objective: campaign.objective,
+    audience: campaign.audience,
+    platforms: campaign.platforms,
+    budgetType: campaign.budgetType,
+    budget: campaign.budget,
+    startDate: campaign.startDate,
+    endDate: campaign.endDate,
   });
+  const externalCreativeId = await createMetaAdCreative({
+    accessToken,
+    externalAccountId,
+    name: `${campaign.name} — creative`,
+    creative: campaign.creative,
+    pageId,
+    instagramActorId,
+    imageUrl,
+    boostExternalPostId,
+  });
+  const externalAdId = await createMetaAd({ accessToken, externalAccountId, name: campaign.name, adSetExternalId: externalAdsetId, creativeExternalId: externalCreativeId, launch });
 
-  return {
-    externalCampaignId: createdCampaign.id,
-    externalAdsetId: createdAdSet.id,
-    externalCreativeId: createdCreative.id,
-    externalAdId: createdAd.id,
-  };
+  return { externalCampaignId, externalAdsetId, externalCreativeId, externalAdId };
 }
 
 const STATUS_FROM_EFFECTIVE = {

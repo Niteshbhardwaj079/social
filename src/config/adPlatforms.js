@@ -202,6 +202,11 @@ export const AD_INTERESTS = [
 
 export const AD_LOCATIONS = ['India', 'United States', 'United Kingdom', 'UAE', 'Singapore', 'Canada', 'Australia'];
 
+// Bulk ad creation (several creative variations sharing one campaign/ad set/audience/budget). Matches
+// the backend's own cap (adsService.js's MAX_BULK_VARIATIONS) — not a money-safety limit, since every
+// variation shares one budget, just a practical cap on how large a reviewable batch gets.
+export const MAX_AD_VARIATIONS = 6;
+
 export const AD_DATE_RANGES = [
   { value: 7, label: 'Last 7 days' },
   { value: 30, label: 'Last 30 days' },

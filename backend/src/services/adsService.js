@@ -2,7 +2,11 @@ import { config } from '../config/env.js';
 import { query } from '../db/pool.js';
 import { ProviderError } from '../providers/errors.js';
 import {
+  createMetaAd,
+  createMetaAdCreative,
+  createMetaAdSet,
   createMetaCampaign,
+  createMetaCampaignObject,
   deleteMetaAd,
   discoverMetaAdAccounts,
   fetchMetaAdStatus,
@@ -19,6 +23,13 @@ import { recordActivity } from './auditService.js';
 
 // Meta is the only ad network this app can run for real — see providers/adsMeta.js's header comment.
 const NETWORK_LABELS = { meta: 'Meta Ads', google: 'Google Ads', linkedin: 'LinkedIn Ads', x: 'X Ads', tiktok: 'TikTok Ads', pinterest: 'Pinterest Ads' };
+
+// Phase 4: bulk ad creation. A modest cap, not a money-safety limit — every variation in one bulk
+// request shares the same ad set (one audience, one budget), so more variations never multiplies real
+// ad spend, only how many creatives split that one budget's delivery. The cap exists so one request
+// stays a reviewable batch and Meta's own per-ad-set learning phase isn't split across too many
+// creatives at once — a widely recommended Meta Ads practice, not an API-enforced rule.
+export const MAX_BULK_VARIATIONS = 6;
 
 const toDateStr = (value) => (value instanceof Date ? value.toISOString().slice(0, 10) : value);
 const num = (value) => (value === null || value === undefined ? 0 : Number(value));
@@ -307,6 +318,143 @@ export async function createCampaign({ actor, input, ip, userAgent }) {
     userAgent,
   });
   return getCampaign(adRow.id);
+}
+
+/**
+ * Phase 4: bulk ad creation. Several creative variations, all sharing one campaign/ad set — one
+ * audience, one budget, one schedule, one set of placements — which is how real "creative testing"
+ * bulk-ad tools work (a handful of headlines/images competing for the same budget, not N separate
+ * budgets). Deliberately does NOT offer boosting an existing post here: a boost creative is forced
+ * Facebook-only server-side (see createCampaign above), and mixing that with fresh, multi-placement
+ * creatives under one ad set would mean guessing how Meta resolves per-creative placement eligibility
+ * within a single ad set — this codebase does not have verified confidence in that, same reasoning as
+ * Phase 3 keeping boost itself Facebook-only. `routes/ads.js`'s bulk schema only accepts an array of
+ * fresh creatives, never `sourcePostId`, so this is enforced by the request shape, not a runtime check.
+ *
+ * Atomic like the single-ad path: every Meta call for the whole batch happens first; only once all of
+ * them succeed does anything get written to the database. A mid-batch Meta failure leaves nothing
+ * saved here — matching createCampaign's own behaviour, not a new failure mode invented for bulk.
+ */
+export async function createBulkCampaign({ actor, input, ip, userAgent }) {
+  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can create an ad.');
+
+  const adAccount = await getAdAccountRow(input.adAccountId);
+  if (!adAccount) throw badRequest('Choose a real ad account — sync your ad accounts first if the list looks empty.');
+  if (adAccount.network !== 'meta') throw new HttpError(422, 'not_built_yet', `${NETWORK_LABELS[adAccount.network] || adAccount.network} is not built yet.`);
+
+  const adsCredentials = await requireAdsCredentials();
+
+  const isDraft = input.status === 'draft';
+  const status = isDraft ? 'draft' : 'inReview';
+  const platforms = input.platforms;
+
+  const mediaIds = [...new Set(input.creatives.map((creative) => creative.mediaId).filter(Boolean))];
+  const media = mediaIds.length ? await mediaForIds(mediaIds) : [];
+  const mediaUrlFor = (mediaId) => media.find((item) => item.id === mediaId)?.public_url;
+
+  let externalCampaignId = null;
+  let externalAdsetId = null;
+  const externalIdsByVariation = input.creatives.map(() => ({ externalCreativeId: null, externalAdId: null }));
+
+  if (!isDraft) {
+    const { pageId, instagramActorId } = await resolvePlacements(platforms);
+    try {
+      externalCampaignId = await createMetaCampaignObject({
+        accessToken: adsCredentials.adsAccessToken,
+        externalAccountId: adAccount.external_account_id,
+        name: input.name,
+        objective: input.objective,
+        launch: true,
+      });
+      externalAdsetId = await createMetaAdSet({
+        accessToken: adsCredentials.adsAccessToken,
+        externalAccountId: adAccount.external_account_id,
+        campaignExternalId: externalCampaignId,
+        name: `${input.name} — ad set`,
+        launch: true,
+        objective: input.objective,
+        audience: input.audience,
+        platforms,
+        budgetType: input.budgetType,
+        budget: input.budget,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      });
+      for (let index = 0; index < input.creatives.length; index += 1) {
+        const creative = input.creatives[index];
+        const externalCreativeId = await createMetaAdCreative({
+          accessToken: adsCredentials.adsAccessToken,
+          externalAccountId: adAccount.external_account_id,
+          name: `${input.name} — creative ${index + 1}`,
+          creative,
+          pageId,
+          instagramActorId,
+          imageUrl: mediaUrlFor(creative.mediaId),
+        });
+        const externalAdId = await createMetaAd({
+          accessToken: adsCredentials.adsAccessToken,
+          externalAccountId: adAccount.external_account_id,
+          name: `${input.name} — variation ${index + 1}`,
+          adSetExternalId: externalAdsetId,
+          creativeExternalId: externalCreativeId,
+          launch: true,
+        });
+        externalIdsByVariation[index] = { externalCreativeId, externalAdId };
+      }
+    } catch (error) {
+      if (error instanceof ProviderError) throw new HttpError(422, 'launch_failed', error.message);
+      throw error;
+    }
+  }
+
+  const campaignRow = (
+    await query(
+      `INSERT INTO ad_campaigns (ad_account_id, name, objective, status, external_campaign_id, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [adAccount.id, input.name, input.objective, status, externalCampaignId, actor.id]
+    )
+  ).rows[0];
+
+  const adSetRow = (
+    await query(
+      `INSERT INTO ad_sets (ad_campaign_id, name, platforms, budget_type, budget, start_date, end_date, audience, status, external_adset_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [campaignRow.id, `${input.name} — ad set`, platforms, input.budgetType, input.budget, input.startDate, input.endDate, JSON.stringify(input.audience), status, externalAdsetId]
+    )
+  ).rows[0];
+
+  const adIds = [];
+  for (let index = 0; index < input.creatives.length; index += 1) {
+    const creative = input.creatives[index];
+    const external = externalIdsByVariation[index];
+    const creativeRow = (
+      await query(
+        `INSERT INTO ad_creatives (name, headline, body_text, cta, destination_url, media_id, external_creative_id, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [`${input.name} — creative ${index + 1}`, creative.headline, creative.text, creative.cta, creative.destinationUrl, creative.mediaId || null, external.externalCreativeId, actor.id]
+      )
+    ).rows[0];
+    const adRow = (
+      await query(
+        `INSERT INTO ads (ad_set_id, ad_creative_id, name, status, external_ad_id, last_synced_at)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+        [adSetRow.id, creativeRow.id, `${input.name} — variation ${index + 1}`, status, external.externalAdId, isDraft ? null : new Date()]
+      )
+    ).rows[0];
+    adIds.push(adRow.id);
+  }
+
+  await recordActivity({
+    actorId: actor.id,
+    action: isDraft ? 'ads.bulk_saved_draft' : 'ads.bulk_launched',
+    entity: 'ad_set',
+    entityId: adSetRow.id,
+    meta: { name: input.name, count: adIds.length },
+    ip,
+    userAgent,
+  });
+
+  return Promise.all(adIds.map((id) => getCampaign(id)));
 }
 
 async function ensureAd(id) {
