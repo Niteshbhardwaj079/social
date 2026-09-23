@@ -1,7 +1,29 @@
 // Ad performance maths shared by the Ads pages and the report downloads.
 // A "daily" array is [{ date: 'YYYY-MM-DD', spend, impressions, clicks, conversions }].
 
+import { API_ENABLED } from '../config/runtime';
+import { AD_DATA_END_DATE } from '../services/mock/adsMock';
+
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * "Today" for every ad analytics window (last 7/30/90 days, KPI totals, charts, exports). In real API
+ * mode this is the actual current date — anything else would silently exclude real, already-synced
+ * Meta data from every chart and report the further "today" drifts from a hardcoded value. Only in
+ * demo mode does this fall back to the mock dataset's own frozen end date (`AD_DATA_END_DATE`), since
+ * the hand-authored mock day-by-day rows stop there and using the real date would show a run of empty
+ * trailing days in the demo.
+ */
+export function adsToday() {
+  return API_ENABLED ? new Date().toISOString().slice(0, 10) : AD_DATA_END_DATE;
+}
+
+// "Results/conversions" is always stored as 0 (see backend/README.md's Ads section and
+// migrations/017_ads_hierarchy.sql's own comment on ad_daily_stats.conversions) — no Meta Pixel or
+// Lead Form is configured by this composer, so there is no real conversion count to show. Every place
+// that would otherwise render that always-0 number shows this honest label instead, so it never reads
+// as "this ad generated zero conversions" when the true meaning is "conversions aren't measured here".
+export const CONVERSIONS_NOT_TRACKED = 'Not tracked';
 
 export function emptyTotals() {
   return { spend: 0, impressions: 0, clicks: 0, conversions: 0, ctr: 0, cpc: 0, cpm: 0, costPerResult: 0 };

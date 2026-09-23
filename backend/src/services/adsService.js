@@ -127,7 +127,13 @@ async function getAdAccountRow(id) {
 function present(row, daily = []) {
   return {
     id: row.id,
-    name: row.campaign_name,
+    // The ad's OWN name — for a single ad this happens to equal the campaign's name (createCampaign
+    // gives both the same string), but for a Phase 4 bulk batch each variation has its own distinct
+    // "<name> — variation N" name while sharing one campaign; using the campaign's name here would
+    // show every variation under the identical label. `campaignName` below is the shared one, kept
+    // separately so a campaign-level grouping/filter (see Ads.jsx) still has a real value to use.
+    name: row.ad_name,
+    campaignName: row.campaign_name,
     objective: row.objective,
     network: row.network,
     adAccountId: row.ad_account_id,
@@ -141,6 +147,11 @@ function present(row, daily = []) {
     createdAt: row.ad_created_at,
     createdBy: row.creator_name || 'Deleted user',
     rejectionReason: row.rejection_reason,
+    // Honest sync health (Phase 7/9 hardening) — null means the last background refresh succeeded (or
+    // none has run yet, e.g. a draft); set means it failed and this is the real error, not a guess.
+    // last_synced_at is stamped on every attempt regardless of outcome, so it alone can't say this.
+    lastSyncedAt: row.last_synced_at,
+    lastSyncError: row.last_sync_error,
     creative: {
       headline: row.headline,
       text: row.body_text,
@@ -157,6 +168,7 @@ function present(row, daily = []) {
 const AD_SELECT = `
   SELECT
     ads.id, ads.name AS ad_name, ads.status, ads.rejection_reason, ads.external_ad_id, ads.created_at AS ad_created_at,
+    ads.last_synced_at, ads.last_sync_error,
     aset.id AS ad_set_id, aset.platforms, aset.budget_type, aset.budget, aset.start_date, aset.end_date, aset.audience, aset.external_adset_id,
     camp.id AS ad_campaign_id, camp.name AS campaign_name, camp.objective, camp.external_campaign_id, camp.created_by,
     acc.id AS ad_account_id, acc.network, acc.name AS ad_account_name, acc.external_account_id,
@@ -490,18 +502,28 @@ export async function updateCampaignStatus({ id, status, actor, ip, userAgent })
   return getCampaign(id);
 }
 
-/** Bulk pause/resume, for the list page's checkbox actions. One failing ad (e.g. a permission problem) never blocks the rest. */
+/**
+ * Bulk pause/resume, for the list page's checkbox actions. One failing ad (a permission problem, a
+ * temporary Meta error, an id that no longer exists) never blocks the rest — each id is attempted
+ * independently and in sequence. A permission failure (the actor's own role) still aborts the whole
+ * batch immediately, same as before: it re-throws rather than being added to `results`, since the
+ * actor's role does not change per item, unlike a genuinely per-item problem such as a Meta rejection.
+ * `results` is additive (existing callers reading only `success`/`updated` are unaffected) — it lets a
+ * caller see exactly which ids failed and why, not just an aggregate count.
+ */
 export async function updateCampaignsStatus({ ids, status, actor, ip, userAgent }) {
-  let updated = 0;
+  const results = [];
   for (const id of ids) {
     try {
       await updateCampaignStatus({ id, status, actor, ip, userAgent });
-      updated += 1;
+      results.push({ id, status: 'updated' });
     } catch (error) {
       if (!(error instanceof HttpError) || (error.status !== 404 && error.status !== 409 && error.status !== 422)) throw error;
+      results.push({ id, status: 'failed', reason: error.message });
     }
   }
-  return { success: true, updated };
+  const updated = results.filter((row) => row.status === 'updated').length;
+  return { success: true, updated, results };
 }
 
 export async function deleteCampaign({ id, actor, ip, userAgent }) {
@@ -525,18 +547,21 @@ export async function deleteCampaign({ id, actor, ip, userAgent }) {
   await recordActivity({ actorId: actor.id, action: 'ads.deleted', entity: 'ad', entityId: id, meta: { name: existing.ad_name }, ip, userAgent });
 }
 
-/** Bulk delete, for the list page's checkbox actions. Deletes what it can; one that fails (a stuck Meta call) is skipped rather than failing the whole batch. */
+/** Bulk delete, for the list page's checkbox actions. Deletes what it can; one that fails (a stuck Meta
+ * call) is skipped rather than failing the whole batch — same `results` addition as updateCampaignsStatus above. */
 export async function deleteCampaigns({ ids, actor, ip, userAgent }) {
-  let deleted = 0;
+  const results = [];
   for (const id of ids) {
     try {
       await deleteCampaign({ id, actor, ip, userAgent });
-      deleted += 1;
+      results.push({ id, status: 'deleted' });
     } catch (error) {
       if (!(error instanceof HttpError) || (error.status !== 404 && error.status !== 422)) throw error;
+      results.push({ id, status: 'failed', reason: error.message });
     }
   }
-  return { success: true, deleted };
+  const deleted = results.filter((row) => row.status === 'deleted').length;
+  return { success: true, deleted, results };
 }
 
 // ------------------------------------------------------------------ background refresh
@@ -545,9 +570,10 @@ const INSIGHTS_LOOKBACK_DAYS = 90;
 let refreshingAds = false;
 
 async function refreshOneAd(row, credentials) {
+  let syncError = null;
   try {
     const { status, rejectionReason } = await fetchMetaAdStatus({ accessToken: credentials.adsAccessToken, externalAdId: row.external_ad_id });
-    await query('UPDATE ads SET status = $2, rejection_reason = $3, last_synced_at = now(), updated_at = now() WHERE id = $1', [row.id, status, rejectionReason]);
+    await query('UPDATE ads SET status = $2, rejection_reason = $3, updated_at = now() WHERE id = $1', [row.id, status, rejectionReason]);
 
     const start = new Date(row.start_date);
     const lookback = new Date(Date.now() - INSIGHTS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
@@ -564,10 +590,16 @@ async function refreshOneAd(row, credentials) {
     }
   } catch (error) {
     // A broken/expired token or a slow Meta pass must not stop the rest of the ads, and must not spin
-    // — always stamp last_synced_at so this row waits its turn again like everything else.
+    // — always stamp last_synced_at so this row waits its turn again like everything else. The real
+    // error message is kept (not a fake metric) so the client can honestly show "numbers may be stale"
+    // instead of silently presenting a possibly-outdated number as current — see migration
+    // 020_ad_sync_health.sql. This never touches the Facebook connection's own status: a per-ad refresh
+    // failure (a busy moment on Meta's side, a transient network error, one ad-specific problem) is not
+    // the same fact as the whole connection being broken, which recheckAccount already handles elsewhere.
     logger.error('Refreshing a Meta ad failed', error, { adId: row.id });
+    syncError = error.message || 'Could not refresh this ad’s numbers right now.';
   } finally {
-    await query('UPDATE ads SET last_synced_at = now() WHERE id = $1', [row.id]);
+    await query('UPDATE ads SET last_synced_at = now(), last_sync_error = $2 WHERE id = $1', [row.id, syncError]);
   }
 }
 

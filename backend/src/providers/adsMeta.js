@@ -1,6 +1,6 @@
 import { config } from '../config/env.js';
 import { callProvider, failure } from './http.js';
-import { authFailure, rejection } from './errors.js';
+import { authFailure } from './errors.js';
 import { getGrantedScopes } from './meta.js';
 
 /**
@@ -300,6 +300,10 @@ export async function deleteMetaAd({ accessToken, externalAdId }) {
   // the goal (nothing left running on Meta's side) is already true.
   if (!response.ok && response.status !== 400 && response.status !== 404) {
     if (response.data?.error?.code === 190) throw authFailure('Meta Ads says this access token is invalid or has expired.');
-    throw rejection(`Meta could not delete this ad: ${response.data?.error?.message || `error ${response.status}`}.`);
+    // Routed through the same failure() every other call in this file uses, so a real 429/5xx is
+    // reported as "temporary, try again" (matches setMetaAdStatus/fetchMetaAdStatus/discoverMetaAdAccounts
+    // etc.) instead of a bespoke, permanent-sounding "could not delete" message for what may just be a
+    // busy moment on Meta's side — important for bulk delete, where several of these calls run in a row.
+    throw failure(response, 'Meta Ads');
   }
 }

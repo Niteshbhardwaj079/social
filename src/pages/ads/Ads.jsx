@@ -30,11 +30,10 @@ import {
 } from '../../services/api/adsApi';
 import { getMediaItems } from '../../services/api/mediaApi';
 import { apiErrorMessage } from '../../services/api/axiosClient';
-import { AD_DATA_END_DATE } from '../../services/mock/adsMock';
 import { AD_DATE_RANGES, AD_NETWORKS, AD_OBJECTIVES, AD_STATUS, AD_STATUS_LABELS } from '../../config/adPlatforms';
 import { getPlatformByKey, PLATFORMS } from '../../config/platforms';
 import { MEDIA_TYPE, REQUEST_STATUS } from '../../config/constants';
-import { percentChange, seriesForAds, spendByPlatform, sliceRange, sumDaily, totalsForAds } from '../../utils/adMetrics';
+import { adsToday, CONVERSIONS_NOT_TRACKED, percentChange, seriesForAds, spendByPlatform, sliceRange, sumDaily, totalsForAds } from '../../utils/adMetrics';
 import { downloadAdsDailyCsv, downloadAdsSummaryCsv, printAdsReport } from '../../utils/adReports';
 import { formatCompactNumber, formatCurrency, formatDate, formatNumber, formatPercent } from '../../utils/formatters';
 import { useToast } from '../../components/common/ToastProvider';
@@ -74,6 +73,9 @@ function Ads() {
   const [days, setDays] = useState(30);
   const [platformFilter, setPlatformFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [adAccountFilter, setAdAccountFilter] = useState('all');
+  const [campaignFilter, setCampaignFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isTemplateFormOpen, setIsTemplateFormOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -133,28 +135,37 @@ function Ads() {
       .finally(() => setIsSyncing(false));
   }
 
-  const filteredAds = useMemo(
-    () =>
-      ads.filter((ad) => {
-        const matchesPlatform = platformFilter === 'all' || ad.platforms.includes(platformFilter);
-        const matchesStatus = statusFilter === 'all' || ad.status === statusFilter;
-        return matchesPlatform && matchesStatus;
-      }),
-    [ads, platformFilter, statusFilter]
-  );
+  // Campaign names are real but auto-generated (createCampaign/createBulkCampaign always name the
+  // campaign after the ad's own name — see adsService.js's present()), so this list can have
+  // duplicates when several ads share one campaign (a Phase 4 bulk batch) — that's fine, the filter
+  // just groups by the name shown, same as a person would expect.
+  const campaignNames = useMemo(() => [...new Set(ads.map((ad) => ad.campaignName).filter(Boolean))].sort(), [ads]);
 
-  const pagination = usePagination(filteredAds, { resetKey: `${platformFilter}|${statusFilter}|${days}`, initialSize: 25 });
+  const filteredAds = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return ads.filter((ad) => {
+      const matchesPlatform = platformFilter === 'all' || ad.platforms.includes(platformFilter);
+      const matchesStatus = statusFilter === 'all' || ad.status === statusFilter;
+      const matchesAccount = adAccountFilter === 'all' || ad.adAccountId === adAccountFilter;
+      const matchesCampaign = campaignFilter === 'all' || ad.campaignName === campaignFilter;
+      const matchesSearch = !term || ad.name.toLowerCase().includes(term);
+      return matchesPlatform && matchesStatus && matchesAccount && matchesCampaign && matchesSearch;
+    });
+  }, [ads, platformFilter, statusFilter, adAccountFilter, campaignFilter, searchTerm]);
+
+  const pagination = usePagination(filteredAds, { resetKey: `${platformFilter}|${statusFilter}|${adAccountFilter}|${campaignFilter}|${searchTerm}|${days}`, initialSize: 25 });
   const pageIds = pagination.pageItems.map((ad) => ad.id);
 
-  const current = useMemo(() => totalsForAds(filteredAds, days, AD_DATA_END_DATE), [filteredAds, days]);
-  const previous = useMemo(() => totalsForAds(filteredAds, days, AD_DATA_END_DATE, 1), [filteredAds, days]);
-  const series = useMemo(() => seriesForAds(filteredAds, days, AD_DATA_END_DATE), [filteredAds, days]);
-  const platformSpend = useMemo(() => spendByPlatform(filteredAds, days, AD_DATA_END_DATE), [filteredAds, days]);
+  const endDate = adsToday();
+  const current = useMemo(() => totalsForAds(filteredAds, days, endDate), [filteredAds, days, endDate]);
+  const previous = useMemo(() => totalsForAds(filteredAds, days, endDate, 1), [filteredAds, days, endDate]);
+  const series = useMemo(() => seriesForAds(filteredAds, days, endDate), [filteredAds, days, endDate]);
+  const platformSpend = useMemo(() => spendByPlatform(filteredAds, days, endDate), [filteredAds, days, endDate]);
   const perAdTotals = useMemo(() => {
     const map = new Map();
-    ads.forEach((ad) => map.set(ad.id, sumDaily(sliceRange(ad.daily, days, AD_DATA_END_DATE))));
+    ads.forEach((ad) => map.set(ad.id, sumDaily(sliceRange(ad.daily, days, endDate))));
     return map;
-  }, [ads, days]);
+  }, [ads, days, endDate]);
 
   function updateTab(tab) {
     setSearchParams(tab === 'overview' ? {} : { tab });
@@ -187,7 +198,13 @@ function Ads() {
   }
 
   const filterLabel =
-    [platformFilter !== 'all' ? getPlatformByKey(platformFilter)?.label : null, statusFilter !== 'all' ? AD_STATUS_LABELS[statusFilter] : null]
+    [
+      platformFilter !== 'all' ? getPlatformByKey(platformFilter)?.label : null,
+      statusFilter !== 'all' ? AD_STATUS_LABELS[statusFilter] : null,
+      adAccountFilter !== 'all' ? adAccountsData.accounts.find((account) => account.id === adAccountFilter)?.name : null,
+      campaignFilter !== 'all' ? campaignFilter : null,
+      searchTerm.trim() ? `"${searchTerm.trim()}"` : null,
+    ]
       .filter(Boolean)
       .join(' · ') || 'All ads';
 
@@ -245,7 +262,7 @@ function Ads() {
     { key: 'clicks', label: 'Clicks', value: formatNumber(current.clicks), icon: 'MousePointerClick', tone: 'purple', hint: deltaHint(percentChange(current.clicks, previous.clicks)) },
     { key: 'ctr', label: 'CTR', value: formatPercent(current.ctr), icon: 'Percent', tone: 'green' },
     { key: 'cpc', label: 'Avg. CPC', value: formatCurrency(current.cpc), icon: 'Coins', tone: 'amber' },
-    { key: 'results', label: 'Results', value: formatNumber(current.conversions), icon: 'Target', tone: 'red', hint: deltaHint(percentChange(current.conversions, previous.conversions)) },
+    { key: 'results', label: 'Results', value: CONVERSIONS_NOT_TRACKED, icon: 'Target', tone: 'red', hint: 'No Pixel or Lead Form is set up for these ads' },
   ];
 
   return (
@@ -490,6 +507,38 @@ function Ads() {
                   ))}
                 </select>
               </div>
+              {adAccountsData.accounts.length > 1 ? (
+                <div className="filter-bar__field">
+                  <span className="filter-bar__label">
+                    <Icon name="Wallet" size={13} /> Ad account
+                  </span>
+                  <select className="form-select" value={adAccountFilter} onChange={(event) => setAdAccountFilter(event.target.value)}>
+                    <option value="all">All ad accounts</option>
+                    {adAccountsData.accounts.map((account) => (
+                      <option key={account.id} value={account.id}>{account.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              {campaignNames.length > 1 ? (
+                <div className="filter-bar__field">
+                  <span className="filter-bar__label">
+                    <Icon name="Megaphone" size={13} /> Campaign
+                  </span>
+                  <select className="form-select" value={campaignFilter} onChange={(event) => setCampaignFilter(event.target.value)}>
+                    <option value="all">All campaigns</option>
+                    {campaignNames.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <div className="filter-bar__field">
+                <span className="filter-bar__label">
+                  <Icon name="Search" size={13} /> Ad name
+                </span>
+                <input type="search" className="form-control" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search ads..." />
+              </div>
             </div>
           </div>
 
@@ -499,7 +548,13 @@ function Ads() {
             <AdsPerformanceChart series={series} title="Performance" />
             <div className="panel-card">
               <div className="panel-card__header">
-                <h3 className="panel-card__title">Spend by platform</h3>
+                <h3 className="panel-card__title">Estimated spend by platform</h3>
+                <span
+                  data-tooltip="Meta reports spend at the ad level, not per placement — when an ad runs on more than one platform, its spend is split evenly across them here, not measured separately by Meta."
+                  data-tooltip-position="bottom"
+                >
+                  <Icon name="Info" size={14} className="text-muted-custom" />
+                </span>
               </div>
               <div className="panel-card__body d-flex flex-column gap-3">
                 {platformSpend.length === 0 ? (
@@ -570,7 +625,7 @@ function Ads() {
                           <div><span>Spent</span><strong>{formatCurrency(totals.spend)}</strong></div>
                           <div><span>Clicks</span><strong>{formatNumber(totals.clicks)}</strong></div>
                           <div><span>CTR</span><strong>{formatPercent(totals.ctr)}</strong></div>
-                          <div><span>Results</span><strong>{formatNumber(totals.conversions)}</strong></div>
+                          <div><span>Results</span><strong className="text-muted-custom">{CONVERSIONS_NOT_TRACKED}</strong></div>
                         </div>
                         <div className="d-flex gap-1 mt-2">
                           {ad.platforms.map((key) => <PlatformIcon key={key} platformKey={key} size={22} />)}
@@ -618,7 +673,7 @@ function Ads() {
                             <td className="text-end">{formatNumber(totals.impressions)}</td>
                             <td className="text-end">{formatNumber(totals.clicks)}</td>
                             <td className="text-end">{formatPercent(totals.ctr)}</td>
-                            <td className="text-end">{formatNumber(totals.conversions)}</td>
+                            <td className="text-end text-muted-custom">{CONVERSIONS_NOT_TRACKED}</td>
                           </tr>
                         );
                       })}

@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 269 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 277 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -407,6 +407,54 @@ validated by the same `cleanCredentials()` every platform uses, stored in the sa
   bulk variation independently), a Creative Library template's link field, and the Link Shortener's
   "Build UTM Link" action (chains straight into the existing Create Link form, pre-filled, since a UTM
   link is usually meant to be shortened too).
+- **Phase 7/9 audit + hardening** (2026-09-24) — a read-only audit of "bulk actions" and "reports/
+  analytics" found these real issues, fixed here:
+  - **A live bug**: every real-API-mode analytics view (`Ads.jsx`, `AdDetail.jsx`, `adReports.js`) was
+    anchored to `AD_DATA_END_DATE`, a hardcoded date meant only for the mock dataset's own frozen demo
+    numbers. Real synced Meta data for any day after that constant was silently excluded from every
+    chart, KPI and export. Fixed with one shared `adsToday()` helper (`utils/adMetrics.js`): the real
+    current date in API mode, the mock's own frozen date only in demo mode (so the hand-authored mock
+    data doesn't show a run of empty trailing days).
+  - **A second real bug found while fixing the first**: `present()` in `adsService.js` returned the
+    *campaign's* shared name as every ad's own `name` — harmless for a single ad (they happen to match),
+    but for a Phase 4 bulk batch every variation showed under the identical campaign name. Fixed to
+    return the ad's own name, with the campaign's name kept separately as `campaignName` (now also what
+    the new Campaign filter below groups by).
+  - **Conversions relabeled honestly**: "Results" is always `0` (no Pixel/Lead Form this composer sets
+    up — see `ad_daily_stats.conversions`'s own migration comment) but was shown as a bare number that
+    reads as "zero conversions happened". Every place it's shown — the Ads list KPI, ad detail, and
+    every CSV/PDF export column — now says **"Not tracked"** instead (`CONVERSIONS_NOT_TRACKED` in
+    `utils/adMetrics.js`). The underlying data (always `0`) is unchanged; this is a display-only fix.
+  - **Spend by platform relabeled honestly**: Meta's `/insights` here is fetched per ad, not per
+    placement, so a multi-platform ad's spend is *split evenly* across its platforms — a real
+    approximation, not a measured breakdown. The panel is now titled "Estimated spend by platform" with
+    an info tooltip explaining exactly that, instead of implying an exact figure.
+  - **Bulk pause/resume/delete now report per-id results.** `PATCH /ads/status` and `DELETE /ads`
+    already ran each id independently (one failure never blocked the rest) but only ever returned an
+    aggregate count. Both now additionally return `results: [{id, status: 'updated'|'deleted'|'failed', reason?}]`
+    — additive, existing callers reading only `success`/`updated`/`deleted` are unaffected. A permission
+    failure still aborts the whole batch immediately (the actor's role doesn't change per item, unlike a
+    genuinely per-item problem), unchanged from before.
+  - **`deleteMetaAd` now classifies failures the same honest way every other Meta call in this file
+    does.** It had its own bespoke error handling that reported a temporary 429/5xx as if it were a
+    permanent "could not delete" failure; routed through the same shared `failure()` classifier now
+    (429/5xx → "temporary, try again", matching `setMetaAdStatus`/`fetchMetaAdStatus`/etc.). Confirmed a
+    temporary Meta failure during a bulk action never touches the Facebook connection's own status —
+    that's a different fact (the whole connection being broken) handled elsewhere, and was already
+    correctly untouched by any Ads code before this pass; now has a dedicated test proving it.
+  - **Ad sync health**: `ads.last_sync_error` (migration `020_ad_sync_health.sql`, nullable) — null means
+    the last background refresh succeeded (or none has run yet); set means it failed, holding the real
+    error message, not a fake metric. Was previously invisible: `last_synced_at` was stamped on every
+    *attempt* regardless of outcome, so a client had no way to tell "up to date" apart from "kept
+    failing, kept trying". `AdDetail.jsx` shows an honest warning banner when set ("numbers may be a few
+    hours old"); clears itself automatically once a refresh actually succeeds.
+  - **New report filters** — Ad Account and Campaign (both client-side, since `GET /ads` already returns
+    the client's whole (small, single-tenant) list and every other list page in this app filters the
+    same way — no new query params, no new pagination architecture, proportional to this app's actual
+    scale) plus a free-text ad-name search. Both dropdowns only appear when there's more than one real
+    value to filter by. An "Ad Set" filter was deliberately not added: this app's hierarchy always
+    creates exactly one ad set per campaign today, so it would be redundant with Campaign, not a
+    genuinely different filter.
 - Not built yet: editing a launched ad's targeting/creative/budget after it is live (only pause/resume/delete
   are wired up), an automated-rules engine, and the five deferred ad networks above. The database
   hierarchy from this rework (`ad_sets`/`ad_creatives` as independent, reusable rows) was built

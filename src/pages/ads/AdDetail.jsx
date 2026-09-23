@@ -16,11 +16,10 @@ import AdPreview from '../../components/ads/AdPreview';
 import DownloadReportMenu from '../../components/ads/DownloadReportMenu';
 import usePagination from '../../hooks/usePagination';
 import { getAdById, updateAdsStatus, deleteAds } from '../../services/api/adsApi';
-import { AD_DATA_END_DATE } from '../../services/mock/adsMock';
 import { AD_DATE_RANGES, AD_OBJECTIVES, AD_STATUS, AD_STATUS_LABELS, getAdNetwork } from '../../config/adPlatforms';
 import { getPlatformByKey } from '../../config/platforms';
 import { REQUEST_STATUS } from '../../config/constants';
-import { seriesForAds, sliceRange, sumDaily } from '../../utils/adMetrics';
+import { adsToday, CONVERSIONS_NOT_TRACKED, seriesForAds, sliceRange, sumDaily } from '../../utils/adMetrics';
 import { downloadAdsDailyCsv, downloadAdsSummaryCsv, printAdsReport } from '../../utils/adReports';
 import { formatCompactNumber, formatCurrency, formatDate, formatNumber, formatPercent } from '../../utils/formatters';
 import { useToast } from '../../components/common/ToastProvider';
@@ -50,11 +49,12 @@ function AdDetail() {
   }, [adId]);
 
   const rangeDays = useMemo(() => days, [days]);
-  const totals = useMemo(() => (ad ? sumDaily(sliceRange(ad.daily, rangeDays, AD_DATA_END_DATE)) : null), [ad, rangeDays]);
-  const series = useMemo(() => (ad ? seriesForAds([ad], rangeDays, AD_DATA_END_DATE) : []), [ad, rangeDays]);
+  const endDate = adsToday();
+  const totals = useMemo(() => (ad ? sumDaily(sliceRange(ad.daily, rangeDays, endDate)) : null), [ad, rangeDays, endDate]);
+  const series = useMemo(() => (ad ? seriesForAds([ad], rangeDays, endDate) : []), [ad, rangeDays, endDate]);
   const dailyRows = useMemo(
-    () => (ad ? [...sliceRange(ad.daily, rangeDays, AD_DATA_END_DATE)].sort((a, b) => (a.date < b.date ? 1 : -1)) : []),
-    [ad, rangeDays]
+    () => (ad ? [...sliceRange(ad.daily, rangeDays, endDate)].sort((a, b) => (a.date < b.date ? 1 : -1)) : []),
+    [ad, rangeDays, endDate]
   );
   const pagination = usePagination(dailyRows, { resetKey: rangeDays, initialSize: 25 });
 
@@ -132,7 +132,7 @@ function AdDetail() {
         { key: 'clicks', label: 'Clicks', value: formatNumber(totals.clicks), icon: 'MousePointerClick', tone: 'purple' },
         { key: 'ctr', label: 'CTR', value: formatPercent(totals.ctr), icon: 'Percent', tone: 'green' },
         { key: 'cpc', label: 'Avg. CPC', value: formatCurrency(totals.cpc), icon: 'Coins', tone: 'amber' },
-        { key: 'results', label: 'Results', value: formatNumber(totals.conversions), icon: 'Target', tone: 'red', hint: totals.conversions ? `${formatCurrency(totals.costPerResult)} per result` : undefined },
+        { key: 'results', label: 'Results', value: CONVERSIONS_NOT_TRACKED, icon: 'Target', tone: 'red', hint: 'No Pixel or Lead Form is set up for this ad' },
       ]
     : [];
 
@@ -187,6 +187,15 @@ function AdDetail() {
           <span>The platform is reviewing this ad. Reviews usually finish within 24 hours — numbers appear once it starts running.</span>
         </div>
       ) : null}
+      {ad.lastSyncError ? (
+        <div className="callout-banner callout-banner--warning">
+          <Icon name="RefreshCw" size={16} />
+          <span>
+            <strong>The last update from the platform didn’t go through</strong> — numbers below may be a few hours old.{' '}
+            {ad.lastSyncError} It will try again automatically.
+          </span>
+        </div>
+      ) : null}
 
       {hasData ? (
         <>
@@ -231,7 +240,7 @@ function AdDetail() {
                         <td className="text-end">{formatNumber(day.impressions)}</td>
                         <td className="text-end">{formatNumber(day.clicks)}</td>
                         <td className="text-end">{formatPercent(day.impressions ? (day.clicks / day.impressions) * 100 : 0)}</td>
-                        <td className="text-end">{formatNumber(day.conversions)}</td>
+                        <td className="text-end text-muted-custom">{CONVERSIONS_NOT_TRACKED}</td>
                       </tr>
                     ))}
                   </tbody>

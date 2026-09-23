@@ -14,6 +14,19 @@ let adSetCallCount = 0;
 let creativeCallCount = 0;
 let adCallCount = 0;
 
+// Phase 7/9 hardening: simulating Meta failing mid-bulk-batch. Each queue holds one canned outcome per
+// call to /ad-1 (status update or delete), consumed in order — so a 3-item bulk request can have its
+// 2nd call hit a real 429 while the 1st and 3rd succeed normally, the same way a real rate limit would
+// land mid-sequence. Empty queue (the default) means "just succeed", unchanged from before this pass.
+let adStatusUpdateQueue = [];
+let adDeleteQueue = [];
+function queuedOutcome(queue) {
+  if (queue.length === 0) return null;
+  const outcome = queue.shift();
+  if (outcome.throw) throw new Error('simulated network failure');
+  return reply(outcome.status, outcome.body);
+}
+
 // The organic Page token used for Facebook posting ('fb-token-123') and the Ads-scoped User token
 // are deliberately different tokens on deliberately different accounts (see providers/adsMeta.js's
 // header comment) — the stub tells them apart by exactly which token /debug_token was asked about.
@@ -66,8 +79,8 @@ function stub(url, init) {
   if (path.endsWith('/ad-1/insights') && method === 'GET') {
     return reply(200, { data: [{ date_start: '2026-09-22', spend: '12.50', impressions: '500', clicks: '10' }, { date_start: '2026-09-23', spend: '8.00', impressions: '300', clicks: '6' }] });
   }
-  if (path.endsWith('/ad-1') && method === 'POST') return reply(200, { success: true });
-  if (path.endsWith('/ad-1') && method === 'DELETE') return reply(200, { success: true });
+  if (path.endsWith('/ad-1') && method === 'POST') return queuedOutcome(adStatusUpdateQueue) ?? reply(200, { success: true });
+  if (path.endsWith('/ad-1') && method === 'DELETE') return queuedOutcome(adDeleteQueue) ?? reply(200, { success: true });
   return null;
 }
 
@@ -423,6 +436,14 @@ describe('Phase 4: bulk ad creation (several creative variations, one shared ad 
     assert.equal(adA.status, 'inReview');
     assert.equal(adB.status, 'inReview');
 
+    // Each variation shows under its OWN name, not the shared campaign's name — a real bug this
+    // hardening pass found: present() used to return the campaign's name for every ad regardless.
+    assert.equal(adA.name, 'Diwali variations — variation 1');
+    assert.equal(adB.name, 'Diwali variations — variation 2');
+    assert.notEqual(adA.name, adB.name, 'each bulk variation must have its own distinct display name');
+    assert.equal(adA.campaignName, 'Diwali variations');
+    assert.equal(adB.campaignName, 'Diwali variations', 'the shared campaign name is still available separately, for grouping/filtering');
+
     const adRows = (await query('SELECT ad_set_id, ad_creative_id FROM ads WHERE id = ANY($1)', [[adA.id, adB.id]])).rows;
     assert.equal(adRows[0].ad_set_id, adRows[1].ad_set_id, 'both variations share one ad set');
     assert.notEqual(adRows[0].ad_creative_id, adRows[1].ad_creative_id, 'each variation has its own creative row');
@@ -502,5 +523,124 @@ describe('Phase 5: creative library (saved, reusable templates)', () => {
     const fakeId = '00000000-0000-0000-0000-000000000000';
     assert.equal((await owner.patch(`/ads/templates/${fakeId}`, templatePayload())).status, 404);
     assert.equal((await owner.delete(`/ads/templates/${fakeId}`)).status, 404);
+  });
+});
+
+describe('Phase 7/9 hardening: multi-item bulk actions, Meta failures, and sync health', () => {
+  let adAccountId;
+  let ids;
+
+  before(async () => {
+    adAccountId = (await owner.get('/ads/accounts')).body.accounts[0].id;
+    const a = await owner.post('/ads', adPayload({ adAccountId, name: 'Hardening A' }));
+    const b = await owner.post('/ads', adPayload({ adAccountId, name: 'Hardening B' }));
+    const c = await owner.post('/ads', adPayload({ adAccountId, name: 'Hardening C' }));
+    ids = [a.body.ad.id, b.body.ad.id, c.body.ad.id];
+  });
+
+  it('pauses 3 real ads in one bulk request — every id is really processed, not just the first', async () => {
+    const response = await owner.patch('/ads/status', { ids, status: 'paused' });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.updated, 3);
+    assert.equal(response.body.results.length, 3);
+    assert.ok(response.body.results.every((row) => row.status === 'updated'));
+    assert.deepEqual(response.body.results.map((row) => row.id).sort(), [...ids].sort());
+    for (const id of ids) assert.equal((await owner.get(`/ads/${id}`)).body.ad.status, 'paused');
+  });
+
+  it('a mid-batch Meta 429 fails only that one id — the rest still succeed, reported honestly, no fake success', async () => {
+    adStatusUpdateQueue = [
+      { status: 200, body: { success: true } },
+      { status: 429, body: { error: { message: 'Application request limit reached' } } },
+      { status: 200, body: { success: true } },
+    ];
+    const response = await owner.patch('/ads/status', { ids, status: 'active' });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.updated, 2);
+    assert.equal(response.body.results.length, 3);
+    assert.equal(response.body.results[0].status, 'updated');
+    assert.equal(response.body.results[1].status, 'failed');
+    assert.match(response.body.results[1].reason, /limiting requests|try again/i);
+    assert.equal(response.body.results[2].status, 'updated');
+
+    assert.equal((await owner.get(`/ads/${ids[0]}`)).body.ad.status, 'active');
+    assert.equal((await owner.get(`/ads/${ids[1]}`)).body.ad.status, 'paused', 'the failed one keeps its last real status — no fake success');
+    assert.equal((await owner.get(`/ads/${ids[2]}`)).body.ad.status, 'active');
+    adStatusUpdateQueue = [];
+  });
+
+  it('a temporary 5xx from Meta is reported the same honest way — not a fake success', async () => {
+    adStatusUpdateQueue = [{ status: 503, body: { error: { message: 'Service unavailable' } } }];
+    const response = await owner.patch('/ads/status', { ids: [ids[1]], status: 'active' });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.updated, 0);
+    assert.equal(response.body.results[0].status, 'failed');
+    assert.match(response.body.results[0].reason, /trouble right now|try again/i);
+    assert.equal((await owner.get(`/ads/${ids[1]}`)).body.ad.status, 'paused');
+    adStatusUpdateQueue = [];
+  });
+
+  it('a real network failure during a bulk action fails that id honestly too', async () => {
+    adStatusUpdateQueue = [{ throw: true }];
+    const response = await owner.patch('/ads/status', { ids: [ids[1]], status: 'active' });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.updated, 0);
+    assert.equal(response.body.results[0].status, 'failed');
+    assert.match(response.body.results[0].reason, /did not answer|reach the internet/i);
+    assert.equal((await owner.get(`/ads/${ids[1]}`)).body.ad.status, 'paused');
+    adStatusUpdateQueue = [];
+  });
+
+  it('bulk delete: a mid-batch 429 skips only that id — the rest are really deleted, not a fake success', async () => {
+    const d = await owner.post('/ads', adPayload({ adAccountId, name: 'Hardening D' }));
+    const e = await owner.post('/ads', adPayload({ adAccountId, name: 'Hardening E' }));
+    const deleteIds = [d.body.ad.id, e.body.ad.id];
+
+    adDeleteQueue = [{ status: 429, body: { error: { message: 'Application request limit reached' } } }];
+    const response = await owner.delete('/ads', { body: { ids: deleteIds } });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.deleted, 1);
+    assert.equal(response.body.results[0].status, 'failed');
+    assert.match(response.body.results[0].reason, /limiting requests|try again/i);
+    assert.equal(response.body.results[1].status, 'deleted');
+
+    assert.equal((await owner.get(`/ads/${deleteIds[0]}`)).status, 200, 'the failed delete really left the ad in place');
+    assert.equal((await owner.get(`/ads/${deleteIds[1]}`)).status, 404);
+    adDeleteQueue = [];
+  });
+
+  it('a Contributor is refused for the whole batch, before any Meta call happens', async () => {
+    const response = await contributor.patch('/ads/status', { ids, status: 'paused' });
+    assert.equal(response.status, 403);
+  });
+
+  it('temporary Meta failures during bulk actions never touch the Facebook connection', async () => {
+    const before2 = await owner.get('/social-accounts');
+    const beforeStatus = before2.body.accounts.find((account) => account.platform === 'facebook').status;
+    assert.equal(beforeStatus, 'connected');
+
+    adStatusUpdateQueue = [{ status: 429, body: { error: { message: 'rate limited' } } }];
+    await owner.patch('/ads/status', { ids: [ids[2]], status: 'active' });
+
+    const after = await owner.get('/social-accounts');
+    const afterStatus = after.body.accounts.find((account) => account.platform === 'facebook').status;
+    assert.equal(afterStatus, 'connected', 'a temporary Ads API failure never disconnects the Facebook connection');
+    adStatusUpdateQueue = [];
+  });
+
+  it('sync health: a failed background refresh is recorded honestly, and clears itself once Meta answers again', async () => {
+    adStatusOverride = () => reply(500, { error: { message: 'temporarily down' } });
+    await query('UPDATE ads SET last_synced_at = NULL WHERE id = $1', [ids[2]]);
+    await refreshAdMetrics(0);
+    let ad = await owner.get(`/ads/${ids[2]}`);
+    assert.ok(ad.body.ad.lastSyncError, 'a real failure is recorded, not silently dropped');
+    assert.match(ad.body.ad.lastSyncError, /trouble right now|try again/i);
+    assert.ok(ad.body.ad.lastSyncedAt, 'last_synced_at still advances so this ad is retried, not stuck forever');
+
+    adStatusOverride = () => null; // Meta answers normally again
+    await query('UPDATE ads SET last_synced_at = NULL WHERE id = $1', [ids[2]]);
+    await refreshAdMetrics(0);
+    ad = await owner.get(`/ads/${ids[2]}`);
+    assert.equal(ad.body.ad.lastSyncError, null, 'clears itself once the next refresh actually succeeds — never stuck showing a stale warning');
   });
 });
