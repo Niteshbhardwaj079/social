@@ -8,6 +8,7 @@ const realFetch = globalThis.fetch;
 const reply = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 let adStatusOverride = () => null;
+let lastAdCreativeForm = null;
 
 // The organic Page token used for Facebook posting ('fb-token-123') and the Ads-scoped User token
 // are deliberately different tokens on deliberately different accounts (see providers/adsMeta.js's
@@ -41,7 +42,11 @@ function stub(url, init) {
   if (path.endsWith('/act_meta-act-1/campaigns') && method === 'POST') return reply(200, { id: 'campaign-1' });
   if (path.endsWith('/act_meta-act-1/adsets') && method === 'POST') return reply(200, { id: 'adset-1' });
   if (path.endsWith('/act_meta-act-1/adimages') && method === 'POST') return reply(200, { images: { 'photo.png': { hash: 'hash-1' } } });
-  if (path.endsWith('/act_meta-act-1/adcreatives') && method === 'POST') return reply(200, { id: 'creative-1' });
+  if (path.endsWith('/act_meta-act-1/adcreatives') && method === 'POST') {
+    lastAdCreativeForm = Object.fromEntries(new URLSearchParams(init.body));
+    return reply(200, { id: 'creative-1' });
+  }
+  if (path.endsWith('/page-1/feed') && method === 'POST') return reply(200, { post_id: 'page-1_555', id: 'page-1_555' });
   if (path.endsWith('/act_meta-act-1/ads') && method === 'POST') return reply(200, { id: 'ad-1' });
   if (path.endsWith('/ad-1') && method === 'GET') return adStatusOverride(url) ?? reply(200, { effective_status: 'ACTIVE' });
   if (path.endsWith('/ad-1/insights') && method === 'GET') {
@@ -296,5 +301,56 @@ describe('running ads: status sync, pause/resume, delete', () => {
     await owner.delete('/ads', { body: { ids: [first.body.ad.id] } });
     assert.equal((await query('SELECT 1 FROM ad_sets WHERE id = $1', [adSetId])).rows.length, 1, 'the ad set survives because Shared B still uses it');
     assert.equal((await query('SELECT 1 FROM ads WHERE id = $1', [second.id])).rows.length, 1);
+  });
+});
+
+describe('Phase 3: an existing post as an ad', () => {
+  let adAccountId;
+  let publishedPostId;
+
+  before(async () => {
+    adAccountId = (await owner.get('/ads/accounts')).body.accounts[0].id;
+    const post = await owner.post('/posts', { content: 'Our biggest sale of the year is here', platforms: ['facebook'], status: 'published' });
+    assert.equal(post.status, 201);
+    publishedPostId = post.body.post.id;
+    const target = (await query("SELECT external_id, status FROM post_targets WHERE post_id = $1 AND platform = 'facebook'", [publishedPostId])).rows[0];
+    assert.equal(target.status, 'published');
+    assert.equal(target.external_id, 'page-1_555');
+  });
+
+  it('refuses when neither creative nor a post to boost is given, and refuses both together', async () => {
+    const neither = await owner.post('/ads', adPayload({ adAccountId, creative: undefined }));
+    assert.equal(neither.status, 400);
+
+    const both = await owner.post('/ads', adPayload({ adAccountId, sourcePostId: publishedPostId }));
+    assert.equal(both.status, 400);
+  });
+
+  it('refuses to boost a post with no real published Facebook version', async () => {
+    const draftPost = await owner.post('/posts', { content: 'Not published anywhere', platforms: ['facebook'], status: 'draft' });
+    const response = await owner.post('/ads', { ...adPayload({ adAccountId }), creative: undefined, sourcePostId: draftPost.body.post.id });
+    assert.equal(response.status, 400);
+    assert.match(response.body.error.message, /no real, published Facebook version/);
+  });
+
+  it('boosts the real published Facebook post: object_story_id, not a fresh link_data creative', async () => {
+    lastAdCreativeForm = null;
+    const response = await owner.post('/ads', { ...adPayload({ adAccountId }), creative: undefined, sourcePostId: publishedPostId });
+    assert.equal(response.status, 201);
+    const { ad } = response.body;
+    assert.equal(ad.status, 'inReview');
+    assert.deepEqual(ad.platforms, ['facebook'], 'forced to Facebook-only server-side, regardless of what was in the payload');
+    assert.equal(ad.sourcePostId, publishedPostId);
+    // Real creative fields are honestly empty — the post's own content is what actually shows, not a copy of it.
+    assert.equal(ad.creative.headline, '');
+    assert.equal(ad.creative.text, '');
+
+    assert.equal(lastAdCreativeForm.object_story_id, 'page-1_555');
+    assert.ok(!('object_story_spec' in lastAdCreativeForm), 'a real boost never builds a fresh link_data creative');
+  });
+
+  it('a Contributor cannot boost a post either — same permission as any other ad', async () => {
+    const response = await contributor.post('/ads', { ...adPayload({ adAccountId, name: 'Contributor boost' }), creative: undefined, sourcePostId: publishedPostId });
+    assert.equal(response.status, 403);
   });
 });

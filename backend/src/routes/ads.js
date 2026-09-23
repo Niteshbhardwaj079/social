@@ -40,19 +40,26 @@ const audienceSchema = z.object({
   gender: z.enum(['all', 'men', 'women']),
   interests: z.array(z.string()).default([]),
 });
-const createSchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  objective: z.enum(['awareness', 'traffic', 'engagement', 'leads', 'sales']),
-  adAccountId: z.string().uuid('Choose an ad account'),
-  platforms: z.array(z.string().refine(isPlatform, 'Unknown platform')).min(1),
-  budgetType: z.enum(['daily', 'lifetime']),
-  budget: z.coerce.number().min(100),
-  startDate: z.string().date(),
-  endDate: z.string().date(),
-  creative: creativeSchema,
-  audience: audienceSchema,
-  status: z.enum(['draft']).optional(),
-});
+const createSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    objective: z.enum(['awareness', 'traffic', 'engagement', 'leads', 'sales']),
+    adAccountId: z.string().uuid('Choose an ad account'),
+    platforms: z.array(z.string().refine(isPlatform, 'Unknown platform')).min(1),
+    budgetType: z.enum(['daily', 'lifetime']),
+    budget: z.coerce.number().min(100),
+    startDate: z.string().date(),
+    endDate: z.string().date(),
+    // Either real ad creative, or an existing post to boost (Phase 3) — never both, never neither.
+    creative: creativeSchema.optional(),
+    sourcePostId: z.string().uuid().optional(),
+    audience: audienceSchema,
+    status: z.enum(['draft']).optional(),
+  })
+  .refine((value) => Boolean(value.creative) !== Boolean(value.sourcePostId), {
+    message: 'Add ad creative details, or choose an existing post to boost — not both.',
+    path: ['creative'],
+  });
 
 router.get('/', async (_req, res) => res.json({ ads: await listCampaigns() }));
 

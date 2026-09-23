@@ -130,8 +130,19 @@ const DEFAULT_OPTIMIZATION = { optimization_goal: 'LINK_CLICKS', billing_event: 
  * Business account ids from Social Accounts — the ad must appear AS that profile (Meta requires a
  * Facebook Page even for an Instagram-only ad); passing the id is enough, no Page token is needed
  * here, the Ads token's own permission on the ad account/Business Manager covers it.
+ *
+ * `boostExternalPostId` (Phase 3, "existing post → ad"): when set, this is a real **boost** of an
+ * already-published Facebook Page post — Meta's own `<page_id>_<post_id>` combined id, exactly the
+ * value Facebook returns and this app already stores as `post_targets.external_id` for a published
+ * Facebook post (see providers/publishers.js's `publishFacebook`). The creative then reuses that
+ * post's own text/image directly via `object_story_id`, so `campaign.creative`/`imageUrl` are not
+ * used at all in that case — there is nothing to upload or restate, which is exactly what a real
+ * "Boost Post" button does. Deliberately Facebook-only: Instagram's own equivalent field for boosting
+ * an existing IG media is a different, less-documented corner of the API this codebase does not have
+ * verified confidence in — content-reuse (a fresh creative copying the post's text/image) is offered
+ * for an Instagram-sourced post instead, at the call site in adsService.js.
  */
-export async function createMetaCampaign({ accessToken, externalAccountId, campaign, pageId, instagramActorId, imageUrl }) {
+export async function createMetaCampaign({ accessToken, externalAccountId, campaign, pageId, instagramActorId, imageUrl, boostExternalPostId }) {
   const act = externalAccountId;
   const launch = campaign.status !== 'draft';
   const metaStatus = launch ? 'ACTIVE' : 'PAUSED';
@@ -170,24 +181,32 @@ export async function createMetaCampaign({ accessToken, externalAccountId, campa
   }
   const createdAdSet = await graphCall('POST', `${act}/adsets`, { token: accessToken, form: adSetForm });
 
-  let imageHash;
-  if (imageUrl) {
-    const uploaded = await graphCall('POST', `${act}/adimages`, { token: accessToken, form: { url: imageUrl } });
-    imageHash = Object.values(uploaded.images || {})[0]?.hash;
+  let createdCreative;
+  if (boostExternalPostId) {
+    createdCreative = await graphCall('POST', `${act}/adcreatives`, {
+      token: accessToken,
+      form: { name: `${campaign.name} — creative`, object_story_id: boostExternalPostId },
+    });
+  } else {
+    let imageHash;
+    if (imageUrl) {
+      const uploaded = await graphCall('POST', `${act}/adimages`, { token: accessToken, form: { url: imageUrl } });
+      imageHash = Object.values(uploaded.images || {})[0]?.hash;
+    }
+    const linkData = {
+      message: campaign.creative.text,
+      link: campaign.creative.destinationUrl,
+      name: campaign.creative.headline,
+      call_to_action: { type: CTA_TYPES[campaign.creative.cta] || 'LEARN_MORE', value: { link: campaign.creative.destinationUrl } },
+    };
+    if (imageHash) linkData.image_hash = imageHash;
+    const objectStorySpec = { page_id: pageId, link_data: linkData };
+    if (instagramActorId) objectStorySpec.instagram_actor_id = instagramActorId;
+    createdCreative = await graphCall('POST', `${act}/adcreatives`, {
+      token: accessToken,
+      form: { name: `${campaign.name} — creative`, object_story_spec: objectStorySpec },
+    });
   }
-  const linkData = {
-    message: campaign.creative.text,
-    link: campaign.creative.destinationUrl,
-    name: campaign.creative.headline,
-    call_to_action: { type: CTA_TYPES[campaign.creative.cta] || 'LEARN_MORE', value: { link: campaign.creative.destinationUrl } },
-  };
-  if (imageHash) linkData.image_hash = imageHash;
-  const objectStorySpec = { page_id: pageId, link_data: linkData };
-  if (instagramActorId) objectStorySpec.instagram_actor_id = instagramActorId;
-  const createdCreative = await graphCall('POST', `${act}/adcreatives`, {
-    token: accessToken,
-    form: { name: `${campaign.name} — creative`, object_story_spec: objectStorySpec },
-  });
 
   const createdAd = await graphCall('POST', `${act}/ads`, {
     token: accessToken,

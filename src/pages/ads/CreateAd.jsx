@@ -9,6 +9,7 @@ import DatePickerField from '../../components/forms/DatePickerField';
 import AdPreview from '../../components/ads/AdPreview';
 import NetworkIcons from '../../components/ads/NetworkIcons';
 import { createAd, getAdAccounts, isPlacementConnected } from '../../services/api/adsApi';
+import { apiErrorMessage } from '../../services/api/axiosClient';
 import { getPosts } from '../../services/api/postsApi';
 import { getMediaItems } from '../../services/api/mediaApi';
 import { AD_CTAS, AD_INTERESTS, AD_LOCATIONS, AD_OBJECTIVES, AD_STATUS, getAdNetwork } from '../../config/adPlatforms';
@@ -33,6 +34,7 @@ function initialForm() {
     adAccountId: '',
     platforms: [],
     postId: '',
+    isBoost: false,
     mediaId: '',
     headline: '',
     text: '',
@@ -96,9 +98,11 @@ function CreateAd() {
           : 'None of this account’s platforms is connected in Social Accounts yet — connect one first (see below).'
       );
     }
-    if (!form.text.trim()) list[2].push('Write the ad text.');
-    if (!form.headline.trim()) list[2].push('Add a headline.');
-    if (!/^https?:\/\/\S+\.\S+/i.test(form.destinationUrl.trim())) list[2].push('Enter the full link people should go to (starting with https://).');
+    if (!form.isBoost) {
+      if (!form.text.trim()) list[2].push('Write the ad text.');
+      if (!form.headline.trim()) list[2].push('Add a headline.');
+      if (!/^https?:\/\/\S+\.\S+/i.test(form.destinationUrl.trim())) list[2].push('Enter the full link people should go to (starting with https://).');
+    }
     if (form.locations.length === 0) list[3].push('Pick at least one location.');
     if (form.ageMin > form.ageMax) list[3].push('The minimum age must not be above the maximum age.');
     if (!(Number(form.budget) >= 100)) list[4].push('The budget must be at least ₹100.');
@@ -129,7 +133,7 @@ function CreateAd() {
     }
     setIsLaunching(true);
     createAd({
-      name: form.name.trim() || form.headline.trim() || 'Untitled ad',
+      name: form.name.trim() || form.headline.trim() || (form.isBoost ? 'Boosted post' : 'Untitled ad'),
       objective: form.objective,
       adAccountId: form.adAccountId,
       platforms: form.platforms,
@@ -137,22 +141,44 @@ function CreateAd() {
       budget: Number(form.budget),
       startDate: form.startDate,
       endDate: form.endDate,
-      creative: { headline: form.headline, text: form.text, cta: form.cta, destinationUrl: form.destinationUrl, mediaId: form.mediaId || null },
+      ...(form.isBoost
+        ? { sourcePostId: form.postId }
+        : { creative: { headline: form.headline, text: form.text, cta: form.cta, destinationUrl: form.destinationUrl, mediaId: form.mediaId || null } }),
       audience: { locations: form.locations, ageMin: form.ageMin, ageMax: form.ageMax, gender: form.gender, interests: form.interests },
       status: asDraft ? AD_STATUS.DRAFT : undefined,
-    }).then((ad) => {
-      showToast({
-        type: 'success',
-        title: asDraft ? 'Saved as draft' : 'Ad submitted',
-        message: asDraft ? ad.name : 'The platform will review it, usually within 24 hours.',
+    })
+      .then((ad) => {
+        showToast({
+          type: 'success',
+          title: asDraft ? 'Saved as draft' : 'Ad submitted',
+          message: asDraft ? ad.name : 'The platform will review it, usually within 24 hours.',
+        });
+        navigate(`/ads/${ad.id}`);
+      })
+      .catch((error) => {
+        setIsLaunching(false);
+        showToast({ type: 'error', title: apiErrorMessage(error, 'The ad could not be launched.') });
       });
-      navigate(`/ads/${ad.id}`);
-    });
   }
 
   function pickPost(postId) {
     const post = posts.find((item) => item.id === postId);
-    update({ postId, ...(post ? { text: post.content } : {}) });
+    if (!post) {
+      update({ postId: '', isBoost: false });
+      return;
+    }
+    // A real, already-published Facebook post can be genuinely boosted (Meta reuses its own text and
+    // image directly — see backend/README.md's Ads section) — offered as the default when available,
+    // since it's the most accurate way to turn a post into an ad. Any other post just seeds a fresh
+    // ad's starting text/image, which stays fully editable.
+    const canBoost = post.targets?.some((target) => target.platform === 'facebook' && target.status === 'published');
+    update({
+      postId,
+      isBoost: canBoost,
+      platforms: canBoost ? ['facebook'] : form.platforms,
+      text: post.content,
+      mediaId: post.media?.[0]?.id || '',
+    });
   }
 
   const errorList = showErrors ? problems[step] : [];
@@ -295,35 +321,70 @@ function CreateAd() {
                     </select>
                   </div>
                 ) : null}
-                <div className="mb-4">
-                  <label htmlFor="adText" className="form-label-custom">Ad text</label>
-                  <textarea id="adText" className="form-control" rows={4} maxLength={500} value={form.text} onChange={(event) => update({ text: event.target.value })} placeholder="What do you want people to know?" />
-                  <div className="form-hint">{form.text.length} / 500</div>
-                </div>
-                <div className="form-grid-2">
-                  <TextField id="adHeadline" label="Headline" value={form.headline} onChange={(event) => update({ headline: event.target.value })} maxLength={80} placeholder="Short and clear" />
-                  <div className="mb-4">
-                    <label htmlFor="adCta" className="form-label-custom">Button</label>
-                    <select id="adCta" className="form-select" value={form.cta} onChange={(event) => update({ cta: event.target.value })}>
-                      {AD_CTAS.map((cta) => <option key={cta} value={cta}>{cta}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <TextField id="adUrl" label="Where should the button go?" type="url" value={form.destinationUrl} onChange={(event) => update({ destinationUrl: event.target.value })} placeholder="https://yoursite.com/offer" hint="Tip: paste a short link from the Link Shortener to see how many clicks come from this ad." />
-                <div className="mb-2">
-                  <span className="form-label-custom d-block">Image (from your Media Library)</span>
-                  <div className="ad-image-grid">
-                    <button type="button" className={`ad-image-option ${form.mediaId === '' ? 'is-selected' : ''}`.trim()} onClick={() => update({ mediaId: '' })}>
-                      <Icon name="ImageOff" size={20} /> None
-                    </button>
-                    {images.slice(0, 8).map((image) => (
-                      <button key={image.id} type="button" className={`ad-image-option ${form.mediaId === image.id ? 'is-selected' : ''}`.trim()} onClick={() => update({ mediaId: image.id })} title={image.name}>
-                        {image.url ? <img src={image.url} alt={image.name} /> : <Icon name="Image" size={20} />}
-                        <span className="ad-image-option__name">{image.name}</span>
+
+                {form.postId && form.isBoost ? (
+                  <div className="callout-banner callout-banner--info mb-4">
+                    <Icon name="Megaphone" size={16} />
+                    <span>
+                      This post is already live on your connected Facebook Page — Social can <strong>boost it directly</strong>, using its real text, image and existing
+                      likes/comments, exactly like Facebook’s own “Boost Post” button. No separate headline, button or link needed.{' '}
+                      <button type="button" className="btn btn-link p-0 align-baseline" onClick={() => update({ isBoost: false })}>
+                        Write a separate ad instead
                       </button>
-                    ))}
+                    </span>
                   </div>
-                </div>
+                ) : null}
+
+                {form.isBoost ? (
+                  <div className="surface-card mb-2">
+                    <div className="form-label-custom mb-2">What you’re boosting</div>
+                    <p className="mb-0 text-break">{form.text}</p>
+                  </div>
+                ) : (
+                  <>
+                    {form.postId ? (
+                      <div className="callout-banner callout-banner--info mb-4">
+                        <Icon name="Info" size={16} />
+                        <span>
+                          Starting from this post’s text and image — edit anything below, or{' '}
+                          <button type="button" className="btn btn-link p-0 align-baseline" onClick={() => update({ isBoost: true })}>
+                            boost the real post instead
+                          </button>{' '}
+                          if it’s already live on Facebook.
+                        </span>
+                      </div>
+                    ) : null}
+                    <div className="mb-4">
+                      <label htmlFor="adText" className="form-label-custom">Ad text</label>
+                      <textarea id="adText" className="form-control" rows={4} maxLength={500} value={form.text} onChange={(event) => update({ text: event.target.value })} placeholder="What do you want people to know?" />
+                      <div className="form-hint">{form.text.length} / 500</div>
+                    </div>
+                    <div className="form-grid-2">
+                      <TextField id="adHeadline" label="Headline" value={form.headline} onChange={(event) => update({ headline: event.target.value })} maxLength={80} placeholder="Short and clear" />
+                      <div className="mb-4">
+                        <label htmlFor="adCta" className="form-label-custom">Button</label>
+                        <select id="adCta" className="form-select" value={form.cta} onChange={(event) => update({ cta: event.target.value })}>
+                          {AD_CTAS.map((cta) => <option key={cta} value={cta}>{cta}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <TextField id="adUrl" label="Where should the button go?" type="url" value={form.destinationUrl} onChange={(event) => update({ destinationUrl: event.target.value })} placeholder="https://yoursite.com/offer" hint="Tip: paste a short link from the Link Shortener to see how many clicks come from this ad." />
+                    <div className="mb-2">
+                      <span className="form-label-custom d-block">Image (from your Media Library)</span>
+                      <div className="ad-image-grid">
+                        <button type="button" className={`ad-image-option ${form.mediaId === '' ? 'is-selected' : ''}`.trim()} onClick={() => update({ mediaId: '' })}>
+                          <Icon name="ImageOff" size={20} /> None
+                        </button>
+                        {images.slice(0, 8).map((image) => (
+                          <button key={image.id} type="button" className={`ad-image-option ${form.mediaId === image.id ? 'is-selected' : ''}`.trim()} onClick={() => update({ mediaId: image.id })} title={image.name}>
+                            {image.url ? <img src={image.url} alt={image.name} /> : <Icon name="Image" size={20} />}
+                            <span className="ad-image-option__name">{image.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             ) : null}
 
@@ -401,7 +462,15 @@ function CreateAd() {
                   <dt>Audience</dt><dd>{form.locations.join(', ')} · {form.ageMin}–{form.ageMax} · {form.gender === 'all' ? 'All genders' : form.gender}{form.interests.length ? ` · ${form.interests.join(', ')}` : ''}</dd>
                   <dt>Budget</dt><dd>{formatCurrency(form.budget)} {form.budgetType === 'daily' ? 'per day' : 'lifetime'} ({formatCurrency(totalBudget)} over {days} {days === 1 ? 'day' : 'days'})</dd>
                   <dt>Schedule</dt><dd>{form.startDate} to {form.endDate}</dd>
-                  <dt>Button link</dt><dd className="text-break">{form.destinationUrl}</dd>
+                  {form.isBoost ? (
+                    <>
+                      <dt>Creative</dt><dd>Boosting your existing Facebook post directly — its real text, image and engagement.</dd>
+                    </>
+                  ) : (
+                    <>
+                      <dt>Button link</dt><dd className="text-break">{form.destinationUrl}</dd>
+                    </>
+                  )}
                 </dl>
                 <div className="callout-banner callout-banner--info mb-0">
                   <Icon name="Wallet" size={16} />

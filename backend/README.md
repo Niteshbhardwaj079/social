@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 257 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 261 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -352,11 +352,30 @@ validated by the same `cleanCredentials()` every platform uses, stored in the sa
   needs `canManageAccounts` (Super Admin/Admin — it's adjacent to handling the client's credentials, same
   bar as connecting a social account); creating/pausing/resuming/deleting an ad needs `canPublishPosts`
   (Editor+). None of this is enforced only in the frontend.
+- **An existing post can become an ad two ways.** Picking a post already **published to Facebook**
+  (`post_targets` has a `platform='facebook'`, `status='published'` row for it) offers a real Meta
+  **boost**: the ad creative is built with `object_story_id` (`<page_id>_<post_id>`, exactly what
+  `publishFacebook` already stored) instead of `link_data`, so Meta reuses that live post's own text,
+  image and existing likes/comments directly — the same thing Facebook's own "Boost Post" button does.
+  No headline/CTA/destination URL is asked for or stored (`ad_creatives.headline/body_text/cta/
+  destination_url` are `''`, `media_id` is `null`); `ad_creatives.source_post_id` (migration
+  `018_ad_creative_source_post.sql`) points back at the post instead. Deliberately **Facebook-only, not
+  Instagram** — Instagram's boost-equivalent field is a less-documented corner of the Graph API this
+  codebase does not have verified confidence in, same "don't guess platform behaviour" rule as the five
+  deferred ad networks above. Any other post (Instagram-only, unpublished, or just not on Facebook) instead
+  seeds a **fresh, fully-editable** ad creative from that post's text and first attached image — headline,
+  CTA and destination URL are still required from the client, same as writing an ad from scratch. The real
+  Facebook `object_story_id` is always looked up server-side from `post_targets` (`createSchema`'s
+  `sourcePostId` is just a post id the client already has read access to) — the client can never pass its
+  own `object_story_id`/`external_id`, and `platforms` is forced to `['facebook']` server-side for a boost
+  regardless of what the client sends, as defence in depth on top of the picker only offering Facebook for
+  a boost. `POST /api/ads`'s `creative`/`sourcePostId` fields are mutually exclusive (a zod `.refine()`,
+  never both, never neither).
 - Not built yet: editing a launched ad's targeting/creative/budget after it is live (only pause/resume/delete
-  are wired up), existing-post-→-ad reuse, bulk ad creation with variation limits, a creative/template
-  library, a UTM builder, an automated-rules engine, and the five deferred ad networks above. The database
-  hierarchy from this rework (`ad_sets`/`ad_creatives` as independent, reusable rows) was built specifically
-  so those are additions on top of this schema, not another rework.
+  are wired up), bulk ad creation with variation limits, a creative/template library, a UTM builder, an
+  automated-rules engine, and the five deferred ad networks above. The database hierarchy from this rework
+  (`ad_sets`/`ad_creatives` as independent, reusable rows) was built specifically so those are additions on
+  top of this schema, not another rework.
 
 ### Link Shortener
 

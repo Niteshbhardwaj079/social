@@ -137,6 +137,7 @@ function present(row, daily = []) {
       destinationUrl: row.destination_url,
       mediaId: row.media_id,
     },
+    sourcePostId: row.source_post_id,
     audience: row.audience,
     daily,
   };
@@ -148,7 +149,7 @@ const AD_SELECT = `
     aset.id AS ad_set_id, aset.platforms, aset.budget_type, aset.budget, aset.start_date, aset.end_date, aset.audience, aset.external_adset_id,
     camp.id AS ad_campaign_id, camp.name AS campaign_name, camp.objective, camp.external_campaign_id, camp.created_by,
     acc.id AS ad_account_id, acc.network, acc.name AS ad_account_name, acc.external_account_id,
-    cre.headline, cre.body_text, cre.cta, cre.destination_url, cre.media_id, cre.external_creative_id,
+    cre.headline, cre.body_text, cre.cta, cre.destination_url, cre.media_id, cre.external_creative_id, cre.source_post_id,
     u.name AS creator_name
   FROM ads
   JOIN ad_sets aset ON aset.id = ads.ad_set_id
@@ -197,6 +198,13 @@ async function resolvePlacements(platforms) {
   return { pageId: facebook.account.externalId, instagramActorId };
 }
 
+/** The real, already-published Facebook post id for a boost — looked up server-side from our own
+ * data, never trusted from the client (see createCampaign's `isBoost` branch). */
+async function facebookPublishedExternalId(postId) {
+  const row = (await query("SELECT external_id FROM post_targets WHERE post_id = $1 AND platform = 'facebook' AND status = 'published'", [postId])).rows[0];
+  return row?.external_id || null;
+}
+
 export async function createCampaign({ actor, input, ip, userAgent }) {
   if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can create an ad.');
 
@@ -207,8 +215,22 @@ export async function createCampaign({ actor, input, ip, userAgent }) {
   const adsCredentials = await requireAdsCredentials();
 
   const isDraft = input.status === 'draft';
+  // Phase 3: "existing post → ad". No `creative` at all means a real Meta boost of an already-published
+  // Facebook post — Meta reuses that post's own text/image directly, there is nothing to upload or
+  // restate. Platforms are forced to Facebook-only here, server-side, regardless of what was sent —
+  // a boost is a specific Facebook post object, not a generic multi-placement ad.
+  const isBoost = !input.creative;
+  let platforms = input.platforms;
+  let boostExternalPostId = null;
+  if (isBoost) {
+    if (!input.sourcePostId) throw badRequest('Choose a post to boost, or fill in the ad creative.');
+    boostExternalPostId = await facebookPublishedExternalId(input.sourcePostId);
+    if (!boostExternalPostId) throw badRequest('That post has no real, published Facebook version to boost — pick a different post, or write ad creative instead.');
+    platforms = ['facebook'];
+  }
+
   let media = null;
-  if (input.creative.mediaId) {
+  if (!isBoost && input.creative.mediaId) {
     const rows = await mediaForIds([input.creative.mediaId]);
     media = rows[0] ?? null;
   }
@@ -216,15 +238,16 @@ export async function createCampaign({ actor, input, ip, userAgent }) {
   let external = { externalCampaignId: null, externalAdsetId: null, externalCreativeId: null, externalAdId: null };
   const status = isDraft ? 'draft' : 'inReview';
   if (!isDraft) {
-    const { pageId, instagramActorId } = await resolvePlacements(input.platforms);
+    const { pageId, instagramActorId } = await resolvePlacements(platforms);
     try {
       external = await createMetaCampaign({
         accessToken: adsCredentials.adsAccessToken,
         externalAccountId: adAccount.external_account_id,
-        campaign: input,
+        campaign: { ...input, platforms },
         pageId,
         instagramActorId,
         imageUrl: media?.public_url,
+        boostExternalPostId,
       });
     } catch (error) {
       if (error instanceof ProviderError) throw new HttpError(422, 'launch_failed', error.message);
@@ -244,15 +267,25 @@ export async function createCampaign({ actor, input, ip, userAgent }) {
     await query(
       `INSERT INTO ad_sets (ad_campaign_id, name, platforms, budget_type, budget, start_date, end_date, audience, status, external_adset_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [campaignRow.id, `${input.name} — ad set`, input.platforms, input.budgetType, input.budget, input.startDate, input.endDate, JSON.stringify(input.audience), status, external.externalAdsetId]
+      [campaignRow.id, `${input.name} — ad set`, platforms, input.budgetType, input.budget, input.startDate, input.endDate, JSON.stringify(input.audience), status, external.externalAdsetId]
     )
   ).rows[0];
 
   const creativeRow = (
     await query(
-      `INSERT INTO ad_creatives (name, headline, body_text, cta, destination_url, media_id, external_creative_id, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [`${input.name} — creative`, input.creative.headline, input.creative.text, input.creative.cta, input.creative.destinationUrl, input.creative.mediaId || null, external.externalCreativeId, actor.id]
+      `INSERT INTO ad_creatives (name, headline, body_text, cta, destination_url, media_id, external_creative_id, source_post_id, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [
+        `${input.name} — creative`,
+        isBoost ? '' : input.creative.headline,
+        isBoost ? '' : input.creative.text,
+        isBoost ? '' : input.creative.cta,
+        isBoost ? '' : input.creative.destinationUrl,
+        isBoost ? null : input.creative.mediaId || null,
+        external.externalCreativeId,
+        input.sourcePostId || null,
+        actor.id,
+      ]
     )
   ).rows[0];
 
@@ -264,7 +297,15 @@ export async function createCampaign({ actor, input, ip, userAgent }) {
     )
   ).rows[0];
 
-  await recordActivity({ actorId: actor.id, action: isDraft ? 'ads.saved_draft' : 'ads.launched', entity: 'ad', entityId: adRow.id, meta: { name: input.name }, ip, userAgent });
+  await recordActivity({
+    actorId: actor.id,
+    action: isDraft ? 'ads.saved_draft' : isBoost ? 'ads.boosted_post' : 'ads.launched',
+    entity: 'ad',
+    entityId: adRow.id,
+    meta: { name: input.name, sourcePostId: input.sourcePostId || null },
+    ip,
+    userAgent,
+  });
   return getCampaign(adRow.id);
 }
 
