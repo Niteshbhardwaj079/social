@@ -55,6 +55,8 @@ const schema = z.object({
   ANALYTICS_REFRESH_INTERVAL_MIN: z.coerce.number().int().min(0).max(10080).default(120),
   // How often to poll connected accounts for new comments on published posts (minutes, 0 = off).
   INBOX_REFRESH_INTERVAL_MIN: z.coerce.number().int().min(0).max(10080).default(30),
+  // How often a launched ad's real spend/impressions/clicks and review status are re-fetched (minutes, 0 = off).
+  ADS_REFRESH_INTERVAL_MIN: z.coerce.number().int().min(0).max(10080).default(60),
   // Most checks per minute per IP that call a social platform (test / connect / sync).
   PROVIDER_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(30),
   // Facebook retires old Graph API versions after about two years: bump this instead of editing code.
@@ -157,6 +159,10 @@ export const config = Object.freeze({
   inbox: {
     refreshIntervalMin: env.INBOX_REFRESH_INTERVAL_MIN,
     refreshIntervalMs: env.INBOX_REFRESH_INTERVAL_MIN * 60 * 1000,
+  },
+  ads: {
+    refreshIntervalMin: env.ADS_REFRESH_INTERVAL_MIN,
+    refreshIntervalMs: env.ADS_REFRESH_INTERVAL_MIN * 60 * 1000,
   },
   media: {
     localDir: path.resolve(backendRoot, env.MEDIA_LOCAL_DIR || 'data/media'),

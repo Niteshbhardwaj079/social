@@ -8,7 +8,7 @@ export const PASSWORD = 'Sup3r-secret-pass';
 /** Empties every table and puts the built-in rows back, so each test file starts from a clean slate. */
 export async function resetDatabase() {
   await query(
-    'TRUNCATE users, auth_tokens, settings, system_emails, system_email_translations, email_outbox, activity_logs, social_accounts, posts, post_targets, media_items, notifications, campaigns, recycling_entries, account_metrics_history, inbox_conversations, inbox_replies RESTART IDENTITY CASCADE'
+    'TRUNCATE users, auth_tokens, settings, system_emails, system_email_translations, email_outbox, activity_logs, social_accounts, posts, post_targets, media_items, notifications, campaigns, recycling_entries, account_metrics_history, inbox_conversations, inbox_replies, ad_accounts, ad_campaigns, ad_campaign_daily_stats RESTART IDENTITY CASCADE'
   );
   // storage_settings always has exactly one row (id=true); TRUNCATE would remove it, so reset it in place instead.
   await query(

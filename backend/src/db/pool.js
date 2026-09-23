@@ -4,6 +4,10 @@ import { logger } from '../utils/logger.js';
 
 // bigint (COUNT and the like) comes back as a number: our counts are far below 2^53.
 pg.types.setTypeParser(20, (value) => Number(value));
+// A plain `date` column stays the 'YYYY-MM-DD' string postgres sends, not a parsed JS Date — the
+// driver's own date parser builds a local-midnight Date, which a positive UTC offset (IST and
+// friends) then shifts back a calendar day the moment anything calls toISOString() on it.
+pg.types.setTypeParser(1082, (value) => value);
 
 export const pool = new pg.Pool({
   connectionString: config.database.url,

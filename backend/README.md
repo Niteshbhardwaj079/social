@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 231 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 242 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -36,6 +36,7 @@ Email uses **any SMTP server** you give it (`SMTP_*`); with none set, emails are
 | Media | `GET /api/media` · `GET /media/folders` · `POST /media` (upload) · `POST /media/link` · `PATCH/DELETE /media/:id` · `POST /media/bulk-delete` |
 | Analytics | `GET /api/analytics/overview?range=7d\|30d\|90d` · `GET /api/analytics/content` |
 | Inbox | `GET /api/inbox` · `GET /inbox/assignable-users` · `POST /:id/reply` (Editor+) · `POST /:id/read` · `PATCH /:id/status` · `PATCH /:id/assign` |
+| Ads | `GET /api/ads/accounts` · `POST /accounts/:network/test` · `PUT /accounts/:network` (connect, Super Admin / Admin) · `DELETE /accounts/:network` · `GET/POST /api/ads` · `GET /:id` · `PATCH /status` (bulk pause/resume, Editor+) · `DELETE /api/ads` (bulk) |
 | Operations | `GET /api/health` · `GET /api/activity-logs` · `DELETE /api/activity-logs` (Super Admin / Admin) |
 
 Errors are always `{ "error": { "code", "message", "details?" } }`.
@@ -282,6 +283,48 @@ that polls each supported platform for new ones — see `src/providers/comments.
   the same real comment data filtered to mention-capable platforms — matching what the page already did in
   mock form, not a separate mention-monitoring system).
 
+### Ads (real Meta campaigns)
+
+`GET/POST /api/ads`, `PATCH /api/ads/status` (bulk pause/resume), `DELETE /api/ads` (bulk) run real ad
+campaigns through the Meta Marketing API (`src/providers/adsMeta.js`) — the client's own Meta ad account,
+billed by Meta directly, never Social. "Launch ad" creates the real object chain (campaign → ad set →
+creative → ad); a background pass (`ADS_REFRESH_INTERVAL_MIN`, default 60 min) pulls the real day-by-day
+spend/impressions/clicks and the ad's real review status back into `ad_campaign_daily_stats`/`ad_campaigns`.
+
+- **Meta is the only ad network this app runs for real.** The other five in the UI's connect list (Google,
+  LinkedIn, X, TikTok, Pinterest) honestly say "not built yet" when tested or connected, rather than
+  pretending — same "don't guess" rule as everywhere else in this API, applied more strictly here because a
+  mistake spends the client's real money, not just a wrong number on a chart:
+  - **Google Ads** — the API itself is free and BYOK-workable, but it is a complex, protobuf-first API with
+    strict resource-mutate semantics this codebase does not have verified, confident knowledge of; guessing
+    at it risks silently wrong budgets or targeting, not just a failed call.
+  - **LinkedIn Ads** — the Advertising API product is realistically restricted to approved Marketing
+    Partners; an individual app cannot self-serve this no matter what the client's own account looks like.
+  - **X Ads** — meaningful Ads API access is tiered/paid at the developer-app level now, not a reliable free
+    BYOK path.
+  - **TikTok Ads** — the Marketing API needs *Social itself* (not the client) to pass a one-time app review,
+    unlike every other BYOK integration in this app, which only needs the client's own credentials.
+  - **Pinterest Ads** — a real BYOK path exists in principle, but this codebase does not have confident,
+    verified knowledge of its exact budget-currency-unit convention, and that is exactly the kind of detail
+    that is not safe to guess against a client's real ad spend.
+- **Every objective except "Brand awareness" runs as a Meta link-click campaign** (`OUTCOME_TRAFFIC` /
+  `LINK_CLICKS`) under the hood — native Lead Ads and Pixel-optimised Sales campaigns need a Lead Form or a
+  Meta Pixel attached to the ad account, which this composer never collects. The objective you pick still
+  controls the campaign's stated purpose, audience framing and creative — only the optimisation goal Meta
+  actually uses is simplified.
+- **"Results/conversions" always shows 0 for a Meta ad**, never a guessed number from Meta's `actions` field
+  (whose shape depends entirely on tracking the client has set up, which this app has no way to know) — the
+  same "0 means checked-and-none, not unknown" honesty as the rest of the app, just chosen deliberately here
+  because the alternative (an invented conversion count) would be worse than an honest zero.
+- A Meta ad always needs the client's **Facebook Page connected in Social Accounts** (even for an
+  Instagram-only ad — Meta requires a Page behind every ad creative) and Instagram connected too if the ad
+  also runs there; the UI already explained this exact requirement before this backend existed.
+- Deleting an ad calls Meta first and only forgets it locally once Meta confirms — except when the ad
+  account was disconnected after the ad launched, where there is nothing left this server can do on Meta's
+  side either way, so it is forgotten locally rather than leaving the client stuck.
+- Not built yet: editing a launched ad's targeting/creative/budget after it is live (only pause/resume/delete
+  are wired up), and the five deferred ad networks above.
+
 ### Media & storage
 
 `GET /api/storage` says where uploads go right now; the Media Library uses it before every upload, and it is safe for
@@ -360,8 +403,10 @@ test/           integration tests (node:test)
 
 ## Not built yet (next)
 
-Ads is the one remaining module still on demo data. Google Business posting, per-post engagement for
-Threads/LinkedIn/TikTok/Pinterest, and Inbox comments for X, are deliberately deferred rather than guessed —
-see the Social accounts, Analytics and Inbox sections above for why each one specifically. Every one of
-these follows the same bring-your-own-key pattern as everything already built above; none of them are
-blocked on this project having its own platform keys, only on the integration work itself.
+Every module now has a real backend. What is deliberately deferred rather than guessed: Google Business
+posting, per-post engagement for Threads/LinkedIn/TikTok/Pinterest, Inbox comments for X, and four of the
+six ad networks (Google, LinkedIn, X, TikTok, Pinterest Ads) — see the Social accounts, Analytics, Inbox and
+Ads sections above for why each one specifically. Every one of these follows the same bring-your-own-key
+pattern as everything already built above; none of them are blocked on this project having its own platform
+keys, only on the integration work (or, for a couple of them, a review process this project itself — not the
+client — would need to pass) itself.

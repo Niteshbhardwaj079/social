@@ -29,9 +29,12 @@ engagement, and a real activity feed — an **Activity Logs** page backed by eve
 performs (who did what, when, from which device/IP), with real filters, CSV export and bulk delete — and an
 **Inbox** of real comments on real published posts (Bluesky, Mastodon, Facebook, Instagram, YouTube), with
 real replies sent back to the real platform, real assign-to-a-teammate and open/pending/closed workflow, and
-a notification the moment a new one comes in.
-Ads is the one module still on demo data — the same bring-your-own-key pattern as everything above, just not
-built yet.
+a notification the moment a new one comes in — and **Ads**: real Meta (Facebook & Instagram) ad campaigns,
+created and run through Meta's own Marketing API on the client's own ad account, with real day-by-day spend,
+impressions, clicks and review status kept fresh in the background. Every module now has a real backend;
+what's left is a handful of specific, documented gaps — Google Business posting, engagement metrics for a
+few platforms, Inbox for X, and four of the six ad networks — each deferred for its own honest reason rather
+than guessed (see backend/README.md).
 
 ## Run it on your machine
 

@@ -20,6 +20,7 @@ import recyclingRoutes from './recycling.js';
 import dashboardRoutes from './dashboard.js';
 import analyticsRoutes from './analytics.js';
 import inboxRoutes from './inbox.js';
+import adsRoutes from './ads.js';
 
 const router = Router();
 
@@ -50,6 +51,7 @@ router.use('/recycling', recyclingRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/inbox', inboxRoutes);
+router.use('/ads', adsRoutes);
 
 router.get(
   '/activity-logs',
