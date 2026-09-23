@@ -13,15 +13,27 @@ import { BulkActionBar, Pager, RowCheckbox, SelectAllCheckbox, TableToolbar } fr
 import AdsPerformanceChart from '../../components/ads/AdsPerformanceChart';
 import DownloadReportMenu from '../../components/ads/DownloadReportMenu';
 import NetworkIcons from '../../components/ads/NetworkIcons';
+import TemplateFormModal from '../../components/ads/TemplateFormModal';
 import usePagination from '../../hooks/usePagination';
 import useRowSelection from '../../hooks/useRowSelection';
 import useMediaQuery from '../../hooks/useMediaQuery';
-import { getAds, getAdAccounts, syncAdAccounts, updateAdsStatus, deleteAds } from '../../services/api/adsApi';
+import {
+  getAds,
+  getAdAccounts,
+  syncAdAccounts,
+  updateAdsStatus,
+  deleteAds,
+  getAdCreativeTemplates,
+  createAdCreativeTemplate,
+  updateAdCreativeTemplate,
+  deleteAdCreativeTemplate,
+} from '../../services/api/adsApi';
+import { getMediaItems } from '../../services/api/mediaApi';
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { AD_DATA_END_DATE } from '../../services/mock/adsMock';
 import { AD_DATE_RANGES, AD_NETWORKS, AD_OBJECTIVES, AD_STATUS, AD_STATUS_LABELS } from '../../config/adPlatforms';
 import { getPlatformByKey, PLATFORMS } from '../../config/platforms';
-import { REQUEST_STATUS } from '../../config/constants';
+import { MEDIA_TYPE, REQUEST_STATUS } from '../../config/constants';
 import { percentChange, seriesForAds, spendByPlatform, sliceRange, sumDaily, totalsForAds } from '../../utils/adMetrics';
 import { downloadAdsDailyCsv, downloadAdsSummaryCsv, printAdsReport } from '../../utils/adReports';
 import { formatCompactNumber, formatCurrency, formatDate, formatNumber, formatPercent } from '../../utils/formatters';
@@ -32,6 +44,7 @@ const AD_PLATFORM_KEYS = [...new Set(AD_NETWORKS.flatMap((network) => network.pl
 const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'accounts', label: 'Ad accounts' },
+  { key: 'library', label: 'Creative Library' },
 ];
 
 // Compared with the period just before; a huge jump means there was nothing to compare with.
@@ -50,24 +63,31 @@ function Ads() {
   const { showToast } = useToast();
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') === 'accounts' ? 'accounts' : 'overview';
+  const activeTab = ['accounts', 'library'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'overview';
 
   const [ads, setAds] = useState([]);
   const [adAccountsData, setAdAccountsData] = useState(EMPTY_AD_ACCOUNTS);
+  const [templates, setTemplates] = useState([]);
+  const [images, setImages] = useState([]);
   const [requestStatus, setRequestStatus] = useState(REQUEST_STATUS.LOADING);
   const [isSyncing, setIsSyncing] = useState(false);
   const [days, setDays] = useState(30);
   const [platformFilter, setPlatformFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isTemplateFormOpen, setIsTemplateFormOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [deleteTemplateTarget, setDeleteTemplateTarget] = useState(null);
   const selection = useRowSelection();
 
   function load() {
     setRequestStatus(REQUEST_STATUS.LOADING);
-    Promise.all([getAds(), getAdAccounts()])
-      .then(([adList, accountData]) => {
+    Promise.all([getAds(), getAdAccounts(), getAdCreativeTemplates(), getMediaItems()])
+      .then(([adList, accountData, templateList, mediaList]) => {
         setAds(adList);
         setAdAccountsData(accountData);
+        setTemplates(templateList);
+        setImages(mediaList.filter((item) => item.type === MEDIA_TYPE.IMAGE));
         setRequestStatus(REQUEST_STATUS.SUCCEEDED);
       })
       .catch(() => setRequestStatus(REQUEST_STATUS.FAILED));
@@ -76,6 +96,27 @@ function Ads() {
   useEffect(() => {
     load();
   }, []);
+
+  function handleCreateOrUpdateTemplate(payload) {
+    const request = editingTemplate ? updateAdCreativeTemplate(editingTemplate.id, payload) : createAdCreativeTemplate(payload);
+    request
+      .then((template) => {
+        setTemplates((current) => (editingTemplate ? current.map((item) => (item.id === template.id ? template : item)) : [template, ...current]));
+        setIsTemplateFormOpen(false);
+        setEditingTemplate(null);
+        showToast({ type: 'success', title: editingTemplate ? 'Template updated' : 'Template saved', message: template.name });
+      })
+      .catch((error) => showToast({ type: 'error', title: 'Could not save the template', message: apiErrorMessage(error) }));
+  }
+
+  function handleDeleteTemplateConfirmed() {
+    const id = deleteTemplateTarget.id;
+    deleteAdCreativeTemplate(id).then(() => {
+      setTemplates((current) => current.filter((item) => item.id !== id));
+      setDeleteTemplateTarget(null);
+      showToast({ type: 'success', title: 'Template deleted' });
+    });
+  }
 
   function handleSync() {
     setIsSyncing(true);
@@ -325,6 +366,79 @@ function Ads() {
             </div>
           )}
         </>
+      ) : activeTab === 'library' ? (
+        <>
+          <div className="callout-banner callout-banner--info">
+            <Icon name="LayoutTemplate" size={16} />
+            <span>
+              Save a headline, text, link and image once, then start from it whenever you build a new ad — no retyping. A template is never launched on its own.
+            </span>
+          </div>
+
+          <div className="d-flex justify-content-end mb-4">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                setEditingTemplate(null);
+                setIsTemplateFormOpen(true);
+              }}
+            >
+              <Icon name="Plus" size={16} /> New Template
+            </button>
+          </div>
+
+          {templates.length === 0 ? (
+            <EmptyState
+              icon="LayoutTemplate"
+              title="No templates yet"
+              description="Save your first creative template to reuse it next time you build an ad."
+              actionLabel="New Template"
+              onAction={() => {
+                setEditingTemplate(null);
+                setIsTemplateFormOpen(true);
+              }}
+            />
+          ) : (
+            <div className="campaigns-grid">
+              {templates.map((template) => (
+                <div key={template.id} className="panel-card">
+                  <div className="panel-card__body">
+                    <div className="d-flex align-items-start gap-3 mb-3">
+                      {template.mediaUrl ? (
+                        <img src={template.mediaUrl} alt={template.name} className="ad-template-thumb" />
+                      ) : (
+                        <div className="ad-template-thumb ad-template-thumb--empty">
+                          <Icon name="Image" size={20} />
+                        </div>
+                      )}
+                      <div className="flex-grow-1 overflow-hidden">
+                        <div className="table-row-title text-truncate">{template.name}</div>
+                        <div className="table-row-subtitle text-truncate">{template.headline || 'No headline'}</div>
+                      </div>
+                    </div>
+                    <p className="text-secondary-custom small mb-3 ad-template-text">{template.text || 'No ad text'}</p>
+                    <div className="d-flex gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary-custom flex-grow-1"
+                        onClick={() => {
+                          setEditingTemplate(template);
+                          setIsTemplateFormOpen(true);
+                        }}
+                      >
+                        <Icon name="Pencil" size={14} /> Edit
+                      </button>
+                      <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setDeleteTemplateTarget(template)}>
+                        <Icon name="Trash2" size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       ) : (
         <>
           {connectedCount === 0 ? (
@@ -524,6 +638,26 @@ function Ads() {
         onConfirm={handleBulkDeleteConfirmed}
         title={`Delete ${selection.count} ${selection.count === 1 ? 'ad' : 'ads'}?`}
         message="This removes them from Social. Ads that are already running on the platform should also be stopped in that platform’s own Ads Manager."
+        confirmLabel="Delete"
+        isDanger
+      />
+
+      <TemplateFormModal
+        isOpen={isTemplateFormOpen}
+        onClose={() => {
+          setIsTemplateFormOpen(false);
+          setEditingTemplate(null);
+        }}
+        onSubmit={handleCreateOrUpdateTemplate}
+        template={editingTemplate}
+        images={images}
+      />
+      <ConfirmDialog
+        isOpen={Boolean(deleteTemplateTarget)}
+        onClose={() => setDeleteTemplateTarget(null)}
+        onConfirm={handleDeleteTemplateConfirmed}
+        title={`Delete "${deleteTemplateTarget?.name}"?`}
+        message="This removes the template from your library. Ads already built from it are not affected."
         confirmLabel="Delete"
         isDanger
       />

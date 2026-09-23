@@ -7,6 +7,7 @@ import axiosClient from './axiosClient';
 
 let adsStore = API_ENABLED ? [] : [...adsMockData];
 let accountsStore = API_ENABLED ? [] : adAccountsMock.map((account) => ({ ...account }));
+let templatesStore = [];
 
 // ------------------------------------------------------------------ ad accounts
 // Ad accounts are discovered from the client's own Facebook connection (Social Accounts) — there is
@@ -101,6 +102,33 @@ export function createBulkAd(payload) {
   }));
   adsStore = [...newAds, ...adsStore];
   return mockRequest(newAds);
+}
+
+// ---------------------------------------------------------- creative library (Phase 5)
+// Saved, reusable creatives — never launched on their own, only picked from when building a real ad
+// (or a bulk variation) to skip retyping. See backend/README.md's Ads section for the full design.
+export function getAdCreativeTemplates() {
+  if (API_ENABLED) return axiosClient.get('/ads/templates').then((response) => (templatesStore = response.data.templates));
+  return mockRequest([...templatesStore]);
+}
+
+export function createAdCreativeTemplate(payload) {
+  if (API_ENABLED) return axiosClient.post('/ads/templates', payload).then((response) => response.data.template);
+  const newTemplate = { id: `template-${Date.now()}`, mediaUrl: null, createdAt: new Date().toISOString(), ...payload };
+  templatesStore = [newTemplate, ...templatesStore];
+  return mockRequest(newTemplate);
+}
+
+export function updateAdCreativeTemplate(id, payload) {
+  if (API_ENABLED) return axiosClient.patch(`/ads/templates/${id}`, payload).then((response) => response.data.template);
+  templatesStore = templatesStore.map((template) => (template.id === id ? { ...template, ...payload } : template));
+  return mockRequest(templatesStore.find((template) => template.id === id));
+}
+
+export function deleteAdCreativeTemplate(id) {
+  if (API_ENABLED) return axiosClient.delete(`/ads/templates/${id}`).then((response) => response.data);
+  templatesStore = templatesStore.filter((template) => template.id !== id);
+  return mockRequest({ success: true });
 }
 
 export function updateAdsStatus(adIds, status) {

@@ -445,3 +445,62 @@ describe('Phase 4: bulk ad creation (several creative variations, one shared ad 
     assert.ok(adRows.every((row) => row.external_ad_id === null));
   });
 });
+
+describe('Phase 5: creative library (saved, reusable templates)', () => {
+  const templatePayload = (overrides = {}) => ({
+    name: 'Diwali headline test',
+    headline: 'Big Diwali Offer',
+    text: 'Up to 40% off storewide',
+    cta: 'Shop now',
+    destinationUrl: 'https://gowebkart.in/diwali',
+    ...overrides,
+  });
+
+  it('a Contributor cannot save a template; an Editor can, and it shows up in the list', async () => {
+    assert.equal((await contributor.post('/ads/templates', templatePayload())).status, 403);
+
+    const created = await editor.post('/ads/templates', templatePayload({ name: 'Editor template' }));
+    assert.equal(created.status, 201);
+    assert.equal(created.body.template.name, 'Editor template');
+    assert.equal(created.body.template.headline, 'Big Diwali Offer');
+    assert.equal(created.body.template.mediaUrl, null);
+
+    const list = await owner.get('/ads/templates');
+    assert.equal(list.status, 200);
+    assert.ok(list.body.templates.some((t) => t.id === created.body.template.id));
+  });
+
+  it('a template can carry a real, already-uploaded image, and its URL comes back with it', async () => {
+    const imageForm = new FormData();
+    imageForm.append('file', new Blob([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')], { type: 'image/png' }), 'photo.png');
+    const uploaded = await fetch(`${server.baseUrl}/api/media`, { method: 'POST', headers: { authorization: `Bearer ${owner.accessToken}` }, body: imageForm });
+    const mediaId = (await uploaded.json()).item.id;
+
+    const created = await owner.post('/ads/templates', templatePayload({ name: 'With image', mediaId }));
+    assert.equal(created.status, 201);
+    assert.equal(created.body.template.mediaId, mediaId);
+    assert.ok(created.body.template.mediaUrl, 'the real media URL comes back with the template, not just its id');
+  });
+
+  it('editing a template updates it in place; deleting removes it for good', async () => {
+    const created = await owner.post('/ads/templates', templatePayload({ name: 'To edit' }));
+    const id = created.body.template.id;
+
+    const edited = await owner.patch(`/ads/templates/${id}`, templatePayload({ name: 'Edited name', headline: 'New headline' }));
+    assert.equal(edited.status, 200);
+    assert.equal(edited.body.template.name, 'Edited name');
+    assert.equal(edited.body.template.headline, 'New headline');
+
+    assert.equal((await contributor.delete(`/ads/templates/${id}`)).status, 403);
+    const deleted = await owner.delete(`/ads/templates/${id}`);
+    assert.equal(deleted.status, 200);
+    const list = await owner.get('/ads/templates');
+    assert.ok(!list.body.templates.some((t) => t.id === id));
+  });
+
+  it('refuses a made-up template id, on both edit and delete', async () => {
+    const fakeId = '00000000-0000-0000-0000-000000000000';
+    assert.equal((await owner.patch(`/ads/templates/${fakeId}`, templatePayload())).status, 404);
+    assert.equal((await owner.delete(`/ads/templates/${fakeId}`)).status, 404);
+  });
+});

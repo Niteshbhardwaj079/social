@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 265 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 269 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -389,11 +389,20 @@ validated by the same `cleanCredentials()` every platform uses, stored in the sa
   around those same four calls now. Atomic like the single-ad path: every Meta call for the whole batch
   happens first, and only once all of them succeed does anything get written to the database — a mid-batch
   Meta failure leaves nothing saved, not a partially-launched batch.
+- **Creative Library (`GET/POST /api/ads/templates`, `PATCH/DELETE /api/ads/templates/:id`).** A saved,
+  reusable ad creative (name, headline, text, CTA, destination URL, image) that exists independently of
+  any ad or campaign — its own table, `ad_creative_templates` (migration
+  `019_ad_creative_templates.sql`), deliberately not another `ad_creatives` row: an `ad_creatives` row is
+  always part of a real (or draft) ad's Meta object chain (`external_creative_id`, `source_post_id`,
+  referenced by `ads`); a library template has none of that and is never launched on its own, only picked
+  from in the wizard (single ad or a bulk variation) to skip retyping — picking one is a one-time prefill,
+  not a link back to the template, so editing the resulting ad never changes what's saved in the library.
+  Read is open to anyone signed in; create/update/delete needs `canPublishPosts` (Editor+), the same bar
+  as creating an ad itself.
 - Not built yet: editing a launched ad's targeting/creative/budget after it is live (only pause/resume/delete
-  are wired up), a creative/template library, a UTM builder, an automated-rules engine, and the five
-  deferred ad networks above. The database hierarchy from this rework (`ad_sets`/`ad_creatives` as
-  independent, reusable rows) was built specifically so those are additions on top of this schema, not
-  another rework.
+  are wired up), a UTM builder, an automated-rules engine, and the five deferred ad networks above. The
+  database hierarchy from this rework (`ad_sets`/`ad_creatives` as independent, reusable rows) was built
+  specifically so those are additions on top of this schema, not another rework.
 
 ### Link Shortener
 
@@ -403,7 +412,11 @@ top-level route in `app.js`, not under `/api`, and not gated behind sign-in — 
 anyone can follow it) records a real click (`short_link_clicks`, just a timestamp — no IP/user-agent is
 kept, since the UI never needed more than "how many, when") and 302-redirects to the real destination.
 Total clicks and the 14-day chart are both derived from that table at read time, the same "count it, don't
-cache it" choice `campaignService.js` already makes for post counts.
+cache it" choice `campaignService.js` already makes for post counts. The chart's own day list is built in
+UTC (JS `Date`), so the SQL side buckets clicks by `clicked_at AT TIME ZONE 'UTC'` explicitly too, rather
+than relying on whatever timezone the PostgreSQL session happens to default to — this app can run against
+any PostgreSQL, on any host, so the two sides must agree on a fixed basis rather than an ambient one that
+could silently differ between a local dev database and wherever it's actually deployed.
 
 - A slug can be chosen or left to auto-generate (a short random one, retried on the rare collision); either
   way it's normalized to lowercase letters/digits/hyphens only, and a handful of words this app itself

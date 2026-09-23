@@ -46,6 +46,9 @@ const map = {
   'ads.paused': { actionType: 'paused', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Paused "${e.meta?.name || ''}"` },
   'ads.resumed': { actionType: 'resumed', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Resumed "${e.meta?.name || ''}"` },
   'ads.deleted': { actionType: 'deleted', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Deleted "${e.meta?.name || ''}"` },
+  'ads.template_saved': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Saved creative template "${e.meta?.name || ''}"` },
+  'ads.template_updated': { actionType: 'updated', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Updated creative template "${e.meta?.name || ''}"` },
+  'ads.template_deleted': { actionType: 'deleted', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Deleted creative template "${e.meta?.name || ''}"` },
 
   'storage.connected': { actionType: 'connected', section: 'Storage', target: (e) => e.entityId || '', details: (e) => `Connected ${e.entityId || 'a storage provider'}` },
   'storage.disconnected': { actionType: 'disconnected', section: 'Storage', target: () => '', details: () => 'Disconnected the storage provider' },

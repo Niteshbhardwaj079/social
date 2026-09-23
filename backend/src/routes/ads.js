@@ -16,6 +16,7 @@ import {
   syncAdAccounts,
   updateCampaignsStatus,
 } from '../services/adsService.js';
+import { createTemplate, deleteTemplate, listTemplates, updateTemplate } from '../services/adCreativeTemplateService.js';
 
 const router = Router();
 router.use(authenticate);
@@ -82,6 +83,39 @@ const bulkCreateSchema = z.object({
   audience: audienceSchema,
   status: z.enum(['draft']).optional(),
 });
+
+// Phase 5: Creative Library — saved, reusable creatives, independent of any ad. Registered before
+// GET /:id below so the literal path "/templates" is never swallowed by the :id param route.
+const templateSchema = creativeSchema.extend({ name: z.string().trim().min(1).max(200) });
+
+router.get('/templates', async (_req, res) => res.json({ templates: await listTemplates() }));
+
+router.post(
+  '/templates',
+  validate({ body: templateSchema }),
+  async (req, res) => {
+    const template = await createTemplate({ actor: req.user, input: req.valid.body, ip: req.ip, userAgent: req.get('user-agent') });
+    res.status(201).json({ template });
+  }
+);
+
+router.patch(
+  '/templates/:id',
+  validate({ params: z.object({ id: z.string().uuid() }), body: templateSchema }),
+  async (req, res) => {
+    const template = await updateTemplate({ id: req.valid.params.id, actor: req.user, input: req.valid.body, ip: req.ip, userAgent: req.get('user-agent') });
+    res.json({ template });
+  }
+);
+
+router.delete(
+  '/templates/:id',
+  validate({ params: z.object({ id: z.string().uuid() }) }),
+  async (req, res) => {
+    await deleteTemplate({ id: req.valid.params.id, actor: req.user, ip: req.ip, userAgent: req.get('user-agent') });
+    res.json({ success: true });
+  }
+);
 
 router.get('/', async (_req, res) => res.json({ ads: await listCampaigns() }));
 

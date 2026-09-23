@@ -56,7 +56,13 @@ export async function listLinks() {
     query(`${LINK_SELECT} ORDER BY l.created_at DESC`),
     query('SELECT short_link_id, count(*)::int AS n FROM short_link_clicks GROUP BY short_link_id'),
     query(
-      `SELECT short_link_id, date_trunc('day', clicked_at)::date AS date, count(*)::int AS n
+      // Bucketed in UTC explicitly (not the DB session's ambient timezone) to match last14Days()'s own
+      // UTC-based date list above — otherwise a click near midnight lands in the session-timezone's
+      // "today" while the chart's own day list is a UTC "today", silently losing that click from every
+      // day's bucket until the two clocks agree again. Host-agnostic on purpose: this app can run with
+      // any PostgreSQL, on any host, in any default session timezone (see this backend's own portability
+      // rules) — pinning both sides to UTC keeps the chart correct regardless of where it's deployed.
+      `SELECT short_link_id, date_trunc('day', clicked_at AT TIME ZONE 'UTC')::date AS date, count(*)::int AS n
          FROM short_link_clicks WHERE clicked_at >= now() - interval '${HISTORY_DAYS} days'
         GROUP BY short_link_id, date`
     ),

@@ -8,7 +8,7 @@ import TextField from '../../components/forms/TextField';
 import DatePickerField from '../../components/forms/DatePickerField';
 import AdPreview from '../../components/ads/AdPreview';
 import NetworkIcons from '../../components/ads/NetworkIcons';
-import { createAd, createBulkAd, getAdAccounts, isPlacementConnected } from '../../services/api/adsApi';
+import { createAd, createBulkAd, getAdAccounts, getAdCreativeTemplates, isPlacementConnected } from '../../services/api/adsApi';
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { getPosts } from '../../services/api/postsApi';
 import { getMediaItems } from '../../services/api/mediaApi';
@@ -68,14 +68,16 @@ function CreateAd() {
   const [accounts, setAccounts] = useState([]);
   const [posts, setPosts] = useState([]);
   const [images, setImages] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [isLaunching, setIsLaunching] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
 
   useEffect(() => {
-    Promise.all([getAdAccounts(), getPosts(), getMediaItems()]).then(([accountData, postList, mediaList]) => {
+    Promise.all([getAdAccounts(), getPosts(), getMediaItems(), getAdCreativeTemplates()]).then(([accountData, postList, mediaList, templateList]) => {
       setAccounts(accountData.accounts);
       setPosts(postList.filter((post) => post.status === POST_STATUS.PUBLISHED || post.status === POST_STATUS.SCHEDULED));
       setImages(mediaList.filter((item) => item.type === MEDIA_TYPE.IMAGE));
+      setTemplates(templateList);
     });
   }, []);
 
@@ -198,6 +200,20 @@ function CreateAd() {
 
   function removeVariation(index) {
     setForm((current) => ({ ...current, variations: current.variations.filter((_, i) => i !== index) }));
+  }
+
+  // Phase 5: Creative Library. Prefills the primary creative's fields from a saved template — a plain
+  // starting point, not a link, so editing it afterwards never changes the saved template itself.
+  function pickTemplate(templateId) {
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) return;
+    update({ headline: template.headline, text: template.text, cta: template.cta, destinationUrl: template.destinationUrl, mediaId: template.mediaId || '' });
+  }
+
+  function pickVariationTemplate(index, templateId) {
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) return;
+    updateVariation(index, { headline: template.headline, text: template.text, cta: template.cta, destinationUrl: template.destinationUrl, mediaId: template.mediaId || '' });
   }
 
   function pickPost(postId) {
@@ -395,6 +411,15 @@ function CreateAd() {
                         </span>
                       </div>
                     ) : null}
+                    {templates.length > 0 ? (
+                      <div className="mb-4">
+                        <label htmlFor="adTemplate" className="form-label-custom">Start from a saved template (optional)</label>
+                        <select id="adTemplate" className="form-select" value="" onChange={(event) => pickTemplate(event.target.value)}>
+                          <option value="">Write my own text</option>
+                          {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+                        </select>
+                      </div>
+                    ) : null}
                     <div className="mb-4">
                       <label htmlFor="adText" className="form-label-custom">Ad text</label>
                       <textarea id="adText" className="form-control" rows={4} maxLength={500} value={form.text} onChange={(event) => update({ text: event.target.value })} placeholder="What do you want people to know?" />
@@ -433,6 +458,15 @@ function CreateAd() {
                             <Icon name="X" size={14} /> Remove
                           </button>
                         </div>
+                        {templates.length > 0 ? (
+                          <div className="mb-4">
+                            <label htmlFor={`variationTemplate-${index}`} className="form-label-custom">Start from a saved template (optional)</label>
+                            <select id={`variationTemplate-${index}`} className="form-select" value="" onChange={(event) => pickVariationTemplate(index, event.target.value)}>
+                              <option value="">Write my own text</option>
+                              {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+                            </select>
+                          </div>
+                        ) : null}
                         <div className="mb-4">
                           <label htmlFor={`variationText-${index}`} className="form-label-custom">Ad text</label>
                           <textarea id={`variationText-${index}`} className="form-control" rows={3} maxLength={500} value={variation.text} onChange={(event) => updateVariation(index, { text: event.target.value })} placeholder="What do you want people to know?" />

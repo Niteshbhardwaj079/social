@@ -509,3 +509,26 @@
   font-size: v.$font-size-xs;
   color: var(--color-warning);
 }
+
+// ---- Creative Library (Phase 5) --------------------------------------------
+
+.ad-template-thumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: v.$radius-md;
+  object-fit: cover;
+  background-color: var(--color-surface-alt);
+}
+
+.ad-template-thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.ad-template-text {
+  @include m.line-clamp(2);
+  min-height: calc(1.5em * 2);
+}
