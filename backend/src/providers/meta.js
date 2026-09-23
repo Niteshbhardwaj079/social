@@ -37,6 +37,17 @@ async function assertTokenBelongsToApp(label, { appId, appSecret, accessToken })
   if (String(info.app_id) !== String(appId)) throw rejection('This access token was created by a different app than the App ID you entered.');
 }
 
+/** The permission scopes actually granted to a token — used by Ads to detect a Page token that
+ * lacks ads_management/ads_read, without guessing from a failed call alone. Empty array on any
+ * problem reading it (an invalid token is reported honestly elsewhere, this just never throws). */
+export async function getGrantedScopes({ appId, appSecret, accessToken }) {
+  const response = await callProvider(`${graphBase()}/debug_token`, {
+    query: { input_token: accessToken, access_token: `${appId}|${appSecret}` },
+    label: 'Meta',
+  });
+  return response.ok ? response.data?.data?.scopes || [] : [];
+}
+
 export async function verifyFacebook(credentials) {
   await assertTokenBelongsToApp('Facebook', credentials);
   const data = await graphGet(graphBase(), 'me', {

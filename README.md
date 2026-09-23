@@ -30,8 +30,9 @@ performs (who did what, when, from which device/IP), with real filters, CSV expo
 **Inbox** of real comments on real published posts (Bluesky, Mastodon, Facebook, Instagram, YouTube), with
 real replies sent back to the real platform, real assign-to-a-teammate and open/pending/closed workflow, and
 a notification the moment a new one comes in — and **Ads**: real Meta (Facebook & Instagram) ad campaigns,
-created and run through Meta's own Marketing API on the client's own ad account, with real day-by-day spend,
-impressions, clicks and review status kept fresh in the background. Also a real **Link Shortener** — short
+created and run through Meta's own Marketing API on the client's own ad account, discovered automatically
+from the same Facebook connection already used for organic posting (no separate Ads login), with real
+day-by-day spend, impressions, clicks and review status kept fresh in the background. Also a real **Link Shortener** — short
 links on the client's own domain (no third-party service, so it never costs anything as traffic grows),
 with real click tracking. Every module now has a real backend except the **Roles tab**'s custom permission
 editing, which would touch the whole role system; the remaining gaps are a handful of specific, documented

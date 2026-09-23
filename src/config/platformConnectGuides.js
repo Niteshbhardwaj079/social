@@ -23,6 +23,7 @@ const platformConnectGuides = {
       'In Graph API Explorer, pick your app and your Page, and grant pages_manage_posts, pages_read_engagement and pages_show_list.',
       'Generate a Page access token and extend it to a long-lived token.',
       'Paste the three values below.',
+      'Want to run Meta Ads from Social too? Scroll to "Ads access (optional)" below — it needs one more token, of a different kind (see its own hint).',
     ],
     providerLabel: 'Open Meta for Developers',
     providerUrl: 'https://developers.facebook.com/apps/',
@@ -30,6 +31,13 @@ const platformConnectGuides = {
       field('appId', 'App ID', { placeholder: 'e.g. 1234567890123456' }),
       secret('appSecret', 'App Secret', { placeholder: 'From App settings → Basic' }),
       secret('accessToken', 'Page access token', { placeholder: 'Long-lived Page token', wide: true }),
+      secret('adsAccessToken', 'User access token — Ads access (optional)', {
+        required: false,
+        wide: true,
+        placeholder: 'Only needed to use the Ads module',
+        hint:
+          'A different kind of token than the Page token above — Meta ad accounts belong to you, not your Page. In Graph API Explorer, generate a token for yourself (not "Get Page Access Token"), granting ads_management and ads_read, then extend it to a long-lived token the same way. Leave this blank if you will not use Ads. Re-paste it here whenever you update this form, or it will be cleared.',
+      }),
     ],
   },
   [PLATFORM_KEYS.INSTAGRAM]: {

@@ -46,12 +46,19 @@ async function getRow(platform) {
   return (await query('SELECT * FROM social_accounts WHERE platform = $1', [platform])).rows[0] ?? null;
 }
 
-/** Keeps only the fields this platform needs, trimmed, and says which one is missing. */
+/** Keeps only the fields this platform needs, trimmed, and says which one is missing. Optional fields
+ * (e.g. Facebook's Ads token) are included only when actually filled in — never required to connect. */
 export function cleanCredentials(platform, input) {
   const clean = {};
   for (const field of PROVIDERS[platform].fields) {
     const value = typeof input?.[field] === 'string' ? input[field].trim() : '';
     if (!value) throw badRequest(`${field} is required`, [{ field, message: 'This is required' }]);
+    if (value.length > MAX_VALUE_LENGTH) throw badRequest(`${field} is too long`, [{ field, message: 'Too long' }]);
+    clean[field] = value;
+  }
+  for (const field of PROVIDERS[platform].optionalFields || []) {
+    const value = typeof input?.[field] === 'string' ? input[field].trim() : '';
+    if (!value) continue;
     if (value.length > MAX_VALUE_LENGTH) throw badRequest(`${field} is too long`, [{ field, message: 'Too long' }]);
     clean[field] = value;
   }

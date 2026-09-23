@@ -1,5 +1,5 @@
 import { mockRequest } from '../mock/mockRequest';
-import adsMockData, { adAccountsMock } from '../mock/adsMock';
+import adsMockData, { adAccountsMock, adAccountStatusMock } from '../mock/adsMock';
 import { getAccountStatus } from './socialAccountsApi';
 import { ACCOUNT_STATUS } from '../../config/constants';
 import { API_ENABLED } from '../../config/runtime';
@@ -8,43 +8,33 @@ import axiosClient from './axiosClient';
 let adsStore = API_ENABLED ? [] : [...adsMockData];
 let accountsStore = API_ENABLED ? [] : adAccountsMock.map((account) => ({ ...account }));
 
-const MIN_CREDENTIAL_LENGTH = 6;
-
 // ------------------------------------------------------------------ ad accounts
+// Ad accounts are discovered from the client's own Facebook connection (Social Accounts) — there is
+// no per-network "connect an ad account" form any more, only reading the discovered list and
+// re-syncing it for real. See backend/README.md's Ads section for why.
 export function getAdAccounts() {
-  if (API_ENABLED) return axiosClient.get('/ads/accounts').then((response) => (accountsStore = response.data.accounts));
-  return mockRequest(accountsStore.map((account) => ({ ...account })));
+  if (API_ENABLED) {
+    return axiosClient.get('/ads/accounts').then((response) => {
+      accountsStore = response.data.accounts;
+      return response.data;
+    });
+  }
+  return mockRequest({ ...adAccountStatusMock, accounts: accountsStore.map((account) => ({ ...account })) });
 }
 
+export function syncAdAccounts() {
+  if (API_ENABLED) {
+    return axiosClient.post('/ads/accounts/sync').then((response) => {
+      accountsStore = response.data.accounts;
+      return response.data;
+    });
+  }
+  return mockRequest({ ...adAccountStatusMock, accounts: accountsStore.map((account) => ({ ...account })) });
+}
+
+// Used by the Social Accounts page to show an "Ads ready" badge on a connected platform's card.
 export function isNetworkConnected(networkKey) {
-  return accountsStore.find((account) => account.network === networkKey)?.isConnected || false;
-}
-
-/** With the API on, the server really calls Meta (or says the network isn't built yet); it never throws — always { ok, message }. */
-export function testAdAccountConnection(networkKey, values) {
-  if (API_ENABLED) return axiosClient.post(`/ads/accounts/${networkKey}/test`, { credentials: values }).then((response) => response.data);
-
-  const network = adAccountsMock.find((item) => item.network === networkKey);
-  const bad = Object.values(values).find((value) => String(value || '').trim().length < MIN_CREDENTIAL_LENGTH);
-  if (bad !== undefined) return mockRequest({ ok: false, message: 'That looks too short to be valid. Check the details and try again.' });
-  return mockRequest({ ok: true, message: `Connected to your ${network?.network || 'ad'} account successfully. Budgets and spend stay on that account.` });
-}
-
-export function connectAdAccount(networkKey, values) {
-  if (API_ENABLED) return axiosClient.put(`/ads/accounts/${networkKey}`, { credentials: values }).then((response) => response.data.account);
-  const primaryId = values.adAccountId || values.customerId || values.advertiserId || 'connected';
-  accountsStore = accountsStore.map((account) =>
-    account.network === networkKey
-      ? { ...account, isConnected: true, accountId: String(primaryId), currency: 'INR', connectedAt: new Date().toISOString() }
-      : account
-  );
-  return mockRequest(accountsStore.find((account) => account.network === networkKey));
-}
-
-export function disconnectAdAccount(networkKey) {
-  if (API_ENABLED) return axiosClient.delete(`/ads/accounts/${networkKey}`).then(() => ({ success: true }));
-  accountsStore = accountsStore.map((account) => (account.network === networkKey ? { network: networkKey, isConnected: false } : account));
-  return mockRequest({ success: true });
+  return accountsStore.some((account) => account.network === networkKey);
 }
 
 // An ad needs two things: an ad ACCOUNT (where the money is billed) and the social
@@ -75,7 +65,17 @@ export function createAd(payload) {
   if (API_ENABLED) return axiosClient.post('/ads', payload).then((response) => response.data.ad);
   const startsInFuture = new Date(payload.startDate) > new Date();
   const status = payload.status || (startsInFuture ? 'scheduled' : 'inReview');
-  const newAd = { id: `ad-${Date.now()}`, createdAt: new Date().toISOString(), createdBy: 'Nitesh Bhardwaj', daily: [], ...payload, status };
+  const account = accountsStore.find((item) => item.id === payload.adAccountId);
+  const newAd = {
+    id: `ad-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    createdBy: 'Nitesh Bhardwaj',
+    daily: [],
+    network: account?.network || 'meta',
+    adAccountName: account?.name || '',
+    ...payload,
+    status,
+  };
   adsStore = [newAd, ...adsStore];
   return mockRequest(newAd);
 }

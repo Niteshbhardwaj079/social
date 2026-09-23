@@ -11,7 +11,7 @@ import NetworkIcons from '../../components/ads/NetworkIcons';
 import { createAd, getAdAccounts, isPlacementConnected } from '../../services/api/adsApi';
 import { getPosts } from '../../services/api/postsApi';
 import { getMediaItems } from '../../services/api/mediaApi';
-import { AD_CTAS, AD_INTERESTS, AD_LOCATIONS, AD_NETWORKS, AD_OBJECTIVES, AD_STATUS } from '../../config/adPlatforms';
+import { AD_CTAS, AD_INTERESTS, AD_LOCATIONS, AD_OBJECTIVES, AD_STATUS, getAdNetwork } from '../../config/adPlatforms';
 import { getPlatformByKey } from '../../config/platforms';
 import { MEDIA_TYPE, POST_STATUS } from '../../config/constants';
 import { estimateResults } from '../../utils/adMetrics';
@@ -30,7 +30,7 @@ function initialForm() {
   return {
     name: '',
     objective: 'traffic',
-    network: '',
+    adAccountId: '',
     platforms: [],
     postId: '',
     mediaId: '',
@@ -66,16 +66,18 @@ function CreateAd() {
   const [showErrors, setShowErrors] = useState(false);
 
   useEffect(() => {
-    Promise.all([getAdAccounts(), getPosts(), getMediaItems()]).then(([accountList, postList, mediaList]) => {
-      setAccounts(accountList);
+    Promise.all([getAdAccounts(), getPosts(), getMediaItems()]).then(([accountData, postList, mediaList]) => {
+      setAccounts(accountData.accounts);
       setPosts(postList.filter((post) => post.status === POST_STATUS.PUBLISHED || post.status === POST_STATUS.SCHEDULED));
       setImages(mediaList.filter((item) => item.type === MEDIA_TYPE.IMAGE));
     });
   }, []);
 
   const update = (patch) => setForm((current) => ({ ...current, ...patch }));
-  const isConnected = (networkKey) => accounts.find((account) => account.network === networkKey)?.isConnected;
-  const network = AD_NETWORKS.find((item) => item.key === form.network);
+  const selectedAccount = accounts.find((item) => item.id === form.adAccountId);
+  // Only Meta ad accounts can be discovered today — see backend/README.md's Ads section — so a chosen
+  // account always runs on Facebook + Instagram placements, same list Meta Ads has always offered.
+  const network = selectedAccount ? getAdNetwork(selectedAccount.network) : null;
   const selectedImage = images.find((item) => item.id === form.mediaId);
 
   const days = Math.max(1, Math.round((fromIso(form.endDate) - fromIso(form.startDate)) / DAY_MS) + 1);
@@ -85,9 +87,9 @@ function CreateAd() {
   // What is missing on each step — shown when the person tries to continue.
   const problems = useMemo(() => {
     const list = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [] };
-    if (!form.network) list[1].push('Choose an ad account to run on.');
+    if (!form.adAccountId) list[1].push('Choose an ad account to run on.');
     else if (form.platforms.length === 0) {
-      const anyConnected = AD_NETWORKS.find((item) => item.key === form.network)?.platforms.some(isPlacementConnected);
+      const anyConnected = network?.platforms.some(isPlacementConnected);
       list[1].push(
         anyConnected
           ? 'Pick at least one platform to show the ad on.'
@@ -129,7 +131,7 @@ function CreateAd() {
     createAd({
       name: form.name.trim() || form.headline.trim() || 'Untitled ad',
       objective: form.objective,
-      network: form.network || 'meta',
+      adAccountId: form.adAccountId,
       platforms: form.platforms,
       budgetType: form.budgetType,
       budget: Number(form.budget),
@@ -202,29 +204,38 @@ function CreateAd() {
             {step === 1 ? (
               <>
                 <h3 className="h5 mb-1">Where should it run?</h3>
-                <p className="text-secondary-custom mb-4">Ads run on your own ad accounts. Only connected accounts can be picked.</p>
-                <div className="ad-choice-grid">
-                  {AD_NETWORKS.map((item) => {
-                    const connected = isConnected(item.key);
-                    return connected ? (
-                      <button key={item.key} type="button" className={`ad-choice ${form.network === item.key ? 'is-selected' : ''}`.trim()} onClick={() => update({ network: item.key, platforms: form.network === item.key ? form.platforms : item.platforms.filter(isPlacementConnected) })}>
-                        <NetworkIcons network={item} size={40} />
+                <p className="text-secondary-custom mb-4">Pick one of your real ad accounts, discovered from your Facebook connection.</p>
+                {accounts.length === 0 ? (
+                  <Link to="/ads?tab=accounts" className="ad-choice is-locked">
+                    <NetworkIcons network={{ platforms: ['facebook', 'instagram'], subtitle: 'Facebook & Instagram' }} size={40} />
+                    <span>
+                      <strong>No ad accounts found</strong>
+                      <span className="ad-choice__text">Set up Ad accounts first</span>
+                    </span>
+                  </Link>
+                ) : (
+                  <div className="ad-choice-grid">
+                    {accounts.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`ad-choice ${form.adAccountId === item.id ? 'is-selected' : ''}`.trim()}
+                        onClick={() =>
+                          update({
+                            adAccountId: item.id,
+                            platforms: form.adAccountId === item.id ? form.platforms : getAdNetwork(item.network)?.platforms.filter(isPlacementConnected) || [],
+                          })
+                        }
+                      >
+                        <NetworkIcons network={{ platforms: ['facebook', 'instagram'], subtitle: 'Facebook & Instagram' }} size={40} />
                         <span>
-                          <strong>{item.label}</strong>
-                          <span className="ad-choice__text">{item.subtitle}</span>
+                          <strong>{item.name}</strong>
+                          <span className="ad-choice__text">{item.externalAccountId} · {item.currency}</span>
                         </span>
                       </button>
-                    ) : (
-                      <Link key={item.key} to={`/ads/connect/${item.key}`} className="ad-choice is-locked">
-                        <NetworkIcons network={item} size={40} />
-                        <span>
-                          <strong>{item.label}</strong>
-                          <span className="ad-choice__text">Not connected — connect an ad account</span>
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
                 {network ? (
                   <div className="mt-4">
                     <span className="form-label-custom d-block">Show the ad on</span>
@@ -386,7 +397,7 @@ function CreateAd() {
                 <TextField id="adName" label="Ad name (only you see this)" value={form.name} onChange={(event) => update({ name: event.target.value })} placeholder={form.headline || 'e.g. Diwali offer'} />
                 <dl className="ad-review">
                   <dt>Goal</dt><dd>{AD_OBJECTIVES.find((item) => item.key === form.objective)?.label}</dd>
-                  <dt>Runs on</dt><dd>{network?.label} — {form.platforms.map((key) => getPlatformByKey(key)?.label).join(', ')}</dd>
+                  <dt>Runs on</dt><dd>{selectedAccount?.name} ({network?.label}) — {form.platforms.map((key) => getPlatformByKey(key)?.label).join(', ')}</dd>
                   <dt>Audience</dt><dd>{form.locations.join(', ')} · {form.ageMin}–{form.ageMax} · {form.gender === 'all' ? 'All genders' : form.gender}{form.interests.length ? ` · ${form.interests.join(', ')}` : ''}</dd>
                   <dt>Budget</dt><dd>{formatCurrency(form.budget)} {form.budgetType === 'daily' ? 'per day' : 'lifetime'} ({formatCurrency(totalBudget)} over {days} {days === 1 ? 'day' : 'days'})</dd>
                   <dt>Schedule</dt><dd>{form.startDate} to {form.endDate}</dd>

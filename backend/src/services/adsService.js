@@ -1,155 +1,186 @@
 import { config } from '../config/env.js';
 import { query } from '../db/pool.js';
 import { ProviderError } from '../providers/errors.js';
-import { createMetaCampaign, deleteMetaCampaign, fetchMetaAdStatus, fetchMetaInsights, setMetaCampaignStatus, verifyMetaAdAccount } from '../providers/adsMeta.js';
-import { getPublishingContext } from './socialAccountService.js';
+import {
+  createMetaCampaign,
+  deleteMetaAd,
+  discoverMetaAdAccounts,
+  fetchMetaAdStatus,
+  fetchMetaInsights,
+  hasAdsPermission,
+  setMetaAdStatus,
+} from '../providers/adsMeta.js';
+import { getCredentials, getPublishingContext } from './socialAccountService.js';
 import { mediaForIds } from './mediaService.js';
-import { canPublishPosts } from './permissions.js';
-import { encryptJson, decryptJson } from '../utils/crypto.js';
+import { canManageAccounts, canPublishPosts } from './permissions.js';
 import { HttpError, badRequest, forbidden, notFound } from '../utils/httpError.js';
 import { logger } from '../utils/logger.js';
 import { recordActivity } from './auditService.js';
 
-// Meta is the only ad network this app can run for real — see providers/adsMeta.js's header comment
-// for exactly why the other five in the UI's connect list are not (yet) built.
-const SUPPORTED_NETWORKS = new Set(['meta']);
+// Meta is the only ad network this app can run for real — see providers/adsMeta.js's header comment.
 const NETWORK_LABELS = { meta: 'Meta Ads', google: 'Google Ads', linkedin: 'LinkedIn Ads', x: 'X Ads', tiktok: 'TikTok Ads', pinterest: 'Pinterest Ads' };
-const NOT_BUILT_YET = (network) =>
-  `${NETWORK_LABELS[network] || network} is not connected through Social yet. Meta Ads (Facebook & Instagram) is the only ad network Social can run for real right now — see the Ads section of the README for why the others aren't built.`;
 
 const toDateStr = (value) => (value instanceof Date ? value.toISOString().slice(0, 10) : value);
 const num = (value) => (value === null || value === undefined ? 0 : Number(value));
 
-// ------------------------------------------------------------------ ad accounts
-function presentAccount(network, row) {
+// ------------------------------------------------------------------ Facebook connection status
+// Ads never stores its own credentials — everything comes from the Facebook row in Social Accounts
+// (its optional `adsAccessToken` field). This is the one place that reads it for Meta Ads purposes.
+async function facebookAdsCredentials() {
+  const credentials = await getCredentials('facebook');
+  if (!credentials) return { connected: false, hasToken: false, hasPermission: false, credentials: null };
+  if (!credentials.adsAccessToken) return { connected: true, hasToken: false, hasPermission: false, credentials: null };
+  const ready = await hasAdsPermission({ appId: credentials.appId, appSecret: credentials.appSecret, adsAccessToken: credentials.adsAccessToken });
+  return { connected: true, hasToken: true, hasPermission: ready, credentials: ready ? credentials : null };
+}
+
+const NOT_CONNECTED_MESSAGE =
+  'Facebook is not connected in Social Accounts. Connect it there first — Meta Ads uses that same connection.';
+const MISSING_TOKEN_MESSAGE =
+  'Facebook is connected, but no Ads token has been added yet. Open Social Accounts → Facebook and fill in the "User access token — Ads access" field.';
+const NEEDS_PERMISSION_MESSAGE =
+  'Your saved Ads token doesn’t have the right permissions. Open Social Accounts → Facebook and paste a new User access token with ads_management and ads_read granted.';
+
+/** Throws the right, honest 409 if Ads can't use the Facebook connection yet; otherwise returns the Ads-ready credentials. */
+async function requireAdsCredentials() {
+  const status = await facebookAdsCredentials();
+  if (!status.connected) throw new HttpError(409, 'not_connected', NOT_CONNECTED_MESSAGE);
+  if (!status.hasToken) throw new HttpError(409, 'needs_token', MISSING_TOKEN_MESSAGE);
+  if (!status.hasPermission) throw new HttpError(409, 'needs_permission', NEEDS_PERMISSION_MESSAGE);
+  return status.credentials;
+}
+
+// ------------------------------------------------------------------ ad accounts (discovery cache)
+function presentAccount(row) {
   return {
-    network,
-    isConnected: row?.status === 'connected',
-    accountId: row?.account_id || '',
-    accountName: row?.account_name || '',
-    currency: row?.currency || '',
-    connectedAt: row?.updated_at ?? null,
+    id: row.id,
+    network: row.network,
+    externalAccountId: row.external_account_id,
+    name: row.name,
+    currency: row.currency,
+    timezone: row.timezone,
+    accountStatus: row.account_status,
+    businessName: row.business_name,
+    disableReason: row.disable_reason,
+    lastSyncedAt: row.last_synced_at,
   };
 }
 
+/** Ads → Ad Accounts: the Facebook connection's real status plus whatever was last discovered. */
 export async function listAdAccounts() {
-  const result = await query('SELECT * FROM ad_accounts');
-  const byNetwork = new Map(result.rows.map((row) => [row.network, row]));
-  return Object.keys(NETWORK_LABELS).map((network) => presentAccount(network, byNetwork.get(network)));
+  const [status, rows] = await Promise.all([
+    facebookAdsCredentials(),
+    query('SELECT * FROM ad_accounts ORDER BY name'),
+  ]);
+  return {
+    facebookConnected: status.connected,
+    hasAdsToken: status.hasToken,
+    hasAdsPermission: status.hasPermission,
+    accounts: rows.rows.map(presentAccount),
+  };
 }
 
-async function getAccountRow(network) {
-  return (await query('SELECT * FROM ad_accounts WHERE network = $1', [network])).rows[0] ?? null;
-}
+/** "Sync Ad Accounts": calls Meta for real, using the Ads token already stored on the Facebook connection. */
+export async function syncAdAccounts({ actor, ip, userAgent }) {
+  if (!canManageAccounts(actor)) throw forbidden('Your role cannot manage ad accounts.');
+  const credentials = await requireAdsCredentials();
 
-/** For campaign creation: the decrypted credentials of a connected ad account, or null. */
-async function getAdAccountCredentials(network) {
-  const row = await getAccountRow(network);
-  return row?.status === 'connected' && row.credentials ? decryptJson(row.credentials) : null;
-}
-
-export async function testAdAccountConnection(network, input) {
-  if (!SUPPORTED_NETWORKS.has(network)) return { ok: false, message: NOT_BUILT_YET(network) };
-  const adAccountId = String(input?.adAccountId || '').trim();
-  const accessToken = String(input?.accessToken || '').trim();
-  if (!adAccountId || !accessToken) return { ok: false, message: 'Ad account ID and access token are both required.' };
+  let discovered;
   try {
-    const profile = await verifyMetaAdAccount({ adAccountId, accessToken });
-    return { ok: true, message: `Connected to ${profile.accountName} successfully.` };
+    discovered = await discoverMetaAdAccounts({ adsAccessToken: credentials.adsAccessToken });
   } catch (error) {
-    if (error instanceof ProviderError) return { ok: false, message: error.message };
-    logger.error('Unexpected error testing a Meta ad account', error);
-    return { ok: false, message: 'Meta sent an answer Social could not understand. Try again, and tell support if it keeps happening.' };
-  }
-}
-
-export async function connectAdAccount({ network, input, actor, ip, userAgent }) {
-  if (!SUPPORTED_NETWORKS.has(network)) throw new HttpError(422, 'not_built_yet', NOT_BUILT_YET(network));
-  const adAccountId = String(input?.adAccountId || '').trim();
-  const accessToken = String(input?.accessToken || '').trim();
-  const businessId = String(input?.businessId || '').trim();
-  if (!adAccountId || !accessToken) throw badRequest('Ad account ID and access token are both required.');
-
-  let profile;
-  try {
-    profile = await verifyMetaAdAccount({ adAccountId, accessToken });
-  } catch (error) {
-    if (error instanceof ProviderError) throw new HttpError(422, 'connection_failed', error.message);
+    if (error instanceof ProviderError) throw new HttpError(422, 'sync_failed', error.message);
     throw error;
   }
-  const credentials = { adAccountId, businessId, accessToken };
-  const saved = (
+
+  for (const account of discovered) {
     await query(
-      `INSERT INTO ad_accounts (network, status, account_id, account_name, currency, credentials, connected_by)
-       VALUES ($1, 'connected', $2, $3, $4, $5, $6)
-       ON CONFLICT (network) DO UPDATE SET
-         status = 'connected', account_id = EXCLUDED.account_id, account_name = EXCLUDED.account_name,
-         currency = EXCLUDED.currency, credentials = EXCLUDED.credentials, connected_by = EXCLUDED.connected_by, updated_at = now()
-       RETURNING *`,
-      [network, profile.externalId, profile.accountName, profile.currency, encryptJson(credentials), actor.id]
-    )
-  ).rows[0];
-  await recordActivity({ actorId: actor.id, action: 'ads.account_connected', entity: 'ad_account', entityId: network, meta: { accountName: profile.accountName }, ip, userAgent });
-  return presentAccount(network, saved);
+      `INSERT INTO ad_accounts (network, source_platform, external_account_id, name, currency, timezone, account_status, business_name, disable_reason, last_synced_at)
+       VALUES ('meta', 'facebook', $1, $2, $3, $4, $5, $6, $7, now())
+       ON CONFLICT (network, external_account_id) DO UPDATE SET
+         name = EXCLUDED.name, currency = EXCLUDED.currency, timezone = EXCLUDED.timezone,
+         account_status = EXCLUDED.account_status, business_name = EXCLUDED.business_name,
+         disable_reason = EXCLUDED.disable_reason, last_synced_at = now(), updated_at = now()`,
+      [account.externalAccountId, account.name, account.currency, account.timezone, account.accountStatus, account.businessName, account.disableReason]
+    );
+  }
+  await recordActivity({ actorId: actor.id, action: 'ads.accounts_synced', entity: 'ad_account', meta: { found: discovered.length }, ip, userAgent });
+  return listAdAccounts();
 }
 
-export async function disconnectAdAccount({ network, actor, ip, userAgent }) {
-  const result = await query(
-    `UPDATE ad_accounts SET status = 'disconnected', credentials = NULL, updated_at = now() WHERE network = $1 RETURNING *`,
-    [network]
-  );
-  if (result.rows[0]) await recordActivity({ actorId: actor.id, action: 'ads.account_disconnected', entity: 'ad_account', entityId: network, ip, userAgent });
-  return presentAccount(network, result.rows[0] ?? null);
+async function getAdAccountRow(id) {
+  return (await query('SELECT * FROM ad_accounts WHERE id = $1', [id])).rows[0] ?? null;
 }
 
-// ------------------------------------------------------------------------- campaigns
+// ------------------------------------------------------------------------- ads (campaign→adset→creative→ad)
 function present(row, daily = []) {
   return {
     id: row.id,
-    name: row.name,
+    name: row.campaign_name,
     objective: row.objective,
     network: row.network,
+    adAccountId: row.ad_account_id,
+    adAccountName: row.ad_account_name,
     platforms: row.platforms,
     status: row.status,
     budgetType: row.budget_type,
     budget: num(row.budget),
     startDate: toDateStr(row.start_date),
     endDate: toDateStr(row.end_date),
-    createdAt: row.created_at,
+    createdAt: row.ad_created_at,
     createdBy: row.creator_name || 'Deleted user',
     rejectionReason: row.rejection_reason,
-    creative: row.creative,
+    creative: {
+      headline: row.headline,
+      text: row.body_text,
+      cta: row.cta,
+      destinationUrl: row.destination_url,
+      mediaId: row.media_id,
+    },
     audience: row.audience,
     daily,
   };
 }
 
-const CAMPAIGN_SELECT = 'SELECT c.*, u.name AS creator_name FROM ad_campaigns c LEFT JOIN users u ON u.id = c.created_by';
+const AD_SELECT = `
+  SELECT
+    ads.id, ads.name AS ad_name, ads.status, ads.rejection_reason, ads.external_ad_id, ads.created_at AS ad_created_at,
+    aset.id AS ad_set_id, aset.platforms, aset.budget_type, aset.budget, aset.start_date, aset.end_date, aset.audience, aset.external_adset_id,
+    camp.id AS ad_campaign_id, camp.name AS campaign_name, camp.objective, camp.external_campaign_id, camp.created_by,
+    acc.id AS ad_account_id, acc.network, acc.name AS ad_account_name, acc.external_account_id,
+    cre.headline, cre.body_text, cre.cta, cre.destination_url, cre.media_id, cre.external_creative_id,
+    u.name AS creator_name
+  FROM ads
+  JOIN ad_sets aset ON aset.id = ads.ad_set_id
+  JOIN ad_campaigns camp ON camp.id = aset.ad_campaign_id
+  JOIN ad_accounts acc ON acc.id = camp.ad_account_id
+  JOIN ad_creatives cre ON cre.id = ads.ad_creative_id
+  LEFT JOIN users u ON u.id = camp.created_by`;
 
-async function dailyByCampaign(ids) {
+async function dailyByAd(ids) {
   const map = new Map(ids.map((id) => [id, []]));
   if (!ids.length) return map;
-  const rows = (await query('SELECT * FROM ad_campaign_daily_stats WHERE ad_campaign_id = ANY($1) ORDER BY date', [ids])).rows;
+  const rows = (await query('SELECT * FROM ad_daily_stats WHERE ad_id = ANY($1) ORDER BY date', [ids])).rows;
   for (const row of rows) {
-    map.get(row.ad_campaign_id).push({ date: toDateStr(row.date), spend: num(row.spend), impressions: num(row.impressions), clicks: num(row.clicks), conversions: num(row.conversions) });
+    map.get(row.ad_id).push({ date: toDateStr(row.date), spend: num(row.spend), impressions: num(row.impressions), clicks: num(row.clicks), conversions: num(row.conversions) });
   }
   return map;
 }
 
-async function getRow(id) {
-  return (await query(`${CAMPAIGN_SELECT} WHERE c.id = $1`, [id])).rows[0] ?? null;
+async function getAdRow(id) {
+  return (await query(`${AD_SELECT} WHERE ads.id = $1`, [id])).rows[0] ?? null;
 }
 
 export async function listCampaigns() {
-  const rows = (await query(`${CAMPAIGN_SELECT} ORDER BY c.created_at DESC`)).rows;
-  const daily = await dailyByCampaign(rows.map((row) => row.id));
+  const rows = (await query(`${AD_SELECT} ORDER BY ads.created_at DESC`)).rows;
+  const daily = await dailyByAd(rows.map((row) => row.id));
   return rows.map((row) => present(row, daily.get(row.id)));
 }
 
 export async function getCampaign(id) {
-  const row = await getRow(id);
+  const row = await getAdRow(id);
   if (!row) return null;
-  const daily = await dailyByCampaign([id]);
+  const daily = await dailyByAd([id]);
   return present(row, daily.get(id));
 }
 
@@ -168,10 +199,12 @@ async function resolvePlacements(platforms) {
 
 export async function createCampaign({ actor, input, ip, userAgent }) {
   if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can create an ad.');
-  if (!SUPPORTED_NETWORKS.has(input.network)) throw new HttpError(422, 'not_built_yet', NOT_BUILT_YET(input.network));
 
-  const credentials = await getAdAccountCredentials(input.network);
-  if (!credentials) throw new HttpError(409, 'not_connected', `${NETWORK_LABELS[input.network]} is not connected. Connect an ad account first.`);
+  const adAccount = await getAdAccountRow(input.adAccountId);
+  if (!adAccount) throw badRequest('Choose a real ad account — sync your ad accounts first if the list looks empty.');
+  if (adAccount.network !== 'meta') throw new HttpError(422, 'not_built_yet', `${NETWORK_LABELS[adAccount.network] || adAccount.network} is not built yet.`);
+
+  const adsCredentials = await requireAdsCredentials();
 
   const isDraft = input.status === 'draft';
   let media = null;
@@ -181,81 +214,94 @@ export async function createCampaign({ actor, input, ip, userAgent }) {
   }
 
   let external = { externalCampaignId: null, externalAdsetId: null, externalCreativeId: null, externalAdId: null };
-  let status = isDraft ? 'draft' : 'inReview';
+  const status = isDraft ? 'draft' : 'inReview';
   if (!isDraft) {
     const { pageId, instagramActorId } = await resolvePlacements(input.platforms);
     try {
-      const created = await createMetaCampaign({
-        adAccount: credentials,
+      external = await createMetaCampaign({
+        accessToken: adsCredentials.adsAccessToken,
+        externalAccountId: adAccount.external_account_id,
         campaign: input,
         pageId,
         instagramActorId,
         imageUrl: media?.public_url,
       });
-      external = created;
     } catch (error) {
       if (error instanceof ProviderError) throw new HttpError(422, 'launch_failed', error.message);
       throw error;
     }
   }
 
-  const row = (
+  const campaignRow = (
     await query(
-      `INSERT INTO ad_campaigns
-         (name, objective, network, platforms, status, budget_type, budget, start_date, end_date, creative, audience,
-          external_campaign_id, external_adset_id, external_creative_id, external_ad_id, last_synced_at, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
-      [
-        input.name,
-        input.objective,
-        input.network,
-        input.platforms,
-        status,
-        input.budgetType,
-        input.budget,
-        input.startDate,
-        input.endDate,
-        JSON.stringify(input.creative),
-        JSON.stringify(input.audience),
-        external.externalCampaignId,
-        external.externalAdsetId,
-        external.externalCreativeId,
-        external.externalAdId,
-        isDraft ? null : new Date(),
-        actor.id,
-      ]
+      `INSERT INTO ad_campaigns (ad_account_id, name, objective, status, external_campaign_id, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [adAccount.id, input.name, input.objective, status, external.externalCampaignId, actor.id]
     )
   ).rows[0];
-  await recordActivity({ actorId: actor.id, action: isDraft ? 'ads.saved_draft' : 'ads.launched', entity: 'ad_campaign', entityId: row.id, meta: { name: row.name }, ip, userAgent });
-  return present({ ...row, creator_name: actor.name });
+
+  const adSetRow = (
+    await query(
+      `INSERT INTO ad_sets (ad_campaign_id, name, platforms, budget_type, budget, start_date, end_date, audience, status, external_adset_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [campaignRow.id, `${input.name} — ad set`, input.platforms, input.budgetType, input.budget, input.startDate, input.endDate, JSON.stringify(input.audience), status, external.externalAdsetId]
+    )
+  ).rows[0];
+
+  const creativeRow = (
+    await query(
+      `INSERT INTO ad_creatives (name, headline, body_text, cta, destination_url, media_id, external_creative_id, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [`${input.name} — creative`, input.creative.headline, input.creative.text, input.creative.cta, input.creative.destinationUrl, input.creative.mediaId || null, external.externalCreativeId, actor.id]
+    )
+  ).rows[0];
+
+  const adRow = (
+    await query(
+      `INSERT INTO ads (ad_set_id, ad_creative_id, name, status, external_ad_id, last_synced_at)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [adSetRow.id, creativeRow.id, input.name, status, external.externalAdId, isDraft ? null : new Date()]
+    )
+  ).rows[0];
+
+  await recordActivity({ actorId: actor.id, action: isDraft ? 'ads.saved_draft' : 'ads.launched', entity: 'ad', entityId: adRow.id, meta: { name: input.name }, ip, userAgent });
+  return getCampaign(adRow.id);
 }
 
-async function ensureCampaign(id) {
-  const row = await getRow(id);
+async function ensureAd(id) {
+  const row = await getAdRow(id);
   if (!row) throw notFound('Ad not found');
   return row;
 }
 
+/** Deletes an ad set/campaign once nothing references them any more, so single-ad creation (today's wizard) never leaves orphaned rows behind, while a shared ad set (bulk creation) is left alone for its other ads. */
+async function cleanUpIfOrphaned(adSetId, adCampaignId) {
+  const remainingInSet = (await query('SELECT count(*)::int AS n FROM ads WHERE ad_set_id = $1', [adSetId])).rows[0].n;
+  if (remainingInSet > 0) return;
+  await query('DELETE FROM ad_sets WHERE id = $1', [adSetId]);
+  const remainingInCampaign = (await query('SELECT count(*)::int AS n FROM ad_sets WHERE ad_campaign_id = $1', [adCampaignId])).rows[0].n;
+  if (remainingInCampaign > 0) return;
+  await query('DELETE FROM ad_campaigns WHERE id = $1', [adCampaignId]);
+}
+
 export async function updateCampaignStatus({ id, status, actor, ip, userAgent }) {
   if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can change an ad.');
-  const existing = await ensureCampaign(id);
-  if (existing.external_campaign_id) {
-    const credentials = await getAdAccountCredentials(existing.network);
-    if (!credentials) throw new HttpError(409, 'not_connected', `${NETWORK_LABELS[existing.network]} is not connected. Reconnect the ad account to change this ad.`);
+  const existing = await ensureAd(id);
+  if (existing.external_ad_id) {
+    const credentials = await requireAdsCredentials();
     try {
-      await setMetaCampaignStatus({ adAccount: credentials, externalCampaignId: existing.external_campaign_id, status: status === 'active' ? 'ACTIVE' : 'PAUSED' });
+      await setMetaAdStatus({ accessToken: credentials.adsAccessToken, externalAdId: existing.external_ad_id, status: status === 'active' ? 'ACTIVE' : 'PAUSED' });
     } catch (error) {
       if (error instanceof ProviderError) throw new HttpError(422, 'update_failed', error.message);
       throw error;
     }
   }
-  const row = (await query('UPDATE ad_campaigns SET status = $2, updated_at = now() WHERE id = $1 RETURNING *', [id, status])).rows[0];
-  await recordActivity({ actorId: actor.id, action: status === 'paused' ? 'ads.paused' : 'ads.resumed', entity: 'ad_campaign', entityId: id, meta: { name: row.name }, ip, userAgent });
-  const daily = await dailyByCampaign([id]);
-  return present({ ...row, creator_name: existing.creator_name }, daily.get(id));
+  await query('UPDATE ads SET status = $2, updated_at = now() WHERE id = $1', [id, status]);
+  await recordActivity({ actorId: actor.id, action: status === 'paused' ? 'ads.paused' : 'ads.resumed', entity: 'ad', entityId: id, meta: { name: existing.ad_name }, ip, userAgent });
+  return getCampaign(id);
 }
 
-/** Bulk pause/resume, for the list page's checkbox actions. One failing ad (e.g. its ad account got disconnected) never blocks the rest. */
+/** Bulk pause/resume, for the list page's checkbox actions. One failing ad (e.g. a permission problem) never blocks the rest. */
 export async function updateCampaignsStatus({ ids, status, actor, ip, userAgent }) {
   let updated = 0;
   for (const id of ids) {
@@ -271,22 +317,23 @@ export async function updateCampaignsStatus({ ids, status, actor, ip, userAgent 
 
 export async function deleteCampaign({ id, actor, ip, userAgent }) {
   if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can delete an ad.');
-  const existing = await ensureCampaign(id);
-  if (existing.external_campaign_id) {
-    const credentials = await getAdAccountCredentials(existing.network);
+  const existing = await ensureAd(id);
+  if (existing.external_ad_id) {
+    const credentials = await requireAdsCredentials().catch(() => null);
     if (credentials) {
       try {
-        await deleteMetaCampaign({ adAccount: credentials, externalCampaignId: existing.external_campaign_id });
+        await deleteMetaAd({ accessToken: credentials.adsAccessToken, externalAdId: existing.external_ad_id });
       } catch (error) {
         if (error instanceof ProviderError) throw new HttpError(422, 'delete_failed', error.message);
         throw error;
       }
     }
-    // No credentials left (ad account disconnected since this ad launched): nothing this server can do
-    // on Meta's side either way, so fall through and forget it locally rather than getting the client stuck.
+    // No Ads permission left (Facebook connection changed since this ad launched): nothing this server
+    // can do on Meta's side either way, so fall through and forget it locally rather than getting stuck.
   }
-  await query('DELETE FROM ad_campaigns WHERE id = $1', [id]);
-  await recordActivity({ actorId: actor.id, action: 'ads.deleted', entity: 'ad_campaign', entityId: id, meta: { name: existing.name }, ip, userAgent });
+  await query('DELETE FROM ads WHERE id = $1', [id]);
+  await cleanUpIfOrphaned(existing.ad_set_id, existing.ad_campaign_id);
+  await recordActivity({ actorId: actor.id, action: 'ads.deleted', entity: 'ad', entityId: id, meta: { name: existing.ad_name }, ip, userAgent });
 }
 
 /** Bulk delete, for the list page's checkbox actions. Deletes what it can; one that fails (a stuck Meta call) is skipped rather than failing the whole batch. */
@@ -308,52 +355,52 @@ const REFRESHABLE_STATUSES = ['active', 'paused', 'inReview'];
 const INSIGHTS_LOOKBACK_DAYS = 90;
 let refreshingAds = false;
 
-async function refreshOneCampaign(row) {
-  const credentials = await getAdAccountCredentials(row.network);
-  if (!credentials) {
-    await query('UPDATE ad_campaigns SET last_synced_at = now() WHERE id = $1', [row.id]);
-    return;
-  }
+async function refreshOneAd(row, credentials) {
   try {
-    const { status, rejectionReason } = await fetchMetaAdStatus({ adAccount: credentials, externalAdId: row.external_ad_id });
-    await query('UPDATE ad_campaigns SET status = $2, rejection_reason = $3, last_synced_at = now(), updated_at = now() WHERE id = $1', [row.id, status, rejectionReason]);
+    const { status, rejectionReason } = await fetchMetaAdStatus({ accessToken: credentials.adsAccessToken, externalAdId: row.external_ad_id });
+    await query('UPDATE ads SET status = $2, rejection_reason = $3, last_synced_at = now(), updated_at = now() WHERE id = $1', [row.id, status, rejectionReason]);
 
     const start = new Date(row.start_date);
     const lookback = new Date(Date.now() - INSIGHTS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
     const since = (start > lookback ? start : lookback).toISOString().slice(0, 10);
     const until = new Date().toISOString().slice(0, 10);
-    const days = await fetchMetaInsights({ adAccount: credentials, externalCampaignId: row.external_campaign_id, since, until });
+    const days = await fetchMetaInsights({ accessToken: credentials.adsAccessToken, externalAdId: row.external_ad_id, since, until });
     for (const day of days) {
       await query(
-        `INSERT INTO ad_campaign_daily_stats (ad_campaign_id, date, spend, impressions, clicks, conversions)
+        `INSERT INTO ad_daily_stats (ad_id, date, spend, impressions, clicks, conversions)
          VALUES ($1,$2,$3,$4,$5,0)
-         ON CONFLICT (ad_campaign_id, date) DO UPDATE SET spend = EXCLUDED.spend, impressions = EXCLUDED.impressions, clicks = EXCLUDED.clicks`,
+         ON CONFLICT (ad_id, date) DO UPDATE SET spend = EXCLUDED.spend, impressions = EXCLUDED.impressions, clicks = EXCLUDED.clicks`,
         [row.id, day.date, day.spend, day.impressions, day.clicks]
       );
     }
   } catch (error) {
-    // A broken/expired token or a slow Meta pass must not stop the rest of the campaigns, and must not
-    // spin — always stamp last_synced_at so this row waits its turn again like everything else.
-    await query('UPDATE ad_campaigns SET last_synced_at = now() WHERE id = $1', [row.id]);
-    logger.error('Refreshing a Meta ad campaign failed', error, { campaignId: row.id });
+    // A broken/expired token or a slow Meta pass must not stop the rest of the ads, and must not spin
+    // — always stamp last_synced_at so this row waits its turn again like everything else.
+    logger.error('Refreshing a Meta ad failed', error, { adId: row.id });
+  } finally {
+    await query('UPDATE ads SET last_synced_at = now() WHERE id = $1', [row.id]);
   }
 }
 
-/** One pass over every launched ad due for a refresh. One broken campaign never stops the rest. */
+/** One pass over every launched ad due for a refresh. One broken ad never stops the rest. */
 export async function refreshAdMetrics(refreshIntervalMin) {
   if (refreshingAds) return;
   refreshingAds = true;
   try {
+    const status = await facebookAdsCredentials();
+    if (!status.hasPermission) return; // nothing this pass can do without a working Ads token
+
     const rows = (
       await query(
-        `SELECT * FROM ad_campaigns
-          WHERE network = 'meta' AND status = ANY($1) AND external_ad_id IS NOT NULL
-            AND (last_synced_at IS NULL OR last_synced_at < now() - ($2 || ' minutes')::interval)
-          ORDER BY last_synced_at NULLS FIRST`,
+        `SELECT ads.id, ads.external_ad_id, aset.start_date FROM ads
+           JOIN ad_sets aset ON aset.id = ads.ad_set_id
+          WHERE ads.status = ANY($1) AND ads.external_ad_id IS NOT NULL
+            AND (ads.last_synced_at IS NULL OR ads.last_synced_at < now() - ($2 || ' minutes')::interval)
+          ORDER BY ads.last_synced_at NULLS FIRST`,
         [REFRESHABLE_STATUSES, refreshIntervalMin]
       )
     ).rows;
-    for (const row of rows) await refreshOneCampaign(row);
+    for (const row of rows) await refreshOneAd(row, status.credentials);
   } finally {
     refreshingAds = false;
   }

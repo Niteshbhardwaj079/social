@@ -13,7 +13,10 @@ import { verifyBluesky, verifyMastodon, verifyPinterest, verifyTikTok } from './
  * Adding a platform = one entry here + one verifier file. Nothing else in the API changes.
  */
 export const PROVIDERS = {
-  facebook: { label: 'Facebook Pages', fields: ['appId', 'appSecret', 'accessToken'], verify: verifyFacebook },
+  // `optionalFields`: not required to connect Facebook at all, only to also use the Ads module — see
+  // providers/adsMeta.js's header comment for why ad-account discovery needs a *different* token than
+  // the Page token used for organic posting (Meta ad accounts are User/Business-scoped, not Page-scoped).
+  facebook: { label: 'Facebook Pages', fields: ['appId', 'appSecret', 'accessToken'], optionalFields: ['adsAccessToken'], verify: verifyFacebook },
   instagram: { label: 'Instagram Business', fields: ['appId', 'appSecret', 'igUserId', 'accessToken'], verify: verifyInstagram },
   x: { label: 'X', fields: ['apiKey', 'apiSecret', 'accessToken', 'accessTokenSecret'], verify: verifyX, paidTier: true },
   linkedin: { label: 'LinkedIn Profiles', fields: ['clientId', 'clientSecret', 'accessToken'], verify: verifyLinkedIn },

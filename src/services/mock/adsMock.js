@@ -4,14 +4,22 @@ import { AD_STATUS } from '../../config/adPlatforms';
 // The mock data ends here — "today" as far as the sample numbers are concerned.
 export const AD_DATA_END_DATE = '2026-09-18';
 
+// Discovered ad accounts (mock stand-in for "Sync Ad Accounts" against a real Facebook connection).
 export const adAccountsMock = [
-  { network: 'meta', isConnected: true, accountId: 'act_4128837701', currency: 'INR', connectedAt: '2026-08-12T09:00:00Z' },
-  { network: 'google', isConnected: true, accountId: '482-119-6620', currency: 'INR', connectedAt: '2026-08-20T09:00:00Z' },
-  { network: 'linkedin', isConnected: true, accountId: '512345678', currency: 'INR', connectedAt: '2026-09-02T09:00:00Z' },
-  { network: 'x', isConnected: false },
-  { network: 'tiktok', isConnected: false },
-  { network: 'pinterest', isConnected: false },
+  {
+    id: 'adacc-1',
+    network: 'meta',
+    externalAccountId: 'act_4128837701',
+    name: 'Gowebkart Ads',
+    currency: 'INR',
+    timezone: 'Asia/Kolkata',
+    accountStatus: '1',
+    businessName: 'Gowebkart Pvt Ltd',
+    disableReason: null,
+    lastSyncedAt: '2026-09-20T09:00:00Z',
+  },
 ];
+export const adAccountStatusMock = { facebookConnected: true, hasAdsToken: true, hasAdsPermission: true };
 
 // Small seeded random so the sample charts look the same on every load.
 function seededRandom(seed) {
@@ -43,7 +51,12 @@ function buildDaily({ seed, startDate, endDate, dailySpend, cpm, ctr, conversion
 }
 
 function makeAd(base, metrics) {
-  return { ...base, daily: metrics ? buildDaily({ ...metrics, startDate: base.startDate, endDate: base.endDate }) : [] };
+  return {
+    adAccountId: adAccountsMock[0].id,
+    adAccountName: adAccountsMock[0].name,
+    ...base,
+    daily: metrics ? buildDaily({ ...metrics, startDate: base.startDate, endDate: base.endDate }) : [],
+  };
 }
 
 const creative = (headline, text, cta, destinationUrl) => ({ headline, text, cta, destinationUrl, mediaId: null });

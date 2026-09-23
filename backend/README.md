@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 253 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 257 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -37,7 +37,7 @@ Email uses **any SMTP server** you give it (`SMTP_*`); with none set, emails are
 | Media | `GET /api/media` · `GET /media/folders` · `POST /media` (upload) · `POST /media/link` · `PATCH/DELETE /media/:id` · `POST /media/bulk-delete` |
 | Analytics | `GET /api/analytics/overview?range=7d\|30d\|90d` · `GET /api/analytics/content` |
 | Inbox | `GET /api/inbox` · `GET /inbox/assignable-users` · `POST /:id/reply` (Editor+) · `POST /:id/read` · `PATCH /:id/status` · `PATCH /:id/assign` |
-| Ads | `GET /api/ads/accounts` · `POST /accounts/:network/test` · `PUT /accounts/:network` (connect, Super Admin / Admin) · `DELETE /accounts/:network` · `GET/POST /api/ads` · `GET /:id` · `PATCH /status` (bulk pause/resume, Editor+) · `DELETE /api/ads` (bulk) |
+| Ads | `GET /api/ads/accounts` (discovered ad accounts + Facebook/Ads connection status) · `POST /accounts/sync` (Super Admin / Admin) · `GET/POST /api/ads` · `GET /:id` · `PATCH /status` (bulk pause/resume, Editor+) · `DELETE /api/ads` (bulk) |
 | Links | `GET/POST /api/links` · `DELETE /api/links` (bulk) · `DELETE /api/links/:id` — plus the real redirect itself, `GET /l/:slug` (not under `/api`, no sign-in needed — anyone with the short link) |
 | Operations | `GET /api/health` · `GET /api/activity-logs` · `DELETE /api/activity-logs` (Super Admin / Admin) |
 
@@ -285,47 +285,78 @@ that polls each supported platform for new ones — see `src/providers/comments.
   the same real comment data filtered to mention-capable platforms — matching what the page already did in
   mock form, not a separate mention-monitoring system).
 
-### Ads (real Meta campaigns)
+### Ads (real Meta campaigns, ad accounts discovered from Social Accounts)
 
-`GET/POST /api/ads`, `PATCH /api/ads/status` (bulk pause/resume), `DELETE /api/ads` (bulk) run real ad
-campaigns through the Meta Marketing API (`src/providers/adsMeta.js`) — the client's own Meta ad account,
-billed by Meta directly, never Social. "Launch ad" creates the real object chain (campaign → ad set →
-creative → ad); a background pass (`ADS_REFRESH_INTERVAL_MIN`, default 60 min) pulls the real day-by-day
-spend/impressions/clicks and the ad's real review status back into `ad_campaign_daily_stats`/`ad_campaigns`.
+`GET /api/ads/accounts` (the Facebook connection's status + whatever ad accounts were last discovered),
+`POST /api/ads/accounts/sync` (discover for real), `GET/POST /api/ads`, `PATCH /api/ads/status` (bulk
+pause/resume), `DELETE /api/ads` (bulk) run real ad campaigns through the Meta Marketing API
+(`src/providers/adsMeta.js`) — the client's own Meta ad account, billed by Meta directly, never Social.
 
+**One central connection, no separate Ads login.** There is no "connect an ad account" form any more.
+Ads reuses the Facebook connection already in Social Accounts — specifically an *optional* field on that
+same form, `adsAccessToken` (label: "User access token — Ads access"). Meta ad accounts belong to a
+person or a Business Manager, not to a Page, so the Page access token Facebook already uses for organic
+posting has no `/me/adaccounts` edge to call at all, regardless of scope — this isn't a Social design
+choice, it's Meta's own API drawing that line. Adding one more optional field to the existing Facebook
+connect form (rather than a second Ads-specific screen) is how this app honours "one central connection"
+while still being technically correct: `PROVIDERS.facebook.optionalFields` (`providers/index.js`),
+validated by the same `cleanCredentials()` every platform uses, stored in the same encrypted
+`social_accounts.credentials` blob — no new table, no new secret store.
+
+- **"Sync Ad Accounts"** (`syncAdAccounts` in `adsService.js`) reads that stored Ads token, confirms it
+  actually carries `ads_management`/`ads_read` via `/debug_token` (`hasAdsPermission` in
+  `providers/adsMeta.js` — checked for real, never guessed from a failed call), then calls Meta's
+  `/me/adaccounts` and upserts what it finds into `ad_accounts` — a pure **discovery cache** with **no
+  credentials column at all**: `network, source_platform, external_account_id, name, currency, timezone,
+  account_status, business_name, disable_reason, last_synced_at`. Three honest states, each with its own
+  message pointing back to Social Accounts → Facebook, never a fabricated success: not connected at all,
+  connected but no Ads token saved yet, token saved but missing the right permission.
+- **Real hierarchy, not one bundled row.** `ad_campaigns` (objective/status/which ad account) → `ad_sets`
+  (budget, schedule, targeting, placements) → `ads` (status, review state) → `ad_creatives` (headline,
+  text, CTA, destination, media — reusable across ads). "Launch ad" still creates all four levels in one
+  submission (matching the wizard's current one-ad-at-a-time UX), but they are independent rows now: an ad
+  set or a creative can be referenced by more than one ad without duplicating anything, which is what bulk
+  creation and "duplicate into another ad set" (not built yet — see below) will need. Deleting an ad cleans
+  up its ad set/campaign only once nothing else references them; a creative or an ad set shared by another
+  ad is left alone. A background pass (`ADS_REFRESH_INTERVAL_MIN`, default 60 min) pulls each ad's real
+  day-by-day spend/impressions/clicks and real review status into `ad_daily_stats`/`ads`.
 - **Meta is the only ad network this app runs for real.** The other five in the UI's connect list (Google,
-  LinkedIn, X, TikTok, Pinterest) honestly say "not built yet" when tested or connected, rather than
-  pretending — same "don't guess" rule as everywhere else in this API, applied more strictly here because a
-  mistake spends the client's real money, not just a wrong number on a chart:
+  LinkedIn, X, TikTok, Pinterest) honestly say "not built yet" — same "don't guess" rule as everywhere else
+  in this API, applied more strictly here because a mistake spends the client's real money:
   - **Google Ads** — the API itself is free and BYOK-workable, but it is a complex, protobuf-first API with
-    strict resource-mutate semantics this codebase does not have verified, confident knowledge of; guessing
-    at it risks silently wrong budgets or targeting, not just a failed call.
+    strict resource-mutate semantics this codebase does not have verified, confident knowledge of.
   - **LinkedIn Ads** — the Advertising API product is realistically restricted to approved Marketing
     Partners; an individual app cannot self-serve this no matter what the client's own account looks like.
   - **X Ads** — meaningful Ads API access is tiered/paid at the developer-app level now, not a reliable free
     BYOK path.
-  - **TikTok Ads** — the Marketing API needs *Social itself* (not the client) to pass a one-time app review,
-    unlike every other BYOK integration in this app, which only needs the client's own credentials.
+  - **TikTok Ads** — the Marketing API needs *Social itself* (not the client) to pass a one-time app review.
   - **Pinterest Ads** — a real BYOK path exists in principle, but this codebase does not have confident,
-    verified knowledge of its exact budget-currency-unit convention, and that is exactly the kind of detail
-    that is not safe to guess against a client's real ad spend.
+    verified knowledge of its exact budget-currency-unit convention.
 - **Every objective except "Brand awareness" runs as a Meta link-click campaign** (`OUTCOME_TRAFFIC` /
   `LINK_CLICKS`) under the hood — native Lead Ads and Pixel-optimised Sales campaigns need a Lead Form or a
   Meta Pixel attached to the ad account, which this composer never collects. The objective you pick still
   controls the campaign's stated purpose, audience framing and creative — only the optimisation goal Meta
   actually uses is simplified.
 - **"Results/conversions" always shows 0 for a Meta ad**, never a guessed number from Meta's `actions` field
-  (whose shape depends entirely on tracking the client has set up, which this app has no way to know) — the
-  same "0 means checked-and-none, not unknown" honesty as the rest of the app, just chosen deliberately here
-  because the alternative (an invented conversion count) would be worse than an honest zero.
+  (whose shape depends entirely on tracking the client has set up, which this app has no way to know).
 - A Meta ad always needs the client's **Facebook Page connected in Social Accounts** (even for an
   Instagram-only ad — Meta requires a Page behind every ad creative) and Instagram connected too if the ad
-  also runs there; the UI already explained this exact requirement before this backend existed.
-- Deleting an ad calls Meta first and only forgets it locally once Meta confirms — except when the ad
-  account was disconnected after the ad launched, where there is nothing left this server can do on Meta's
-  side either way, so it is forgotten locally rather than leaving the client stuck.
+  also runs there. All Marketing API calls (discovery, campaign creation, status, insights, delete) use the
+  **Ads token**, not the Page token — the Page id is only ever passed as a plain value
+  (`object_story_spec.page_id`), never a second access token threaded through ad-creation calls.
+- Deleting an ad calls Meta first and only forgets it locally once Meta confirms — except when the Ads
+  token is no longer usable, where there is nothing left this server can do on Meta's side either way, so
+  it is forgotten locally rather than leaving the client stuck.
+- **Every Ads endpoint is authorization-checked server-side** — reading (`GET /accounts`, `GET /ads*`) is
+  open to anyone signed in (same as Social Accounts/Campaigns elsewhere in this API); syncing ad accounts
+  needs `canManageAccounts` (Super Admin/Admin — it's adjacent to handling the client's credentials, same
+  bar as connecting a social account); creating/pausing/resuming/deleting an ad needs `canPublishPosts`
+  (Editor+). None of this is enforced only in the frontend.
 - Not built yet: editing a launched ad's targeting/creative/budget after it is live (only pause/resume/delete
-  are wired up), and the five deferred ad networks above.
+  are wired up), existing-post-→-ad reuse, bulk ad creation with variation limits, a creative/template
+  library, a UTM builder, an automated-rules engine, and the five deferred ad networks above. The database
+  hierarchy from this rework (`ad_sets`/`ad_creatives` as independent, reusable rows) was built specifically
+  so those are additions on top of this schema, not another rework.
 
 ### Link Shortener
 

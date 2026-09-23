@@ -36,7 +36,6 @@ const ContentAnalytics = lazy(() => import('../pages/analytics/ContentAnalytics'
 const Ads = lazy(() => import('../pages/ads/Ads'));
 const CreateAd = lazy(() => import('../pages/ads/CreateAd'));
 const AdDetail = lazy(() => import('../pages/ads/AdDetail'));
-const ConnectAdAccount = lazy(() => import('../pages/ads/ConnectAdAccount'));
 const Approvals = lazy(() => import('../pages/approvals/Approvals'));
 const MediaLibrary = lazy(() => import('../pages/media/MediaLibrary'));
 const LinkShortener = lazy(() => import('../pages/links/LinkShortener'));
@@ -100,7 +99,6 @@ function AppRoutes() {
 
             <Route path="/ads" element={<Ads />} />
             <Route path="/ads/create" element={<CreateAd />} />
-            <Route path="/ads/connect/:networkKey" element={<ConnectAdAccount />} />
             <Route path="/ads/:adId" element={<AdDetail />} />
             <Route path="/approvals" element={<Approvals />} />
             <Route path="/media" element={<MediaLibrary />} />

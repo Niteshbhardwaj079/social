@@ -32,7 +32,7 @@ function ConnectAccountForm() {
     return <Navigate to="/social-accounts/connect" replace />;
   }
 
-  const allFilled = guide.fields.every((field) => (values[field.key] || '').trim());
+  const allFilled = guide.fields.filter((field) => field.required).every((field) => (values[field.key] || '').trim());
 
   function handleChange(key, value) {
     setValues((current) => ({ ...current, [key]: value }));

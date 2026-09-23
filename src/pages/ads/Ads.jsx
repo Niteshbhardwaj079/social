@@ -16,7 +16,8 @@ import NetworkIcons from '../../components/ads/NetworkIcons';
 import usePagination from '../../hooks/usePagination';
 import useRowSelection from '../../hooks/useRowSelection';
 import useMediaQuery from '../../hooks/useMediaQuery';
-import { getAds, getAdAccounts, updateAdsStatus, deleteAds, isPlacementConnected } from '../../services/api/adsApi';
+import { getAds, getAdAccounts, syncAdAccounts, updateAdsStatus, deleteAds } from '../../services/api/adsApi';
+import { apiErrorMessage } from '../../services/api/axiosClient';
 import { AD_DATA_END_DATE } from '../../services/mock/adsMock';
 import { AD_DATE_RANGES, AD_NETWORKS, AD_OBJECTIVES, AD_STATUS, AD_STATUS_LABELS } from '../../config/adPlatforms';
 import { getPlatformByKey, PLATFORMS } from '../../config/platforms';
@@ -41,6 +42,8 @@ const deltaHint = (change) => {
 };
 const objectiveLabel = (key) => AD_OBJECTIVES.find((objective) => objective.key === key)?.label || key;
 
+const EMPTY_AD_ACCOUNTS = { facebookConnected: false, hasAdsToken: false, hasAdsPermission: false, accounts: [] };
+
 function Ads() {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -50,8 +53,9 @@ function Ads() {
   const activeTab = searchParams.get('tab') === 'accounts' ? 'accounts' : 'overview';
 
   const [ads, setAds] = useState([]);
-  const [accounts, setAccounts] = useState([]);
+  const [adAccountsData, setAdAccountsData] = useState(EMPTY_AD_ACCOUNTS);
   const [requestStatus, setRequestStatus] = useState(REQUEST_STATUS.LOADING);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [days, setDays] = useState(30);
   const [platformFilter, setPlatformFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -61,9 +65,9 @@ function Ads() {
   function load() {
     setRequestStatus(REQUEST_STATUS.LOADING);
     Promise.all([getAds(), getAdAccounts()])
-      .then(([adList, accountList]) => {
+      .then(([adList, accountData]) => {
         setAds(adList);
-        setAccounts(accountList);
+        setAdAccountsData(accountData);
         setRequestStatus(REQUEST_STATUS.SUCCEEDED);
       })
       .catch(() => setRequestStatus(REQUEST_STATUS.FAILED));
@@ -72,6 +76,21 @@ function Ads() {
   useEffect(() => {
     load();
   }, []);
+
+  function handleSync() {
+    setIsSyncing(true);
+    syncAdAccounts()
+      .then((accountData) => {
+        setAdAccountsData(accountData);
+        showToast({
+          type: 'success',
+          title: 'Ad accounts synced',
+          message: `${accountData.accounts.length} ${accountData.accounts.length === 1 ? 'account' : 'accounts'} found.`,
+        });
+      })
+      .catch((error) => showToast({ type: 'error', title: 'Could not sync ad accounts', message: apiErrorMessage(error) }))
+      .finally(() => setIsSyncing(false));
+  }
 
   const filteredAds = useMemo(
     () =>
@@ -177,7 +196,7 @@ function Ads() {
     );
   }
 
-  const connectedCount = accounts.filter((account) => account.isConnected).length;
+  const connectedCount = adAccountsData.accounts.length;
 
   const statCards = [
     { key: 'spend', label: 'Total Spend', value: formatCurrency(current.spend), icon: 'Wallet', tone: 'primary', hint: deltaHint(percentChange(current.spend, previous.spend)) },
@@ -209,7 +228,7 @@ function Ads() {
         {TABS.map((tab) => (
           <button key={tab.key} type="button" className={`tab-strip__item ${activeTab === tab.key ? 'is-active' : ''}`.trim()} onClick={() => updateTab(tab.key)}>
             {tab.label}
-            {tab.key === 'accounts' ? <span className="ads-tab-count">{connectedCount}/{accounts.length}</span> : null}
+            {tab.key === 'accounts' ? <span className="ads-tab-count">{connectedCount}</span> : null}
           </button>
         ))}
       </div>
@@ -223,59 +242,88 @@ function Ads() {
               method on your ad account — Social never charges for ads or takes a cut of your budget.
             </span>
           </div>
-          {(() => {
-            const missing = AD_NETWORKS.filter((network) => accounts.find((item) => item.network === network.key)?.isConnected).flatMap((network) =>
-              network.platforms.filter((platformKey) => !isPlacementConnected(platformKey))
-            );
-            return missing.length > 0 ? (
-              <div className="callout-banner callout-banner--warning">
-                <Icon name="AlertTriangle" size={16} />
-                <span>
-                  Your ad account is connected, but ads also need the social profile they appear as. Not connected in Social Accounts yet:{' '}
-                  {missing.map((platformKey, index) => (
-                    <span key={platformKey}>
-                      {index > 0 ? ', ' : ''}
-                      <Link to={`/social-accounts/connect/${platformKey}`}>{getPlatformByKey(platformKey)?.label}</Link>
-                    </span>
-                  ))}
-                  . Ads cannot run there until they are.
-                </span>
+
+          {!adAccountsData.facebookConnected ? (
+            <div className="callout-banner callout-banner--warning">
+              <Icon name="AlertTriangle" size={16} />
+              <span>
+                Facebook is not connected yet. <Link to="/social-accounts/connect/facebook">Connect it in Social Accounts</Link> — Meta Ads uses that same connection, there is
+                no separate login for Ads.
+              </span>
+            </div>
+          ) : !adAccountsData.hasAdsToken ? (
+            <div className="callout-banner callout-banner--warning">
+              <Icon name="AlertTriangle" size={16} />
+              <span>
+                Facebook is connected, but your Ads token hasn’t been added yet.{' '}
+                <Link to="/social-accounts/connect/facebook">Open Social Accounts → Facebook</Link> and fill in the “User access token — Ads access” field.
+              </span>
+            </div>
+          ) : !adAccountsData.hasAdsPermission ? (
+            <div className="callout-banner callout-banner--warning">
+              <Icon name="AlertTriangle" size={16} />
+              <span>
+                Your saved Ads token doesn’t have the right permissions.{' '}
+                <Link to="/social-accounts/connect/facebook">Open Social Accounts → Facebook</Link> and paste a new one with ads_management and ads_read granted.
+              </span>
+            </div>
+          ) : (
+            <div className="panel-card mb-4">
+              <div className="panel-card__body d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div>
+                  <div className="fw-semibold">Facebook connection ready for Ads</div>
+                  <p className="text-muted-custom small mb-0">Ad accounts below come straight from Meta — nothing is entered here by hand.</p>
+                </div>
+                <button type="button" className="btn btn-outline-primary-custom" onClick={handleSync} disabled={isSyncing}>
+                  {isSyncing ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" /> Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="RefreshCw" size={16} /> Sync Ad Accounts
+                    </>
+                  )}
+                </button>
               </div>
-            ) : null;
-          })()}
-          <div className="connect-list">
-            {AD_NETWORKS.map((network) => {
-              const account = accounts.find((item) => item.network === network.key);
-              return (
-                <Link key={network.key} to={`/ads/connect/${network.key}`} className="connect-row">
-                  <NetworkIcons network={network} size={52} />
+            </div>
+          )}
+
+          {adAccountsData.accounts.length === 0 ? (
+            <EmptyState
+              icon="Wallet"
+              title="No ad accounts found yet"
+              description={
+                adAccountsData.hasAdsPermission
+                  ? 'Click "Sync Ad Accounts" above to look for real Meta ad accounts on this connection.'
+                  : 'Connect Facebook with Ads access, then sync to see your real Meta ad accounts here.'
+              }
+            />
+          ) : (
+            <div className="connect-list">
+              {adAccountsData.accounts.map((account) => (
+                <div key={account.id} className="connect-row">
+                  <NetworkIcons network={{ platforms: ['facebook', 'instagram'], subtitle: 'Facebook & Instagram' }} size={52} />
                   <span className="connect-row__text">
-                    <span className="connect-row__label">{network.label}</span>
+                    <span className="connect-row__label">{account.name}</span>
                     <span className="connect-row__badge">
-                      {network.subtitle}
-                      {account?.isConnected ? ` · Account ${account.accountId}` : ''}
+                      {account.externalAccountId} · {account.currency}
+                      {account.timezone ? ` · ${account.timezone}` : ''}
+                      {account.businessName ? ` · ${account.businessName}` : ''}
                     </span>
-                    <span className="network-placements">
-                      {network.platforms.map((platformKey) => {
-                        const ready = isPlacementConnected(platformKey);
-                        return (
-                          <span key={platformKey} className={`network-placement ${ready ? 'is-ready' : 'is-missing'}`.trim()}>
-                            <Icon name={ready ? 'CheckCircle2' : 'AlertCircle'} size={12} />
-                            {getPlatformByKey(platformKey)?.label}
-                            {ready ? '' : ' — not connected'}
-                          </span>
-                        );
-                      })}
-                    </span>
+                    {account.disableReason ? (
+                      <span className="network-placements">
+                        <span className="network-placement is-missing">
+                          <Icon name="AlertCircle" size={12} /> Needs attention on Meta’s side (status {account.accountStatus})
+                        </span>
+                      </span>
+                    ) : null}
                   </span>
-                  <span className={`status-badge status-badge--${account?.isConnected ? 'connected' : 'disconnected'} ms-auto`}>
-                    {account?.isConnected ? 'Connected' : 'Not connected'}
-                  </span>
-                  <Icon name="ChevronRight" size={18} className="connect-row__chevron ms-0" />
-                </Link>
-              );
-            })}
-          </div>
+                  <span className="status-badge status-badge--connected ms-auto">Ready</span>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       ) : (
         <>
@@ -283,7 +331,7 @@ function Ads() {
             <div className="callout-banner callout-banner--warning">
               <Icon name="AlertTriangle" size={16} />
               <span>
-                No ad account is connected yet. <Link to="/ads?tab=accounts">Connect one</Link> to start running ads.
+                No ad account found yet. <Link to="/ads?tab=accounts">Set up Ad accounts</Link> to start running ads.
               </span>
             </div>
           ) : null}
