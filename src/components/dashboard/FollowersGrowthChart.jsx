@@ -6,14 +6,15 @@ import { formatCompactNumber } from '../../utils/formatters';
 import chartColors from '../../config/chartColors';
 import useChartPrimaryColor from '../../hooks/useChartPrimaryColor';
 import useUiScale from '../../hooks/useUiScale';
+import { useI18n } from '../../i18n/useI18n';
 
-const RANGES = [
-  { key: '7d', label: '7D', caption: 'last 7 days' },
-  { key: '30d', label: '30D', caption: 'last 30 days' },
-  { key: '90d', label: '90D', caption: 'last 90 days' },
+const RANGE_KEYS = [
+  { key: '7d', label: '7D', captionKey: 'last7Days' },
+  { key: '30d', label: '30D', captionKey: 'last30Days' },
+  { key: '90d', label: '90D', captionKey: 'last90Days' },
 ];
 
-function GrowthTooltip({ active, payload, label, series }) {
+function GrowthTooltip({ active, payload, label, series, t }) {
   if (!active || !payload?.length) return null;
   const value = payload[0].value;
   const index = series.findIndex((point) => point.date === label);
@@ -23,11 +24,13 @@ function GrowthTooltip({ active, payload, label, series }) {
   return (
     <div className="growth-tooltip">
       <div className="growth-tooltip__date">{label}</div>
-      <div className="growth-tooltip__value">{value.toLocaleString()} followers</div>
+      <div className="growth-tooltip__value">
+        {value.toLocaleString()} {t('dashboard.followersUnit')}
+      </div>
       {change !== null ? (
         <div className={`growth-tooltip__delta ${change >= 0 ? 'is-up' : 'is-down'}`}>
           {change >= 0 ? '+' : ''}
-          {change.toLocaleString()} since previous point
+          {change.toLocaleString()} {t('dashboard.sincePrevious')}
         </div>
       ) : null}
     </div>
@@ -37,6 +40,7 @@ function GrowthTooltip({ active, payload, label, series }) {
 // Followers over time: total + change up top, a gradient area chart with a 7/30/90
 // day switch, and each connected platform's share underneath.
 function FollowersGrowthChart({ seriesByRange, platforms }) {
+  const { t } = useI18n();
   const primary = useChartPrimaryColor();
   const uiScale = useUiScale();
   const axisFont = Math.round(12 * uiScale);
@@ -44,7 +48,7 @@ function FollowersGrowthChart({ seriesByRange, platforms }) {
   const [rangeKey, setRangeKey] = useState('30d');
 
   const series = seriesByRange[rangeKey];
-  const range = RANGES.find((item) => item.key === rangeKey);
+  const range = RANGE_KEYS.find((item) => item.key === rangeKey);
 
   const summary = useMemo(() => {
     const first = series[0].followers;
@@ -63,7 +67,7 @@ function FollowersGrowthChart({ seriesByRange, platforms }) {
     <div className="panel-card growth-card">
       <div className="panel-card__header flex-wrap gap-3">
         <div>
-          <h3 className="panel-card__title mb-1">Followers Growth</h3>
+          <h3 className="panel-card__title mb-1">{t('dashboard.followersGrowth')}</h3>
           <div className="growth-summary">
             <span className="growth-summary__total">{summary.last.toLocaleString()}</span>
             <span className={`growth-summary__delta ${summary.change >= 0 ? 'is-up' : 'is-down'}`}>
@@ -71,11 +75,11 @@ function FollowersGrowthChart({ seriesByRange, platforms }) {
               {summary.change >= 0 ? '+' : ''}
               {summary.change.toLocaleString()} ({summary.percent.toFixed(1)}%)
             </span>
-            <span className="growth-summary__caption">{range.caption}</span>
+            <span className="growth-summary__caption">{t(`dashboard.${range.captionKey}`)}</span>
           </div>
         </div>
-        <div className="segmented-control" role="group" aria-label="Chart range">
-          {RANGES.map((item) => (
+        <div className="segmented-control" role="group" aria-label={t('dashboard.chartRange')}>
+          {RANGE_KEYS.map((item) => (
             <button
               key={item.key}
               type="button"
@@ -117,7 +121,7 @@ function FollowersGrowthChart({ seriesByRange, platforms }) {
               domain={domain}
               tickFormatter={(value) => formatCompactNumber(value)}
             />
-            <Tooltip content={<GrowthTooltip series={series} />} cursor={{ stroke: primary, strokeOpacity: 0.3, strokeDasharray: '4 4' }} />
+            <Tooltip content={<GrowthTooltip series={series} t={t} />} cursor={{ stroke: primary, strokeOpacity: 0.3, strokeDasharray: '4 4' }} />
             <Area
               type="monotone"
               dataKey="followers"

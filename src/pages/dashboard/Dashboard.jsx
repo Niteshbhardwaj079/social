@@ -59,7 +59,7 @@ function Dashboard() {
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.dashboard')} subtitle="Loading your workspace..." />
+        <PageHeader title={t('nav.dashboard')} subtitle={t('dashboard.loading')} />
         <SkeletonKpiRow />
         <div className="dashboard-grid">
           <SkeletonCard />
@@ -79,6 +79,13 @@ function Dashboard() {
   }
 
   const firstName = currentUser?.name?.split(' ')[0] || 'there';
+  const KPI_LABEL_KEYS = { followers: 'kpiFollowers', engagement: 'kpiEngagement', posts: 'kpiPosts', reach: 'kpiReach' };
+  const QUICK_ACTION_LABEL_KEYS = {
+    createPost: 'nav.createPost',
+    connectAccount: 'dashboard.quickActionConnectAccount',
+    createCampaign: 'dashboard.quickActionCreateCampaign',
+    viewInbox: 'dashboard.quickActionViewInbox',
+  };
 
   return (
     <div className="fade-in">
@@ -89,8 +96,8 @@ function Dashboard() {
       />
 
       <div className="kpi-grid">
-        {overview.kpis.map(({ key, ...kpi }) => (
-          <KpiCard key={key} {...kpi} />
+        {overview.kpis.map(({ key, label, ...kpi }) => (
+          <KpiCard key={key} label={KPI_LABEL_KEYS[key] ? t(`dashboard.${KPI_LABEL_KEYS[key]}`) : label} {...kpi} />
         ))}
       </div>
 
@@ -98,7 +105,7 @@ function Dashboard() {
         <div className="d-flex flex-column gap-5">
           <FollowersGrowthChart seriesByRange={overview.followersGrowthByRange} platforms={overview.platformPerformance} />
 
-          <ChartCard title="Engagement Trend">
+          <ChartCard title={t('dashboard.engagementTrend')}>
             <ResponsiveContainer width="100%" height={Math.round(260 * uiScale)}>
               <AreaChart data={overview.engagementTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
@@ -113,7 +120,7 @@ function Dashboard() {
           </ChartCard>
 
           <div className="two-col-grid">
-            <ChartCard title="Posts Published">
+            <ChartCard title={t('dashboard.postsPublished')}>
               <ResponsiveContainer width="100%" height={Math.round(220 * uiScale)}>
                 <BarChart data={overview.postsPublished}>
                   <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
@@ -125,7 +132,7 @@ function Dashboard() {
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="Platform Performance">
+            <ChartCard title={t('dashboard.platformPerformance')}>
               <div className="d-flex flex-column gap-3">
                 {overview.platformPerformance.map((row) => {
                   const platform = getPlatformByKey(row.platform);
@@ -135,7 +142,7 @@ function Dashboard() {
                       <div className="flex-grow-1">
                         <div className="d-flex justify-content-between small mb-1">
                           <span>{platform?.label}</span>
-                          <span className="text-muted-custom">{row.engagement}% engagement</span>
+                          <span className="text-muted-custom">{t('dashboard.engagementPercent', { percent: row.engagement })}</span>
                         </div>
                         <div className="progress platform-performance-bar">
                           <div
@@ -154,18 +161,18 @@ function Dashboard() {
 
           <div className="panel-card">
             <div className="panel-card__header">
-              <h3 className="panel-card__title">Recent Posts</h3>
+              <h3 className="panel-card__title">{t('dashboard.recentPosts')}</h3>
               <button type="button" className="btn btn-sm btn-link p-0" onClick={() => navigate('/posts')}>
-                View all
+                {t('dashboard.viewAll')}
               </button>
             </div>
             <div className="panel-card__body panel-card__body--flush">
               {overview.recentPosts.length === 0 ? (
                 <EmptyState
                   icon="FileText"
-                  title="No posts yet"
-                  description="Create your first post to see it here."
-                  actionLabel="Create Post"
+                  title={t('dashboard.noPostsTitle')}
+                  description={t('dashboard.noPostsText')}
+                  actionLabel={t('nav.createPost')}
                   onAction={() => navigate('/posts/create')}
                 />
               ) : (
@@ -182,7 +189,7 @@ function Dashboard() {
         <div className="d-flex flex-column gap-5">
           <div className="panel-card">
             <div className="panel-card__header">
-              <h3 className="panel-card__title">Quick Actions</h3>
+              <h3 className="panel-card__title">{t('dashboard.quickActions')}</h3>
             </div>
             <div className="panel-card__body d-flex flex-column gap-3">
               {overview.quickActions.map((action) => (
@@ -196,7 +203,7 @@ function Dashboard() {
                   <span className="quick-action-card__icon">
                     <Icon name={action.icon} size={20} />
                   </span>
-                  <span className="quick-action-card__label">{action.label}</span>
+                  <span className="quick-action-card__label">{QUICK_ACTION_LABEL_KEYS[action.key] ? t(QUICK_ACTION_LABEL_KEYS[action.key]) : action.label}</span>
                 </div>
               ))}
             </div>
@@ -204,14 +211,14 @@ function Dashboard() {
 
           <div className="panel-card">
             <div className="panel-card__header">
-              <h3 className="panel-card__title">Scheduled Posts</h3>
+              <h3 className="panel-card__title">{t('dashboard.scheduledPosts')}</h3>
               <button type="button" className="btn btn-sm btn-link p-0" onClick={() => navigate('/calendar')}>
-                View calendar
+                {t('dashboard.viewCalendar')}
               </button>
             </div>
             <div className="panel-card__body panel-card__body--flush">
               {overview.upcomingPosts.length === 0 ? (
-                <EmptyState icon="CalendarDays" title="Nothing scheduled" description="Schedule a post to fill your calendar." />
+                <EmptyState icon="CalendarDays" title={t('dashboard.noScheduledTitle')} description={t('dashboard.noScheduledText')} />
               ) : (
                 <div className="dashboard-scroll d-flex flex-column p-2 gap-1">
                   {overview.upcomingPosts.map((post) => (
@@ -224,9 +231,9 @@ function Dashboard() {
 
           <div className="panel-card">
             <div className="panel-card__header">
-              <h3 className="panel-card__title">Recent Activity</h3>
+              <h3 className="panel-card__title">{t('dashboard.recentActivity')}</h3>
               <button type="button" className="btn btn-sm btn-link p-0" onClick={() => navigate('/activity-logs')}>
-                View all
+                {t('dashboard.viewAll')}
               </button>
             </div>
             <div className="panel-card__body dashboard-scroll dashboard-scroll--padded">

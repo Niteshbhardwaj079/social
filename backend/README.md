@@ -449,7 +449,9 @@ endpoint already existed; the web app just never had an Edit button. The **Link 
 backend the same day (see its own section above) — it was the other page with no backend at all; now only
 Roles is left in that state.
 
-**Still not translated**: page titles/nav use the 21-language system throughout, but most pages' own body
-content (loading states, empty states, chart/table headers, filter options, confirm dialogs, toast messages)
-is hardcoded English. This is a big, cross-cutting job — every page, ~100+ new keys × 21 languages — not
-started yet.
+**Body-content translation — started, one page at a time**: page titles/nav have always used the
+21-language system; most pages' own body content (loading states, empty states, chart/table headers,
+filter options, confirm dialogs, toast messages) was hardcoded English. The **Dashboard is now fully
+translated** (all 21 languages, verified in-browser including RTL Arabic) — the rest of the app's pages
+are still English-only body content and are the next ones in line. This is a big, cross-cutting job overall
+— every page, ~100+ new keys × 21 languages — so it's being done page by page rather than all at once.

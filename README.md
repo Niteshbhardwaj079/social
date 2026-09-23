@@ -38,8 +38,9 @@ editing, which would touch the whole role system; the remaining gaps are a handf
 platform limits — Google Business posting, engagement metrics for a few platforms, Inbox for X, four of the
 six ad networks — each deferred for its own honest reason rather than guessed. Also fixed: three Settings
 forms (Account, General, Security) that looked real but only showed a success toast and saved nothing —
-they now call the real endpoints. Not yet started: translating most pages' own body content (only nav/
-titles use the 21-language system today) — see backend/README.md for the full detail.
+they now call the real endpoints. Body-content translation (not just nav/titles) has started: the
+**Dashboard** is now fully translated in all 21 languages, including RTL Arabic — the rest of the app's
+pages are next, one at a time. See backend/README.md for the full detail.
 
 ## Run it on your machine
 
