@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 222 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 231 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -35,6 +35,7 @@ Email uses **any SMTP server** you give it (`SMTP_*`); with none set, emails are
 | Storage | `GET /api/storage` (everyone) · `POST /providers/:key/test` · `PUT /providers/:key` (connect) · `DELETE /provider` · `PUT /preferences` (Super Admin / Admin) |
 | Media | `GET /api/media` · `GET /media/folders` · `POST /media` (upload) · `POST /media/link` · `PATCH/DELETE /media/:id` · `POST /media/bulk-delete` |
 | Analytics | `GET /api/analytics/overview?range=7d\|30d\|90d` · `GET /api/analytics/content` |
+| Inbox | `GET /api/inbox` · `GET /inbox/assignable-users` · `POST /:id/reply` (Editor+) · `POST /:id/read` · `PATCH /:id/status` · `PATCH /:id/assign` |
 | Operations | `GET /api/health` · `GET /api/activity-logs` · `DELETE /api/activity-logs` (Super Admin / Admin) |
 
 Errors are always `{ "error": { "code", "message", "details?" } }`.
@@ -251,6 +252,36 @@ the platform it was posted to — see `src/providers/metrics.js`.
   the "Engagement Over Time" chart is built by attributing each post's current numbers to the day it was
   published, not a true minute-by-minute timeline (no platform hands this app one).
 
+### Inbox (real comments and replies)
+
+`GET /api/inbox` backs the Inbox/Comments/Mentions pages — every "conversation" is a real top-level comment
+on a real published post, kept fresh by a background pass (`INBOX_REFRESH_INTERVAL_MIN`, default 30 min)
+that polls each supported platform for new ones — see `src/providers/comments.js`.
+
+- **Supported today**: Bluesky, Mastodon, Facebook Pages, Instagram Business, YouTube — both listing real
+  comment text/author and sending a real reply back (Bluesky replies use the AT Protocol's `reply.root`/
+  `reply.parent` refs, fetching the post's own `cid` on demand since posting never needed to store it before).
+- **X is skipped entirely**, not partially: metrics.js already found no reliable free-tier endpoint for
+  listing replies to a tweet (the documented approach needs an elevated access tier most BYOK users won't
+  have) — posting a reply with nothing real to reply *to* in the Inbox is not a useful half-feature.
+  Threads/LinkedIn/TikTok/Pinterest/Google Business: same reasoning as the Analytics and Social accounts
+  sections above.
+- **Every field on a commenter's profile is only ever what that platform's own comment payload actually
+  included** — nothing is looked up with an extra per-comment API call, and nothing is guessed. The
+  frontend's own `resolveProfileFields()` already hides whatever is missing per platform/API tier, so the
+  backend just needs to be honest about what it has.
+- **Status/assignment/read-state are real, app-owned workflow data** (not from any platform): `open`/
+  `pending`/`closed`, who on your team is handling it (a real user from Users & Roles — the mock's
+  hardcoded three-person "team" is gone), and whether you've opened it. A re-poll never touches any of
+  these on a conversation it already has.
+- A brand-new comment notifies every Super Admin/Admin/Editor (the bell icon, plus the `inbox.newComment`
+  email if turned on in Settings → Notifications) — this was already fully wired end to end (translated in
+  all 21 languages) with nothing ever calling it; now something does.
+- Not built yet: reading a full reply *thread* (only top-level comments on your post are fetched, not
+  replies-to-replies), and genuine third-party "mentions" elsewhere on a platform (Mentions is, honestly,
+  the same real comment data filtered to mention-capable platforms — matching what the page already did in
+  mock form, not a separate mention-monitoring system).
+
 ### Media & storage
 
 `GET /api/storage` says where uploads go right now; the Media Library uses it before every upload, and it is safe for
@@ -329,8 +360,8 @@ test/           integration tests (node:test)
 
 ## Not built yet (next)
 
-Ads and Inbox. Google Business posting, and per-post engagement for Threads/LinkedIn/TikTok/Pinterest, are
-deliberately deferred rather than guessed — see the Social accounts and Analytics sections above for why each
-one specifically. Every one of these follows the same bring-your-own-key pattern as everything already built
-above; none of them are blocked on this project having its own platform keys, only on the integration work
-itself. The web app keeps using demo data for those until their APIs exist.
+Ads is the one remaining module still on demo data. Google Business posting, per-post engagement for
+Threads/LinkedIn/TikTok/Pinterest, and Inbox comments for X, are deliberately deferred rather than guessed —
+see the Social accounts, Analytics and Inbox sections above for why each one specifically. Every one of
+these follows the same bring-your-own-key pattern as everything already built above; none of them are
+blocked on this project having its own platform keys, only on the integration work itself.

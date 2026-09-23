@@ -6,7 +6,7 @@ import CustomerInfoPanel from '../../components/inbox/CustomerInfoPanel';
 import EmptyState from '../../components/common/EmptyState';
 import ErrorState from '../../components/common/ErrorState';
 import Icon from '../../components/common/Icon';
-import { getConversations, sendReply, updateConversationStatus, assignConversation } from '../../services/api/inboxApi';
+import { getConversations, sendReply, updateConversationStatus, assignConversation, markConversationRead } from '../../services/api/inboxApi';
 import { REQUEST_STATUS } from '../../config/constants';
 import useMediaQuery from '../../hooks/useMediaQuery';
 import { useI18n } from '../../i18n/useI18n';
@@ -43,11 +43,13 @@ function Inbox() {
 
   function handleSelectConversation(conversationId) {
     setActiveConversationId(conversationId);
+    const wasUnread = conversations.find((conversation) => conversation.id === conversationId)?.isUnread;
     setConversations((current) =>
       current.map((conversation) =>
         conversation.id === conversationId ? { ...conversation, isUnread: false } : conversation
       )
     );
+    if (wasUnread) markConversationRead(conversationId).catch(() => {});
     setIsMobileDetailOpen(true);
   }
 
@@ -67,7 +69,7 @@ function Inbox() {
     assignConversation(activeConversationId, assignee).then(() => {
       setConversations((current) =>
         current.map((conversation) =>
-          conversation.id === activeConversationId ? { ...conversation, assignedTo: assignee } : conversation
+          conversation.id === activeConversationId ? { ...conversation, assignedTo: assignee?.name ?? null } : conversation
         )
       );
     });

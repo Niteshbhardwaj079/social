@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Avatar from '../common/Avatar';
 import Icon from '../common/Icon';
@@ -6,9 +7,8 @@ import { getPlatformByKey } from '../../config/platforms';
 import { CONVERSATION_STATUS, ACCOUNT_STATUS } from '../../config/constants';
 import { PROFILE_FIELD_META, resolveProfileFields } from '../../config/platformProfileFields';
 import { getAccountApiTier, getAccountStatus } from '../../services/api/socialAccountsApi';
+import { getAssignableUsers } from '../../services/api/inboxApi';
 import { formatCompactNumber, formatDate } from '../../utils/formatters';
-
-const TEAM_MEMBERS = ['Nitesh Bhardwaj', 'Priya Sharma', 'Rahul Verma'];
 
 function formatFieldValue(key, value) {
   if (key === 'joinedAt') return formatDate(value);
@@ -54,6 +54,12 @@ function ProfileRow({ field }) {
 }
 
 function CustomerInfoPanel({ conversation, onAssign, onStatusChange }) {
+  const [teamMembers, setTeamMembers] = useState([]);
+
+  useEffect(() => {
+    getAssignableUsers().then(setTeamMembers);
+  }, []);
+
   const platform = getPlatformByKey(conversation.platform);
   const apiTier = getAccountApiTier(conversation.platform);
   const connectionStatus = getAccountStatus(conversation.platform);
@@ -141,9 +147,9 @@ function CustomerInfoPanel({ conversation, onAssign, onStatusChange }) {
           }
         >
           {({ close }) =>
-            TEAM_MEMBERS.map((member) => (
+            teamMembers.map((member) => (
               <button
-                key={member}
+                key={member.id}
                 type="button"
                 className="dropdown-item"
                 onClick={() => {
@@ -151,7 +157,7 @@ function CustomerInfoPanel({ conversation, onAssign, onStatusChange }) {
                   close();
                 }}
               >
-                {member}
+                {member.name}
               </button>
             ))
           }

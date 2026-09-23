@@ -25,10 +25,13 @@ publishing that, on a background timer), **analytics** (real per-post likes/comm
 Mastodon, X, Facebook, Instagram and YouTube, kept fresh by a background job — Threads/LinkedIn/TikTok/Pinterest
 are honestly not attempted yet, each for its own documented reason), a **Dashboard** built entirely from what
 actually happened — real follower counts (tracked over time, so the growth chart is real too), real posts, real
-engagement, and a real activity feed — and an **Activity Logs** page backed by every real action the API
-performs (who did what, when, from which device/IP), with real filters, CSV export and bulk delete.
-Ads and Inbox still show built-in demo data until their APIs are built — the same bring-your-own-key pattern as
-everything above, just not built yet.
+engagement, and a real activity feed — an **Activity Logs** page backed by every real action the API
+performs (who did what, when, from which device/IP), with real filters, CSV export and bulk delete — and an
+**Inbox** of real comments on real published posts (Bluesky, Mastodon, Facebook, Instagram, YouTube), with
+real replies sent back to the real platform, real assign-to-a-teammate and open/pending/closed workflow, and
+a notification the moment a new one comes in.
+Ads is the one module still on demo data — the same bring-your-own-key pattern as everything above, just not
+built yet.
 
 ## Run it on your machine
 
