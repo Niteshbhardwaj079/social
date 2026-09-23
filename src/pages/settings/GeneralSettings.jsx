@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import TextField from '../../components/forms/TextField';
 import { useToast } from '../../components/common/ToastProvider';
+import { getWorkspaceSettingsRequest, saveWorkspaceSettingsRequest } from '../../services/api/settingsApi';
+import { apiErrorMessage } from '../../services/api/axiosClient';
+import { API_ENABLED } from '../../config/runtime';
 import brand from '../../config/brand';
 import { useI18n } from '../../i18n/useI18n';
 
@@ -15,6 +18,18 @@ function GeneralSettings() {
     website: brand.website,
     timezone: TIMEZONES[0],
   });
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!API_ENABLED) return;
+    getWorkspaceSettingsRequest().then((workspace) => {
+      setFormValues((current) => ({
+        workspaceName: workspace.name || current.workspaceName,
+        website: workspace.website || current.website,
+        timezone: workspace.timezone || current.timezone,
+      }));
+    });
+  }, []);
 
   function handleChange(field, value) {
     setFormValues((current) => ({ ...current, [field]: value }));
@@ -22,7 +37,15 @@ function GeneralSettings() {
 
   function handleSubmit(event) {
     event.preventDefault();
-    showToast({ type: 'success', title: t('common.settingsSaved') });
+    if (!API_ENABLED) {
+      showToast({ type: 'success', title: t('common.settingsSaved') });
+      return;
+    }
+    setIsSaving(true);
+    saveWorkspaceSettingsRequest({ name: formValues.workspaceName, website: formValues.website, timezone: formValues.timezone })
+      .then(() => showToast({ type: 'success', title: t('common.settingsSaved') }))
+      .catch((error) => showToast({ type: 'error', title: 'Could not save workspace settings', message: apiErrorMessage(error) }))
+      .finally(() => setIsSaving(false));
   }
 
   return (
@@ -55,7 +78,7 @@ function GeneralSettings() {
             value={formValues.timezone}
             onChange={(event) => handleChange('timezone', event.target.value)}
           >
-            {TIMEZONES.map((timezone) => (
+            {(TIMEZONES.includes(formValues.timezone) ? TIMEZONES : [formValues.timezone, ...TIMEZONES]).map((timezone) => (
               <option key={timezone} value={timezone}>
                 {timezone}
               </option>
@@ -78,8 +101,8 @@ function GeneralSettings() {
         <a href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a>.
       </p>
 
-      <button type="submit" className="btn btn-primary">
-        {t('common.saveChanges')}
+      <button type="submit" className="btn btn-primary" disabled={isSaving}>
+        {isSaving ? 'Saving...' : t('common.saveChanges')}
       </button>
     </form>
   );

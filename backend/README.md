@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 242 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 245 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -26,7 +26,8 @@ Email uses **any SMTP server** you give it (`SMTP_*`); with none set, emails are
 
 | Area | Endpoints |
 | --- | --- |
-| Setup & sign-in | `POST /api/auth/register` (first user only) · `login` · `refresh` · `logout` · `forgot-password` · `reset-password` · `accept-invite` · `GET/PATCH /me` · `change-password` · `GET /api/public/config` |
+| Setup & sign-in | `POST /api/auth/register` (first user only) · `login` · `refresh` · `logout` · `forgot-password` · `reset-password` · `accept-invite` · `GET/PATCH /me` (name, language, avatar) · `change-password` · `GET /api/public/config` |
+| Sessions | `GET /api/auth/sessions` (this person's real, currently-signed-in devices) · `DELETE /sessions/:id` (revoke one) |
 | Users & roles | `GET/POST /api/users` · `PATCH/DELETE /api/users/:id` · `POST /:id/resend-invite` (Super Admin / Admin) |
 | Settings | `GET/PUT /api/settings/languages` · `GET/PUT /api/settings/workspace` |
 | System emails | `GET /api/system-emails?lang=` · `PUT/DELETE /:id/translations/:lang` · `PATCH /:id` (on/off) · `POST /:id/test` |
@@ -410,3 +411,22 @@ Ads sections above for why each one specifically. Every one of these follows the
 pattern as everything already built above; none of them are blocked on this project having its own platform
 keys, only on the integration work (or, for a couple of them, a review process this project itself — not the
 client — would need to pass) itself.
+
+Two whole pages have no backend at all, by design so far — nobody has asked for them and each is really its
+own module: the **Link Shortener** (would need its own redirect/click-tracking system) and the **Roles tab**
+of Users & Roles (custom permission editing would touch the whole role system this app already has baked
+into `permissions.js`). Both are honestly still mock data, not silently faked.
+
+A full audit (2026-09-23) also found three Settings forms that looked real but weren't — Account, General
+and Security all just showed a success toast and changed nothing. Fixed: Account (name + password, both real;
+email is deliberately read-only — the API has no email-change flow) and General (workspace name/website/
+timezone) now call the real endpoints that already existed but nothing on the frontend ever called; Security
+now shows this person's real, currently-signed-in devices (from `auth_tokens`, the same table the "new
+sign-in" email already reads) with a working Revoke, and Two-Factor Authentication is honestly labelled
+"Coming soon" instead of a switch that silently did nothing. Campaign editing was also wired up — the PATCH
+endpoint already existed; the web app just never had an Edit button.
+
+**Still not translated**: page titles/nav use the 21-language system throughout, but most pages' own body
+content (loading states, empty states, chart/table headers, filter options, confirm dialogs, toast messages)
+is hardcoded English. This is a big, cross-cutting job — every page, ~100+ new keys × 21 languages — not
+started yet.

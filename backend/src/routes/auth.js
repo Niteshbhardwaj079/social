@@ -93,7 +93,11 @@ router.get('/me', authenticate, (req, res) => res.json({ user: toApiUser(req.use
 router.patch(
   '/me',
   authenticate,
-  validate({ body: z.object({ name: name.optional(), language: language.optional() }).refine((value) => Object.keys(value).length > 0, 'Nothing to change') }),
+  validate({
+    body: z
+      .object({ name: name.optional(), language: language.optional(), avatarUrl: z.string().trim().url().max(2000).nullable().optional() })
+      .refine((value) => Object.keys(value).length > 0, 'Nothing to change'),
+  }),
   async (req, res) => res.json({ user: await auth.updateProfile(req.user, req.valid.body) })
 );
 
@@ -103,6 +107,18 @@ router.post(
   authLimiter,
   validate({ body: z.object({ currentPassword: z.string().min(1).max(200), newPassword: passwordSchema }) }),
   async (req, res) => sendSession(res, await auth.changePassword(req.user, req.valid.body, metaOf(req)))
+);
+
+router.get('/sessions', authenticate, async (req, res) => res.json({ sessions: await auth.listSessions(req.user.id, req.cookies?.[REFRESH_COOKIE]) }));
+
+router.delete(
+  '/sessions/:id',
+  authenticate,
+  validate({ params: z.object({ id: z.string().uuid('Not a valid session id') }) }),
+  async (req, res) => {
+    await auth.revokeSession(req.user.id, req.valid.params.id);
+    res.json({ success: true });
+  }
 );
 
 export default router;

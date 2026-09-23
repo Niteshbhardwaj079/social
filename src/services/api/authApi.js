@@ -69,3 +69,14 @@ export const forgotPasswordRequest = (email) => axiosClient.post('/auth/forgot-p
 export const resetPasswordRequest = ({ token, password }) => axiosClient.post('/auth/reset-password', { token, password });
 
 export const saveMyLanguageRequest = (language) => axiosClient.patch('/auth/me', { language });
+
+export const updateProfileRequest = (values) => axiosClient.patch('/auth/me', values).then((response) => response.data.user);
+
+/** Password change also rotates the session (every other device is signed out) — same shape as login/register. */
+export async function changePasswordRequest(values) {
+  return rememberSession((await axiosClient.post('/auth/change-password', values)).data);
+}
+
+export const getSessionsRequest = () => axiosClient.get('/auth/sessions').then((response) => response.data.sessions);
+
+export const revokeSessionRequest = (sessionId) => axiosClient.delete(`/auth/sessions/${sessionId}`);

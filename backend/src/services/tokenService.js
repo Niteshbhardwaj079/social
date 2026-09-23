@@ -85,3 +85,19 @@ export const revokeAllRefreshTokens = (userId) =>
 
 /** Housekeeping: drops tokens that expired more than a day ago. */
 export const deleteExpiredTokens = () => query("DELETE FROM auth_tokens WHERE expires_at < now() - interval '1 day'");
+
+/**
+ * One row per real, currently-signed-in device: refresh tokens rotate (each one works once, see
+ * `rotateRefreshToken` above), so at any moment a device holds exactly one live, not-yet-used row.
+ */
+export const listActiveRefreshTokens = (userId) =>
+  query(
+    `SELECT id, token_hash, user_agent, ip, created_at FROM auth_tokens
+      WHERE user_id = $1 AND purpose = 'refresh' AND revoked_at IS NULL AND used_at IS NULL AND expires_at > now()
+      ORDER BY created_at DESC`,
+    [userId]
+  );
+
+/** Ends one specific session ("Revoke" on a device that isn't this one). Scoped to the caller's own tokens. */
+export const revokeRefreshTokenById = (userId, id) =>
+  query("UPDATE auth_tokens SET revoked_at = now() WHERE id = $1 AND user_id = $2 AND purpose = 'refresh' AND revoked_at IS NULL RETURNING id", [id, userId]);

@@ -7,8 +7,10 @@ import {
   createRefreshToken,
   createStoredToken,
   invalidateStoredTokens,
+  listActiveRefreshTokens,
   revokeAllRefreshTokens,
   revokeRefreshToken,
+  revokeRefreshTokenById,
   rotateRefreshToken,
   signAccessToken,
 } from './tokenService.js';
@@ -16,8 +18,9 @@ import { effectiveLanguage, getLanguageSettings, saveWorkspace } from './setting
 import { dispatchEmail } from './systemEmailService.js';
 import { recordActivity } from './auditService.js';
 import { toApiUser } from './userService.js';
-import { badRequest, forbidden, tooManyRequests, unauthorized } from '../utils/httpError.js';
+import { badRequest, forbidden, notFound, tooManyRequests, unauthorized } from '../utils/httpError.js';
 import { describeDevice } from '../utils/device.js';
+import { hashToken } from '../utils/security.js';
 
 const MAX_FAILED_LOGINS = 5;
 const LOCK_MINUTES = 15;
@@ -203,11 +206,30 @@ export async function changePassword(actor, { currentPassword, newPassword }, me
   return startSession(actor.id, meta); // this device stays signed in
 }
 
-export async function updateProfile(actor, { name, language }) {
+export async function updateProfile(actor, { name, language, avatarUrl }) {
   const nextLanguage = language === undefined ? actor.language : await effectiveLanguage(language);
   const result = await query(
-    `UPDATE users SET name = $2, language = $3, updated_at = now() WHERE id = $1 RETURNING ${PUBLIC_COLUMNS}`,
-    [actor.id, name ?? actor.name, nextLanguage]
+    `UPDATE users SET name = $2, language = $3, avatar_url = $4, updated_at = now() WHERE id = $1 RETURNING ${PUBLIC_COLUMNS}`,
+    [actor.id, name ?? actor.name, nextLanguage, avatarUrl === undefined ? (actor.avatar_url ?? null) : avatarUrl]
   );
   return toApiUser(result.rows[0]);
+}
+
+/** Real, currently-signed-in devices (Settings → Security). `currentRawToken` marks which one is "this device". */
+export async function listSessions(userId, currentRawToken) {
+  const currentHash = currentRawToken ? hashToken(currentRawToken) : null;
+  const rows = (await listActiveRefreshTokens(userId)).rows;
+  return rows.map((row) => ({
+    id: row.id,
+    device: describeDevice(row.user_agent) || 'Unrecognised device',
+    location: row.ip || 'Unknown address',
+    lastActiveAt: row.created_at,
+    isCurrent: Boolean(currentHash) && row.token_hash === currentHash,
+  }));
+}
+
+/** "Revoke" on another device — that session's refresh token stops working next time it tries to renew. */
+export async function revokeSession(userId, sessionId) {
+  const result = await revokeRefreshTokenById(userId, sessionId);
+  if (!result.rows[0]) throw notFound('Session not found');
 }

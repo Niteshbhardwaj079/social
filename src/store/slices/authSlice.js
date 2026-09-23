@@ -86,6 +86,10 @@ const authSlice = createSlice({
       state.currentUser.avatarUrl = action.payload;
       if (!API_ENABLED) storeAuth(state.currentUser);
     },
+    // API mode: the server's own fresh copy of the signed-in person, after a real profile/password save.
+    setCurrentUser(state, action) {
+      state.currentUser = action.payload;
+    },
     logout(state) {
       state.isAuthenticated = false;
       state.currentUser = null;
@@ -125,5 +129,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { login, logout, updateProfilePhoto, sessionExpired, setSetupRequired, setCurrentUserLanguage } = authSlice.actions;
+export const { login, logout, updateProfilePhoto, setCurrentUser, sessionExpired, setSetupRequired, setCurrentUserLanguage } = authSlice.actions;
 export default authSlice.reducer;

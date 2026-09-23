@@ -186,6 +186,78 @@ describe('change password', () => {
   });
 });
 
+describe('profile updates and device sessions (Settings → Account / Security)', () => {
+  it('updates the name for real, and leaves the avatar alone when not sent', async () => {
+    const client = createClient(server.baseUrl);
+    await client.signIn('owner@example.com');
+    const withAvatar = await client.patch('/auth/me', { avatarUrl: 'https://example.com/a.png' });
+    assert.equal(withAvatar.status, 200);
+    assert.equal(withAvatar.body.user.avatarUrl, 'https://example.com/a.png');
+
+    const renamed = await client.patch('/auth/me', { name: 'Nitesh Renamed' });
+    assert.equal(renamed.status, 200);
+    assert.equal(renamed.body.user.name, 'Nitesh Renamed');
+    assert.equal(renamed.body.user.avatarUrl, 'https://example.com/a.png', 'the avatar set moments ago survives a name-only update');
+
+    const cleared = await client.patch('/auth/me', { avatarUrl: null });
+    assert.equal(cleared.status, 200);
+    assert.equal(cleared.body.user.avatarUrl, null);
+    await client.patch('/auth/me', { name: 'Nitesh Owner' }); // restore for later tests
+  });
+
+  it('lists real, currently-signed-in devices — not a hardcoded pair', async () => {
+    // A dedicated user, not the shared owner account — the "new sign-in" describe block below has its
+    // own assumptions about which devices are already "known" for owner@example.com, built up test by
+    // test in file order; logging owner in from two more browsers here would quietly break those.
+    const owner = createClient(server.baseUrl);
+    await owner.signIn('owner@example.com');
+    await owner.post('/users', { name: 'Sessions Admin', email: 'sessions-admin@example.com', role: 'editor', language: 'en' });
+    await query("UPDATE users SET status = 'active', password_hash = (SELECT password_hash FROM users WHERE email = 'owner@example.com') WHERE email = 'sessions-admin@example.com'");
+
+    const laptop = createClient(server.baseUrl);
+    const laptopLogin = await laptop.post(
+      '/auth/login',
+      { email: 'sessions-admin@example.com', password: PASSWORD },
+      { headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }
+    );
+    laptop.accessToken = laptopLogin.body.accessToken;
+    const phone = createClient(server.baseUrl);
+    const phoneLogin = await phone.post(
+      '/auth/login',
+      { email: 'sessions-admin@example.com', password: PASSWORD },
+      { headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' } }
+    );
+    phone.accessToken = phoneLogin.body.accessToken;
+
+    const seenFromLaptop = await laptop.get('/auth/sessions');
+    assert.equal(seenFromLaptop.status, 200);
+    assert.ok(seenFromLaptop.body.sessions.length >= 2, 'both real devices show up');
+    const mine = seenFromLaptop.body.sessions.find((session) => session.isCurrent);
+    assert.ok(mine, 'exactly this device is marked current');
+    assert.match(mine.device, /Chrome/);
+    const other = seenFromLaptop.body.sessions.find((session) => !session.isCurrent && /Safari/.test(session.device));
+    assert.ok(other, 'the phone session is real, listed, and not marked as this device');
+
+    const revoked = await laptop.delete(`/auth/sessions/${other.id}`);
+    assert.equal(revoked.status, 200);
+    assert.equal((await phone.post('/auth/refresh')).status, 401, 'revoking from another device really ends that session');
+  });
+
+  it('refuses to revoke a session that is not the signed-in person\'s own', async () => {
+    const owner = createClient(server.baseUrl);
+    await owner.signIn('owner@example.com');
+    const ownerSessions = await owner.get('/auth/sessions');
+    const ownerSessionId = ownerSessions.body.sessions[0].id;
+
+    await owner.post('/users', { name: 'Sess Ion', email: 'sessuser@example.com', role: 'editor', language: 'en' });
+    await query("UPDATE users SET status = 'active', password_hash = (SELECT password_hash FROM users WHERE email = 'owner@example.com') WHERE email = 'sessuser@example.com'");
+    const other = createClient(server.baseUrl);
+    await other.signIn('sessuser@example.com');
+
+    assert.equal((await other.delete(`/auth/sessions/${ownerSessionId}`)).status, 404, 'a real id, but belonging to someone else, is refused');
+  });
+});
+
 describe('"new sign-in" email', () => {
   const CHROME_WINDOWS = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
   const FIREFOX_LINUX = 'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0';

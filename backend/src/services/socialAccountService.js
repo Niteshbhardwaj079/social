@@ -46,10 +46,6 @@ async function getRow(platform) {
   return (await query('SELECT * FROM social_accounts WHERE platform = $1', [platform])).rows[0] ?? null;
 }
 
-export async function getAccount(platform) {
-  return present(platform, await getRow(platform));
-}
-
 /** Keeps only the fields this platform needs, trimmed, and says which one is missing. */
 export function cleanCredentials(platform, input) {
   const clean = {};

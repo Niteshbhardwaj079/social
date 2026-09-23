@@ -5,7 +5,11 @@ import PasswordField from '../../components/forms/PasswordField';
 import Avatar from '../../components/common/Avatar';
 import ImageCropModal from '../../components/common/ImageCropModal';
 import { useToast } from '../../components/common/ToastProvider';
-import { updateProfilePhoto } from '../../store/slices/authSlice';
+import { setCurrentUser, updateProfilePhoto } from '../../store/slices/authSlice';
+import { updateProfileRequest, changePasswordRequest } from '../../services/api/authApi';
+import { uploadMediaItem } from '../../services/api/mediaApi';
+import { apiErrorMessage } from '../../services/api/axiosClient';
+import { API_ENABLED } from '../../config/runtime';
 import { USER_ROLE_LABELS } from '../../config/constants';
 import { formatFileSize } from '../../utils/formatters';
 
@@ -15,6 +19,8 @@ function AccountSettings() {
   const currentUser = useSelector((state) => state.auth.currentUser);
   const photoInputRef = useRef(null);
   const [pendingPhotoFile, setPendingPhotoFile] = useState(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   const [profileValues, setProfileValues] = useState({
     name: currentUser?.name || '',
@@ -24,7 +30,18 @@ function AccountSettings() {
 
   function handleProfileSubmit(event) {
     event.preventDefault();
-    showToast({ type: 'success', title: 'Profile updated' });
+    if (!API_ENABLED) {
+      showToast({ type: 'success', title: 'Profile updated' });
+      return;
+    }
+    setIsSavingProfile(true);
+    updateProfileRequest({ name: profileValues.name.trim() })
+      .then((user) => {
+        dispatch(setCurrentUser(user));
+        showToast({ type: 'success', title: 'Profile updated' });
+      })
+      .catch((error) => showToast({ type: 'error', title: 'Could not update your profile', message: apiErrorMessage(error) }))
+      .finally(() => setIsSavingProfile(false));
   }
 
   function handlePhotoFileChange(event) {
@@ -33,21 +50,52 @@ function AccountSettings() {
     if (file) setPendingPhotoFile(file);
   }
 
-  function handlePhotoCropComplete({ dataUrl, sizeBytes }) {
-    dispatch(updateProfilePhoto(dataUrl));
+  function handlePhotoCropComplete({ dataUrl, blob, sizeBytes }) {
     setPendingPhotoFile(null);
-    showToast({ type: 'success', title: 'Profile photo updated', message: formatFileSize(sizeBytes) });
+    if (!API_ENABLED) {
+      dispatch(updateProfilePhoto(dataUrl));
+      showToast({ type: 'success', title: 'Profile photo updated', message: formatFileSize(sizeBytes) });
+      return;
+    }
+    uploadMediaItem({ name: 'avatar.png', folder: 'Avatars' }, blob)
+      .then((item) => updateProfileRequest({ avatarUrl: item.publicUrl || item.url }))
+      .then((user) => {
+        dispatch(setCurrentUser(user));
+        showToast({ type: 'success', title: 'Profile photo updated', message: formatFileSize(sizeBytes) });
+      })
+      .catch((error) => showToast({ type: 'error', title: 'Could not update your photo', message: apiErrorMessage(error) }));
   }
 
   function handleRemovePhoto() {
-    dispatch(updateProfilePhoto(null));
-    showToast({ type: 'info', title: 'Profile photo removed' });
+    if (!API_ENABLED) {
+      dispatch(updateProfilePhoto(null));
+      showToast({ type: 'info', title: 'Profile photo removed' });
+      return;
+    }
+    updateProfileRequest({ avatarUrl: null })
+      .then((user) => {
+        dispatch(setCurrentUser(user));
+        showToast({ type: 'info', title: 'Profile photo removed' });
+      })
+      .catch((error) => showToast({ type: 'error', title: 'Could not remove your photo', message: apiErrorMessage(error) }));
   }
 
   function handlePasswordSubmit(event) {
     event.preventDefault();
-    setPasswordValues({ currentPassword: '', newPassword: '' });
-    showToast({ type: 'success', title: 'Password updated' });
+    if (!API_ENABLED) {
+      setPasswordValues({ currentPassword: '', newPassword: '' });
+      showToast({ type: 'success', title: 'Password updated' });
+      return;
+    }
+    setIsSavingPassword(true);
+    changePasswordRequest(passwordValues)
+      .then(({ user }) => {
+        dispatch(setCurrentUser(user));
+        setPasswordValues({ currentPassword: '', newPassword: '' });
+        showToast({ type: 'success', title: 'Password updated', message: 'Every other device was signed out for safety.' });
+      })
+      .catch((error) => showToast({ type: 'error', title: 'Could not change your password', message: apiErrorMessage(error) }))
+      .finally(() => setIsSavingPassword(false));
   }
 
   return (
@@ -85,11 +133,13 @@ function AccountSettings() {
           type="email"
           value={profileValues.email}
           onChange={(event) => setProfileValues((current) => ({ ...current, email: event.target.value }))}
+          disabled={API_ENABLED}
+          hint={API_ENABLED ? 'Contact an admin to change your sign-in email.' : undefined}
         />
         </div>
 
-        <button type="submit" className="btn btn-primary">
-          Save Profile
+        <button type="submit" className="btn btn-primary" disabled={isSavingProfile}>
+          {isSavingProfile ? 'Saving...' : 'Save Profile'}
         </button>
       </form>
 
@@ -109,8 +159,8 @@ function AccountSettings() {
           onChange={(event) => setPasswordValues((current) => ({ ...current, newPassword: event.target.value }))}
         />
         </div>
-        <button type="submit" className="btn btn-primary">
-          Update Password
+        <button type="submit" className="btn btn-primary" disabled={isSavingPassword}>
+          {isSavingPassword ? 'Updating...' : 'Update Password'}
         </button>
       </form>
 

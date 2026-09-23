@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '../common/Modal';
 import PlatformSelector from '../posts/PlatformSelector';
 import TextField from '../../components/forms/TextField';
@@ -20,11 +20,36 @@ function toDateOnlyString(date) {
   return date ? date.toISOString().slice(0, 10) : null;
 }
 
+function fromDateOnlyString(value) {
+  return value ? new Date(`${value}T00:00:00`) : null;
+}
+
 // `ownerName` is the signed-in person, shown for the mock's own display (API mode always uses the
 // real, signed-in creator — the server ignores whatever this sends and derives it from the token).
-function CampaignFormModal({ isOpen, onClose, onSubmit, ownerName }) {
+// Pass `campaign` to edit an existing one instead of creating a new one — the form prefills from it
+// and never sends `status`, so editing never resets an active/completed/paused campaign back to
+// "scheduled" (the server keeps whatever status it already had when `status` is left out).
+function CampaignFormModal({ isOpen, onClose, onSubmit, ownerName, campaign }) {
+  const isEditing = Boolean(campaign);
   const [formValues, setFormValues] = useState(EMPTY_FORM_VALUES);
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (campaign) {
+      setFormValues({
+        name: campaign.name,
+        description: campaign.description,
+        objective: CAMPAIGN_OBJECTIVES.includes(campaign.objective) ? campaign.objective : CAMPAIGN_OBJECTIVES[0],
+        startDate: fromDateOnlyString(campaign.startDate),
+        endDate: fromDateOnlyString(campaign.endDate),
+      });
+      setSelectedPlatforms(campaign.platforms || []);
+    } else {
+      setFormValues(EMPTY_FORM_VALUES);
+      setSelectedPlatforms([]);
+    }
+  }, [isOpen, campaign]);
 
   function handleChange(field, value) {
     setFormValues((current) => ({ ...current, [field]: value }));
@@ -37,11 +62,8 @@ function CampaignFormModal({ isOpen, onClose, onSubmit, ownerName }) {
       startDate: toDateOnlyString(formValues.startDate),
       endDate: toDateOnlyString(formValues.endDate),
       platforms: selectedPlatforms,
-      status: CAMPAIGN_STATUS.SCHEDULED,
-      owner: ownerName,
+      ...(isEditing ? {} : { status: CAMPAIGN_STATUS.SCHEDULED, owner: ownerName }),
     });
-    setFormValues(EMPTY_FORM_VALUES);
-    setSelectedPlatforms([]);
   }
 
   const footer = (
@@ -50,13 +72,13 @@ function CampaignFormModal({ isOpen, onClose, onSubmit, ownerName }) {
         Cancel
       </button>
       <button type="submit" form="campaign-form" className="btn btn-primary">
-        Create Campaign
+        {isEditing ? 'Save Changes' : 'Create Campaign'}
       </button>
     </>
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create Campaign" footer={footer} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? 'Edit Campaign' : 'Create Campaign'} footer={footer} size="lg">
       <form id="campaign-form" onSubmit={handleSubmit}>
         <TextField
           id="campaignName"

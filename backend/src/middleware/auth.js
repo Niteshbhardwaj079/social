@@ -16,7 +16,7 @@ export async function authenticate(req, _res, next) {
   const userId = token ? verifyAccessToken(token) : null;
   if (!userId) throw unauthorized();
 
-  const result = await query('SELECT id, name, email, role, status, language, last_active_at FROM users WHERE id = $1', [userId]);
+  const result = await query('SELECT id, name, email, role, status, language, avatar_url, last_active_at FROM users WHERE id = $1', [userId]);
   const user = result.rows[0];
   if (!user || user.status !== 'active') throw unauthorized();
   req.user = user;

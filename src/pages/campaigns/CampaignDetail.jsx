@@ -8,8 +8,9 @@ import PostListItem from '../../components/posts/PostListItem';
 import EmptyState from '../../components/common/EmptyState';
 import ErrorState from '../../components/common/ErrorState';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import CampaignFormModal from '../../components/campaigns/CampaignFormModal';
 import Icon from '../../components/common/Icon';
-import { deleteCampaign, getCampaignById } from '../../services/api/campaignsApi';
+import { deleteCampaign, getCampaignById, updateCampaign } from '../../services/api/campaignsApi';
 import { getPosts } from '../../services/api/postsApi';
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { useToast } from '../../components/common/ToastProvider';
@@ -31,6 +32,7 @@ function CampaignDetail() {
   const [campaignPosts, setCampaignPosts] = useState([]);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [requestStatus, setRequestStatus] = useState(REQUEST_STATUS.LOADING);
 
   function loadCampaign() {
@@ -51,6 +53,17 @@ function CampaignDetail() {
   useEffect(() => {
     loadCampaign();
   }, [campaignId]);
+
+  function handleEditSubmit(updates) {
+    updateCampaign(campaignId, updates).then(
+      (updated) => {
+        setCampaign(updated);
+        setIsEditOpen(false);
+        showToast({ type: 'success', title: 'Campaign updated' });
+      },
+      (error) => showToast({ type: 'error', title: 'Could not update the campaign', message: apiErrorMessage(error) })
+    );
+  }
 
   function handleDeleteConfirmed() {
     setIsDeleting(true);
@@ -103,9 +116,14 @@ function CampaignDetail() {
           <>
             <StatusBadge status={campaign.status} />
             {canManage ? (
-              <button type="button" className="btn btn-outline-secondary-custom text-danger" onClick={() => setIsDeleteOpen(true)}>
-                <Icon name="Trash2" size={16} /> Delete
-              </button>
+              <>
+                <button type="button" className="btn btn-outline-secondary-custom" onClick={() => setIsEditOpen(true)}>
+                  <Icon name="Pencil" size={16} /> Edit
+                </button>
+                <button type="button" className="btn btn-outline-secondary-custom text-danger" onClick={() => setIsDeleteOpen(true)}>
+                  <Icon name="Trash2" size={16} /> Delete
+                </button>
+              </>
             ) : null}
           </>
         }
@@ -162,6 +180,8 @@ function CampaignDetail() {
           )}
         </div>
       </div>
+
+      <CampaignFormModal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} onSubmit={handleEditSubmit} campaign={campaign} />
 
       <ConfirmDialog
         isOpen={isDeleteOpen}
