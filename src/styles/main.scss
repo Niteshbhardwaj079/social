@@ -53,6 +53,7 @@
 @use './pages/settings';
 @use './pages/guide';
 @use './pages/auth';
+@use './pages/not-found';
 
 // Must stay last: right-to-left overrides win the cascade.
 @use './layout/rtl';

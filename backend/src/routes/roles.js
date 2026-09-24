@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, requireRoleManager } from '../middleware/auth.js';
+import { authenticate, requireRoleCreator, requireRoleDeleter, requireRoleEditor } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import * as roles from '../services/roleService.js';
 
@@ -26,14 +26,14 @@ router.get('/:id', validate({ params: idParam }), async (req, res) => res.json({
 
 router.post(
   '/',
-  requireRoleManager,
+  requireRoleCreator,
   validate({ body: roleBody }),
   async (req, res) => res.status(201).json({ role: await roles.createRole(req.user, req.valid.body, req.ip, req.get('user-agent')) })
 );
 
 router.post(
   '/:id/duplicate',
-  requireRoleManager,
+  requireRoleCreator,
   validate({ params: idParam, body: z.object({ name: z.string().trim().min(1).max(80).optional() }) }),
   async (req, res) =>
     res.status(201).json({ role: await roles.duplicateRole(req.user, req.valid.params.id, req.valid.body.name, req.ip, req.get('user-agent')) })
@@ -41,12 +41,12 @@ router.post(
 
 router.patch(
   '/:id',
-  requireRoleManager,
+  requireRoleEditor,
   validate({ params: idParam, body: roleBody.partial().refine((value) => Object.keys(value).length > 0, 'Nothing to change') }),
   async (req, res) => res.json({ role: await roles.updateRole(req.user, req.valid.params.id, req.valid.body, req.ip, req.get('user-agent')) })
 );
 
-router.delete('/:id', requireRoleManager, validate({ params: idParam }), async (req, res) => {
+router.delete('/:id', requireRoleDeleter, validate({ params: idParam }), async (req, res) => {
   await roles.deleteRole(req.user, req.valid.params.id, req.ip, req.get('user-agent'));
   res.status(204).end();
 });

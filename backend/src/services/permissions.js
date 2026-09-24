@@ -5,68 +5,101 @@
  * lookup, never a hardcoded role-name comparison. The one hard-coded exception is the protected
  * role itself (Super Admin, `is_protected` in the DB) — nobody, however permissioned, may rename
  * it, edit its permissions, or delete it; that guard lives in roleService.js against the role
- * being EDITED, not against the actor, since `roles.manage` is otherwise an ordinary grantable
- * flag (both Super Admin and Admin have it by default, per spec). roleService.js additionally
+ * being EDITED, not against the actor, since `rolesEdit`/etc are otherwise ordinary grantable
+ * flags (both Super Admin and Admin have them by default, per spec). roleService.js additionally
  * refuses to let anyone grant a role a capability they do not themselves hold, which is what
- * actually prevents a `roles.manage`-capable role from escalating itself or another role.
+ * actually prevents a roles-editing-capable role from escalating itself or another role.
+ *
+ * Each module below has its own View/Create/Edit/Delete split ONLY where that distinction is
+ * real (a genuinely separate backend operation) — see roleService.js's PERMISSION_KEYS for the
+ * exact list. Where viewing was never restricted in the first place (Posts, Campaigns, Media,
+ * Templates, Social Accounts, Roles), it stays open to any signed-in user, same as before; only
+ * modules that were ALREADY view-gated (Users, Activity Logs, Settings) gained a real View flag.
  */
 
 /** The 5 roles every deployment starts with (seeded by migration 022) — used only where a display
  *  needs to distinguish a translatable built-in name from a custom, user-typed one (email/i18n). */
 export const BUILTIN_ROLE_IDS = ['superAdmin', 'admin', 'editor', 'contributor', 'analyst'];
 
-/** People who may invite, edit and remove people (their own seniority still bounds who they can touch). */
-export const canManageUsers = (actor) => actor.permissions?.usersManage === true;
+// ---------------------------------------------------------------- Users
+export const canViewUsers = (actor) => actor.permissions?.usersView === true;
+export const canCreateUsers = (actor) => actor.permissions?.usersCreate === true;
+export const canEditUsers = (actor) => actor.permissions?.usersEdit === true;
+export const canDeleteUsers = (actor) => actor.permissions?.usersDelete === true;
 
-/** People who may open Roles & Permissions and edit role DEFINITIONS (create/edit/delete a role,
- *  change what it can do). An ordinary grantable flag — see roleService.js for the escalation guards. */
-export const canManageRoleDefinitions = (actor) => actor.permissions?.rolesManage === true;
+// ---------------------------------------------------------------- Roles & Permissions
+/** Create a new role (or duplicate one, which is create-shaped). */
+export const canCreateRoles = (actor) => actor.permissions?.rolesCreate === true;
+/** Edit an existing role's name/description/permissions/rank/active state. */
+export const canEditRoles = (actor) => actor.permissions?.rolesEdit === true;
+export const canDeleteRoles = (actor) => actor.permissions?.rolesDelete === true;
 
-/** People who may connect and disconnect social accounts (they handle the client's API keys). */
-export const canManageAccounts = (actor) => actor.permissions?.socialAccountsManage === true;
+// ---------------------------------------------------------------- Social Accounts (+ storage, ad-account sync)
+/** Connecting a new social account or storage provider, and "Test connection". */
+export const canConnectAccounts = (actor) => actor.permissions?.socialAccountsConnect === true;
+/** Re-checking/syncing an already-connected account or ad account, and automated ad rules. */
+export const canEditAccounts = (actor) => actor.permissions?.socialAccountsEdit === true;
+/** Disconnecting a social account or the storage provider. */
+export const canDisconnectAccounts = (actor) => actor.permissions?.socialAccountsDelete === true;
 
-/** Same rule, for the storage provider (it also holds the client's own keys). */
-export const canManageStorage = canManageAccounts;
+// ---------------------------------------------------------------- Ads (Meta campaigns, automated rules)
+export const canCreateAds = (actor) => actor.permissions?.adsCreate === true;
+/** Pausing/resuming a launched ad (there is no "edit ad content" feature yet — this is that tier). */
+export const canEditAds = (actor) => actor.permissions?.adsEdit === true;
+export const canDeleteAds = (actor) => actor.permissions?.adsDelete === true;
 
-/** Workspace settings + system email templates. */
-export const canManageSettings = (actor) => actor.permissions?.settingsManage === true;
+// ---------------------------------------------------------------- Campaigns
+export const canCreateCampaigns = (actor) => actor.permissions?.campaignsCreate === true;
+export const canEditCampaigns = (actor) => actor.permissions?.campaignsEdit === true;
+export const canDeleteCampaigns = (actor) => actor.permissions?.campaignsDelete === true;
 
-/** Viewing and deleting activity log entries. */
-export const canManageActivityLogs = (actor) => actor.permissions?.activityLogsManage === true;
+// ---------------------------------------------------------------- Media Library
+export const canCreateMedia = (actor) => actor.permissions?.mediaCreate === true;
+export const canEditMedia = (actor) => actor.permissions?.mediaEdit === true;
+export const canDeleteMedia = (actor) => actor.permissions?.mediaDelete === true;
 
-/** Creating, launching, pausing, deleting ads; syncing ad accounts; automated rules. */
-export const canManageAds = (actor) => actor.permissions?.adsManage === true;
+// ---------------------------------------------------------------- Ad Creative Templates
+export const canCreateTemplates = (actor) => actor.permissions?.templatesCreate === true;
+export const canEditTemplates = (actor) => actor.permissions?.templatesEdit === true;
+export const canDeleteTemplates = (actor) => actor.permissions?.templatesDelete === true;
 
-/** Creating, editing, deleting campaigns. */
-export const canManageCampaigns = (actor) => actor.permissions?.campaignsManage === true;
+// ---------------------------------------------------------------- Activity Logs
+export const canViewActivityLogs = (actor) => actor.permissions?.activityLogsView === true;
+export const canDeleteActivityLogs = (actor) => actor.permissions?.activityLogsDelete === true;
 
-/** Saving, editing, deleting ad creative templates. */
-export const canManageTemplates = (actor) => actor.permissions?.templatesManage === true;
+// ---------------------------------------------------------------- Settings (workspace, languages, system emails)
+export const canViewSettings = (actor) => actor.permissions?.settingsView === true;
+export const canEditSettings = (actor) => actor.permissions?.settingsEdit === true;
 
-/** Uploading, replacing, deleting media library files. */
-export const canManageMedia = (actor) => actor.permissions?.mediaManage === true;
-
+// ---------------------------------------------------------------- Reports (Dashboard, Analytics)
 /** Viewing the Dashboard and Analytics pages. Every seeded role starts with this on — it only
  *  matters once a custom role is created without it. */
 export const canViewReports = (actor) => actor.permissions?.reportsView === true;
 
-/** Who may schedule, publish, approve and retry posts (and campaigns/templates/ads/recycling —
- *  those now have their own flags above; this one is specifically the Posts "publish" tier). */
+// ---------------------------------------------------------------- Posts
+/** Who may schedule, publish, approve and retry posts — the Posts "publish" tier. */
 export const canPublishPosts = (actor) => actor.permissions?.postsPublish === true;
 
 /** Everyone with the Posts "write" tier may draft, edit their own drafts, upload media for a
  *  post, use short links and the Inbox — read-only roles (postsWrite: false) cannot. */
 export const canWritePosts = (actor) => actor.permissions?.postsWrite === true;
 
+/** Deleting ANY post outright (not just your own draft) — a real flag, independent of Publish,
+ *  so a role can be given delete rights without also getting approve/reject/retry rights. */
+export const canDeleteAnyPost = (actor) => actor.permissions?.postsDelete === true;
+
 const OWN_DRAFT_EDITABLE_STATUSES = ['draft', 'pendingApproval', 'rejected'];
+const ownsEditableDraft = (actor, post) => canWritePosts(actor) && post.created_by === actor.id && OWN_DRAFT_EDITABLE_STATUSES.includes(post.status);
 
-/** May `actor` edit or delete this post? Anyone who can publish, always. Otherwise, only their
- *  OWN post, and only before it's approved — generalizes the old "Contributors only" rule to any
- *  role that can write but not publish (e.g. a custom "Content Writer" role gets the same carve-out). */
-export const canChangePost = (actor, post) =>
-  canPublishPosts(actor) ||
-  (canWritePosts(actor) && post.created_by === actor.id && OWN_DRAFT_EDITABLE_STATUSES.includes(post.status));
+/** May `actor` edit this post? Anyone who can publish, always. Otherwise, only their OWN post,
+ *  and only before it's approved (the Contributor-style carve-out, generalized to any write-only role). */
+export const canEditPost = (actor, post) => canPublishPosts(actor) || ownsEditableDraft(actor, post);
 
+/** May `actor` delete this post? A real, independent `postsDelete` flag for "any post" — or the
+ *  same own-draft carve-out as editing, so someone who can only write still keeps deleting their own. */
+export const canDeletePost = (actor, post) => canDeleteAnyPost(actor) || ownsEditableDraft(actor, post);
+
+// ---------------------------------------------------------------- User seniority (unchanged)
 /** May `actor` hand out `targetRole` (the full role row, for its rank) when inviting or changing someone? */
 export const canAssignRole = (actor, targetRole) => actor.roleIsProtected === true || targetRole.rank < actor.roleRank;
 

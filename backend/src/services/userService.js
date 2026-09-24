@@ -1,7 +1,7 @@
 import { config } from '../config/env.js';
 import { query, transaction } from '../db/pool.js';
 import { roleLabel } from '../emails/builder.js';
-import { BUILTIN_ROLE_IDS, canAssignRole, canManageTarget } from './permissions.js';
+import { BUILTIN_ROLE_IDS, canAssignRole, canCreateUsers, canDeleteUsers, canEditUsers, canManageTarget } from './permissions.js';
 import { getRoleOrNull } from './roleService.js';
 import { createStoredToken, invalidateStoredTokens, revokeAllRefreshTokens } from './tokenService.js';
 import { dispatchEmail } from './systemEmailService.js';
@@ -17,9 +17,12 @@ function roleDisplayLabel(language, roleId, roleName) {
   return BUILTIN_ROLE_IDS.includes(roleId) ? roleLabel(language, roleId) : roleName || roleId;
 }
 
-/** How a user looks to the outside world (never includes the password hash or tokens). */
+/** How a user looks to the outside world (never includes the password hash or tokens). When `row`
+ *  came from `loadActor`/`authenticate` (carries `.permissions`/`.roleRank`/`.roleIsProtected` — only
+ *  ever true for the signed-in actor's OWN row, never when listing other people), those are included
+ *  too, so the frontend can decide which buttons to show without guessing from the role name. */
 export function toApiUser(row) {
-  return {
+  const user = {
     id: row.id,
     name: row.name,
     email: row.email,
@@ -31,6 +34,12 @@ export function toApiUser(row) {
     createdAt: row.created_at,
     accountsAssigned: 0, // filled from social accounts once that module has an API
   };
+  if (row.permissions) {
+    user.permissions = row.permissions;
+    user.roleRank = row.roleRank;
+    user.roleIsProtected = row.roleIsProtected;
+  }
+  return user;
 }
 
 const USER_COLUMNS = 'id, name, email, role, status, language, avatar_url, last_active_at, created_at';
@@ -79,6 +88,7 @@ async function activeProtectedRoleUsersCount(client, excludingId = null) {
 
 /** Invites a person: creates the account (no password yet), emails them a link in THEIR language. */
 export async function createUser(actor, { name, email, role, language }, ip, userAgent) {
+  if (!canCreateUsers(actor)) throw forbidden('Your role cannot invite people.');
   const targetRole = await getRoleOrNull(role);
   if (!targetRole) throw badRequest('That role does not exist.');
   if (!targetRole.isActive) throw badRequest('That role is archived and cannot be assigned. Reactivate it first.');
@@ -126,6 +136,7 @@ export async function createUser(actor, { name, email, role, language }, ip, use
 }
 
 export async function updateUser(actor, id, changes, ip, userAgent) {
+  if (!canEditUsers(actor)) throw forbidden('Your role cannot edit people.');
   const outcome = await transaction(async (client) => {
     const target = await findUserWithRole(client.query.bind(client), id, { forUpdate: true });
     if (!target) throw notFound('No such user');
@@ -192,6 +203,7 @@ export async function updateUser(actor, id, changes, ip, userAgent) {
 }
 
 export async function deleteUser(actor, id, ip, userAgent) {
+  if (!canDeleteUsers(actor)) throw forbidden('Your role cannot remove people.');
   await transaction(async (client) => {
     const target = await findUserWithRole(client.query.bind(client), id, { forUpdate: true });
     if (!target) throw notFound('No such user');
@@ -207,6 +219,7 @@ export async function deleteUser(actor, id, ip, userAgent) {
 
 /** Starts a fresh invitation (the old link stops working). */
 export async function resendInvite(actor, id) {
+  if (!canEditUsers(actor)) throw forbidden('Your role cannot edit people.');
   const target = await findUserWithRole(query, id);
   if (!target) throw notFound('No such user');
   if (!canManageTarget(actor, target)) throw forbidden('You cannot change this person');

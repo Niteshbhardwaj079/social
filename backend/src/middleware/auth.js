@@ -2,23 +2,59 @@ import { query } from '../db/pool.js';
 import { verifyAccessToken } from '../services/tokenService.js';
 import { forbidden, unauthorized } from '../utils/httpError.js';
 import {
-  canManageAccounts,
-  canManageActivityLogs,
-  canManageRoleDefinitions,
-  canManageSettings,
-  canManageStorage,
-  canManageUsers,
+  canConnectAccounts,
+  canCreateRoles,
+  canDeleteActivityLogs,
+  canDeleteRoles,
+  canDisconnectAccounts,
+  canEditAccounts,
+  canEditRoles,
+  canEditSettings,
+  canViewActivityLogs,
   canViewReports,
+  canViewSettings,
+  canViewUsers,
 } from '../services/permissions.js';
 
 const TOUCH_AFTER_MS = 5 * 60 * 1000;
 
+const PERMISSION_COLUMNS = [
+  'users_view',
+  'users_create',
+  'users_edit',
+  'users_delete',
+  'roles_create',
+  'roles_edit',
+  'roles_delete',
+  'posts_write',
+  'posts_publish',
+  'posts_delete',
+  'social_accounts_connect',
+  'social_accounts_edit',
+  'social_accounts_delete',
+  'ads_create',
+  'ads_edit',
+  'ads_delete',
+  'campaigns_create',
+  'campaigns_edit',
+  'campaigns_delete',
+  'reports_view',
+  'media_create',
+  'media_edit',
+  'media_delete',
+  'templates_create',
+  'templates_edit',
+  'templates_delete',
+  'activity_logs_view',
+  'activity_logs_delete',
+  'settings_view',
+  'settings_edit',
+];
+
 const USER_ROLE_JOIN_SELECT = `
   SELECT users.id, users.name, users.email, users.role, users.status, users.language, users.avatar_url, users.last_active_at,
          roles.rank AS role_rank, roles.is_protected AS role_is_protected,
-         roles.users_manage, roles.roles_manage, roles.posts_write, roles.posts_publish, roles.social_accounts_manage,
-         roles.ads_manage, roles.campaigns_manage, roles.reports_view, roles.media_manage, roles.templates_manage,
-         roles.activity_logs_manage, roles.settings_manage
+         roles.${PERMISSION_COLUMNS.join(', roles.')}
     FROM users JOIN roles ON roles.id = users.role
    WHERE users.id = $1`;
 
@@ -27,20 +63,47 @@ export function attachRoleCapabilities(row) {
   row.roleRank = row.role_rank;
   row.roleIsProtected = row.role_is_protected;
   row.permissions = {
-    usersManage: row.users_manage,
-    rolesManage: row.roles_manage,
+    usersView: row.users_view,
+    usersCreate: row.users_create,
+    usersEdit: row.users_edit,
+    usersDelete: row.users_delete,
+    rolesCreate: row.roles_create,
+    rolesEdit: row.roles_edit,
+    rolesDelete: row.roles_delete,
     postsWrite: row.posts_write,
     postsPublish: row.posts_publish,
-    socialAccountsManage: row.social_accounts_manage,
-    adsManage: row.ads_manage,
-    campaignsManage: row.campaigns_manage,
+    postsDelete: row.posts_delete,
+    socialAccountsConnect: row.social_accounts_connect,
+    socialAccountsEdit: row.social_accounts_edit,
+    socialAccountsDelete: row.social_accounts_delete,
+    adsCreate: row.ads_create,
+    adsEdit: row.ads_edit,
+    adsDelete: row.ads_delete,
+    campaignsCreate: row.campaigns_create,
+    campaignsEdit: row.campaigns_edit,
+    campaignsDelete: row.campaigns_delete,
     reportsView: row.reports_view,
-    mediaManage: row.media_manage,
-    templatesManage: row.templates_manage,
-    activityLogsManage: row.activity_logs_manage,
-    settingsManage: row.settings_manage,
+    mediaCreate: row.media_create,
+    mediaEdit: row.media_edit,
+    mediaDelete: row.media_delete,
+    templatesCreate: row.templates_create,
+    templatesEdit: row.templates_edit,
+    templatesDelete: row.templates_delete,
+    activityLogsView: row.activity_logs_view,
+    activityLogsDelete: row.activity_logs_delete,
+    settingsView: row.settings_view,
+    settingsEdit: row.settings_edit,
   };
   return row;
+}
+
+/** Loads a user together with their role's rank/isProtected/permissions — the same shape `authenticate`
+ *  attaches to `req.user`. Used by authService.js's startSession() too, so a login/refresh response's
+ *  `user` object carries real permissions immediately, not just after a later `/auth/me` fetch. */
+export async function loadActor(userId) {
+  const result = await query(USER_ROLE_JOIN_SELECT, [userId]);
+  const row = result.rows[0];
+  return row ? attachRoleCapabilities(row) : null;
 }
 
 /**
@@ -54,10 +117,9 @@ export async function authenticate(req, _res, next) {
   const userId = token ? verifyAccessToken(token) : null;
   if (!userId) throw unauthorized();
 
-  const result = await query(USER_ROLE_JOIN_SELECT, [userId]);
-  const user = result.rows[0];
+  const user = await loadActor(userId);
   if (!user || user.status !== 'active') throw unauthorized();
-  req.user = attachRoleCapabilities(user);
+  req.user = user;
 
   // "Last active" is only refreshed every few minutes: cheap, and good enough for that column.
   if (!user.last_active_at || Date.now() - new Date(user.last_active_at).getTime() > TOUCH_AFTER_MS) {
@@ -66,44 +128,71 @@ export async function authenticate(req, _res, next) {
   next();
 }
 
-/** Only people whose role has the Users capability. */
-export function requireUserManager(req, _res, next) {
-  if (!canManageUsers(req.user)) throw forbidden();
+// ---------------------------------------------------------------- Users
+export function requireUsersViewer(req, _res, next) {
+  if (!canViewUsers(req.user)) throw forbidden();
   next();
 }
 
-/** Only the protected role — see permissions.js for why role definitions aren't a plain flag. */
-export function requireRoleManager(req, _res, next) {
-  if (!canManageRoleDefinitions(req.user)) throw forbidden();
+// ---------------------------------------------------------------- Roles
+export function requireRoleCreator(req, _res, next) {
+  if (!canCreateRoles(req.user)) throw forbidden();
   next();
 }
 
-/** Only people whose role has the Settings capability (workspace settings, system emails). */
-export function requireSettingsManager(req, _res, next) {
-  if (!canManageSettings(req.user)) throw forbidden();
+export function requireRoleEditor(req, _res, next) {
+  if (!canEditRoles(req.user)) throw forbidden();
   next();
 }
 
-/** Only people whose role has the Activity Logs capability. */
-export function requireActivityLogsManager(req, _res, next) {
-  if (!canManageActivityLogs(req.user)) throw forbidden();
+export function requireRoleDeleter(req, _res, next) {
+  if (!canDeleteRoles(req.user)) throw forbidden();
   next();
 }
 
-/** Only people whose role has the Reports capability (Dashboard, Analytics). */
+// ---------------------------------------------------------------- Settings (workspace, languages, system emails)
+export function requireSettingsViewer(req, _res, next) {
+  if (!canViewSettings(req.user)) throw forbidden();
+  next();
+}
+
+export function requireSettingsEditor(req, _res, next) {
+  if (!canEditSettings(req.user)) throw forbidden();
+  next();
+}
+
+// ---------------------------------------------------------------- Activity Logs
+export function requireActivityLogsViewer(req, _res, next) {
+  if (!canViewActivityLogs(req.user)) throw forbidden();
+  next();
+}
+
+export function requireActivityLogsDeleter(req, _res, next) {
+  if (!canDeleteActivityLogs(req.user)) throw forbidden();
+  next();
+}
+
+// ---------------------------------------------------------------- Reports (Dashboard, Analytics)
 export function requireReportsViewer(req, _res, next) {
   if (!canViewReports(req.user)) throw forbidden();
   next();
 }
 
-/** Only people who may handle the client's platform credentials. */
-export function requireAccountManager(req, _res, next) {
-  if (!canManageAccounts(req.user)) throw forbidden();
+// ---------------------------------------------------------------- Social Accounts (+ storage, ad-account sync)
+/** Connecting a new account/provider, or testing credentials before connecting. */
+export function requireAccountConnector(req, _res, next) {
+  if (!canConnectAccounts(req.user)) throw forbidden();
   next();
 }
 
-/** Only people who may handle the client's storage keys. */
-export function requireStorageManager(req, _res, next) {
-  if (!canManageStorage(req.user)) throw forbidden();
+/** Re-checking/syncing an already-connected account, or changing storage preferences. */
+export function requireAccountEditor(req, _res, next) {
+  if (!canEditAccounts(req.user)) throw forbidden();
+  next();
+}
+
+/** Disconnecting a social account or the storage provider. */
+export function requireAccountDeleter(req, _res, next) {
+  if (!canDisconnectAccounts(req.user)) throw forbidden();
   next();
 }

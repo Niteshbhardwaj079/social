@@ -9,7 +9,7 @@ import { recordActivity } from './auditService.js';
 import { campaignExists } from './campaignService.js';
 import { mediaForIds } from './mediaService.js';
 import { notifyRoles, notifyUser } from './notificationService.js';
-import { canChangePost, canPublishPosts } from './permissions.js';
+import { canDeletePost, canEditPost, canPublishPosts } from './permissions.js';
 import { connectedPlatforms, getPublishingContext, redact } from './socialAccountService.js';
 
 const POST_SELECT = 'SELECT p.*, u.name AS creator_name FROM posts p LEFT JOIN users u ON u.id = p.created_by';
@@ -186,7 +186,7 @@ export async function createPost({ actor, input, ip, userAgent }) {
 export async function updatePost({ id, actor, input, ip, userAgent }) {
   const row = await getRow(id);
   if (!row) throw notFound('Post not found');
-  if (!canChangePost(actor, row)) throw forbidden('You can only change your own drafts and posts waiting for approval.');
+  if (!canEditPost(actor, row)) throw forbidden('You can only change your own drafts and posts waiting for approval.');
   if (row.status === 'published' || row.status === 'publishing') throw conflict('A post that is published, or being published right now, cannot be edited.');
   const targets = (await targetsByPost([id])).get(id);
   if (row.status === 'failed' && targets.some((target) => target.status === 'published')) {
@@ -215,7 +215,7 @@ export async function updatePost({ id, actor, input, ip, userAgent }) {
 export async function deletePost({ id, actor, ip, userAgent }) {
   const row = await getRow(id);
   if (!row) throw notFound('Post not found');
-  if (!canChangePost(actor, row)) throw forbidden('You cannot delete this post.');
+  if (!canDeletePost(actor, row)) throw forbidden('You cannot delete this post.');
   if (row.status === 'publishing') throw conflict('This post is being published right now. Try again in a minute.');
   await query('DELETE FROM posts WHERE id = $1', [id]);
   await recordActivity({ actorId: actor.id, action: 'post.deleted', entity: 'post', entityId: id, meta: { status: row.status, snippet: snippet(row.content) }, ip, userAgent });

@@ -39,10 +39,12 @@ router.post(
   async (req, res) => res.status(201).json({ post: await createPost({ actor: req.user, input: req.valid.body, ip: req.ip, userAgent: req.get('user-agent') }) })
 );
 
-// Bulk actions come before "/:id" so "bulk" is never read as an id.
+// Bulk actions come before "/:id" so "bulk" is never read as an id. No router-level gate here —
+// bulkChange() calls deletePost()/updatePost() per item, and each already makes its own real
+// canDeletePost/canEditPost check; a blanket `requireWriter` would wrongly block a postsDelete-only
+// role (no postsWrite) from bulk-deleting, even though the per-item check would have allowed it.
 router.post(
   '/bulk',
-  requireWriter,
   validate({ body: z.object({ action: z.enum(['delete', 'draft']), ids: z.array(z.string().uuid()).min(1).max(200) }) }),
   async (req, res) => res.json(await bulkChange({ ...req.valid.body, actor: req.user, ip: req.ip, userAgent: req.get('user-agent') }))
 );
@@ -63,7 +65,10 @@ router.patch(
   async (req, res) => res.json({ post: await updatePost({ id: req.valid.params.id, actor: req.user, input: req.valid.body, ip: req.ip, userAgent: req.get('user-agent') }) })
 );
 
-router.delete('/:id', requireWriter, validate({ params: idParams }), async (req, res) => {
+// No router-level gate — deletePost() makes its own real canDeletePost check (the independent
+// `postsDelete` flag, or the own-draft ownership carve-out), which a blanket `requireWriter` here
+// would wrongly block for a postsDelete-only role that lacks postsWrite.
+router.delete('/:id', validate({ params: idParams }), async (req, res) => {
   await deletePost({ id: req.valid.params.id, actor: req.user, ip: req.ip, userAgent: req.get('user-agent') });
   res.json({ success: true });
 });

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../db/pool.js';
-import { authenticate, requireActivityLogsManager } from '../middleware/auth.js';
+import { authenticate, requireActivityLogsDeleter, requireActivityLogsViewer } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { getPublicConfig } from '../services/authService.js';
 import { deleteActivityByIds, listActivity } from '../services/auditService.js';
@@ -60,7 +60,7 @@ router.use('/links', linkRoutes);
 router.get(
   '/activity-logs',
   authenticate,
-  requireActivityLogsManager,
+  requireActivityLogsViewer,
   validate({ query: z.object({ limit: z.coerce.number().int().min(1).max(500).default(500), before: z.coerce.number().int().positive().optional() }) }),
   async (req, res) => res.json({ activity: await listActivity(req.valid.query) })
 );
@@ -68,7 +68,7 @@ router.get(
 router.delete(
   '/activity-logs',
   authenticate,
-  requireActivityLogsManager,
+  requireActivityLogsDeleter,
   validate({ body: z.object({ ids: z.array(z.coerce.number().int().positive()).min(1).max(500) }) }),
   async (req, res) => {
     await deleteActivityByIds(req.valid.body.ids);

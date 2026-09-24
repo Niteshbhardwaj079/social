@@ -39,27 +39,46 @@ describe('reading roles', () => {
     assert.equal(byId.superAdmin.isProtected, true);
     assert.equal(byId.admin.isProtected, false);
     assert.deepEqual(byId.editor.permissions, {
-      usersManage: false,
-      rolesManage: false,
+      usersView: false,
+      usersCreate: false,
+      usersEdit: false,
+      usersDelete: false,
+      rolesCreate: false,
+      rolesEdit: false,
+      rolesDelete: false,
       postsWrite: true,
       postsPublish: true,
-      socialAccountsManage: false,
-      adsManage: true,
-      campaignsManage: true,
+      postsDelete: true,
+      socialAccountsConnect: false,
+      socialAccountsEdit: false,
+      socialAccountsDelete: false,
+      adsCreate: true,
+      adsEdit: true,
+      adsDelete: true,
+      campaignsCreate: true,
+      campaignsEdit: true,
+      campaignsDelete: true,
       reportsView: true,
-      mediaManage: true,
-      templatesManage: true,
-      activityLogsManage: false,
-      settingsManage: false,
+      mediaCreate: true,
+      mediaEdit: true,
+      mediaDelete: true,
+      templatesCreate: true,
+      templatesEdit: true,
+      templatesDelete: true,
+      activityLogsView: false,
+      activityLogsDelete: false,
+      settingsView: false,
+      settingsEdit: false,
     });
     assert.equal(byId.contributor.permissions.postsPublish, false);
+    assert.equal(byId.contributor.permissions.postsDelete, false);
     assert.equal(byId.analyst.permissions.postsWrite, false);
   });
 });
 
 describe('who can manage role definitions', () => {
-  it('only a role with rolesManage may create, edit or delete a role', async () => {
-    const { client: editor } = await makeUser('Ed Itor', 'editor'); // rolesManage: false
+  it('only a role with rolesCreate/rolesEdit/rolesDelete may create, edit or delete a role', async () => {
+    const { client: editor } = await makeUser('Ed Itor', 'editor'); // rolesCreate/Edit/Delete: false
     const created = await editor.post('/roles', { name: 'Should Fail', permissions: {} });
     assert.equal(created.status, 403);
 
@@ -76,15 +95,15 @@ describe('who can manage role definitions', () => {
       icon: 'Megaphone',
       accent: 'blue',
       rank: 1,
-      permissions: { adsManage: true, reportsView: true },
+      permissions: { adsCreate: true, reportsView: true },
     });
     assert.equal(created.status, 201, JSON.stringify(created.body));
     assert.equal(created.body.role.name, 'Ads Manager');
     assert.equal(created.body.role.id, 'ads-manager');
     assert.equal(created.body.role.isProtected, false);
     assert.equal(created.body.role.usersCount, 0);
-    assert.deepEqual(created.body.role.permissions.adsManage, true);
-    assert.deepEqual(created.body.role.permissions.usersManage, false);
+    assert.deepEqual(created.body.role.permissions.adsCreate, true);
+    assert.deepEqual(created.body.role.permissions.usersView, false);
   });
 
   it('the protected Super Admin role can never be renamed, edited or deleted, by anyone', async () => {
@@ -93,17 +112,17 @@ describe('who can manage role definitions', () => {
   });
 
   it('cannot grant a permission you do not have yourself (the escalation guard)', async () => {
-    // A custom role with rolesManage but nothing else — created by Super Admin (who has everything).
-    const limited = await owner.post('/roles', { name: 'Role Editor Only', rank: 1, permissions: { rolesManage: true } });
+    // A custom role with rolesCreate but nothing else — created by Super Admin (who has everything).
+    const limited = await owner.post('/roles', { name: 'Role Editor Only', rank: 1, permissions: { rolesCreate: true } });
     assert.equal(limited.status, 201);
     const { client: limitedUser } = await makeUser('Lim Ited', limited.body.role.id);
 
-    // They can manage role DEFINITIONS (rolesManage: true)...
-    const attempt = await limitedUser.post('/roles', { name: 'Should Fail Too', rank: 1, permissions: { usersManage: true } });
-    // ...but cannot grant a capability (usersManage) they do not hold themselves.
+    // They can create roles (rolesCreate: true)...
+    const attempt = await limitedUser.post('/roles', { name: 'Should Fail Too', rank: 1, permissions: { usersCreate: true } });
+    // ...but cannot grant a capability (usersCreate) they do not hold themselves.
     assert.equal(attempt.status, 403);
 
-    const okAttempt = await limitedUser.post('/roles', { name: 'Only Roles Manage', rank: 1, permissions: { rolesManage: true } });
+    const okAttempt = await limitedUser.post('/roles', { name: 'Only Roles Create', rank: 1, permissions: { rolesCreate: true } });
     assert.equal(okAttempt.status, 201, 'granting a permission the actor DOES hold is fine');
   });
 
@@ -156,11 +175,11 @@ describe('who can manage role definitions', () => {
 });
 
 describe('assigning any available role, enforced server-side per module', () => {
-  it('a custom role with only campaignsManage can create campaigns but not manage social accounts', async () => {
+  it('a custom role with only campaignsCreate can create campaigns but not manage social accounts', async () => {
     const created = await owner.post('/roles', {
       name: 'Content Manager',
       rank: 1,
-      permissions: { postsWrite: true, campaignsManage: true, mediaManage: true, reportsView: true },
+      permissions: { postsWrite: true, campaignsCreate: true, mediaCreate: true, mediaEdit: true, mediaDelete: true, reportsView: true },
     });
     assert.equal(created.status, 201);
     const { client: contentManager } = await makeUser('Con Manager', created.body.role.id);
@@ -190,5 +209,67 @@ describe('assigning any available role, enforced server-side per module', () => 
   it('assigning a made-up role id is refused as a 400, not a 404 or a raw DB error', async () => {
     const refused = await owner.post('/users', { name: 'Ghost', email: 'ghost@example.com', role: 'not-a-real-role', language: 'en' });
     assert.equal(refused.status, 400);
+  });
+});
+
+describe('View/Create/Edit/Delete are genuinely independent, not just relabelled', () => {
+  it('Users: view-only sees the list but cannot invite, edit or remove anyone', async () => {
+    const created = await owner.post('/roles', { name: 'Team Directory', rank: 1, permissions: { usersView: true } });
+    const { client: directoryViewer } = await makeUser('Dir Viewer', created.body.role.id);
+
+    assert.equal((await directoryViewer.get('/users')).status, 200);
+    assert.equal((await directoryViewer.post('/users', { name: 'X', email: 'shouldfail@example.com', role: 'analyst', language: 'en' })).status, 403);
+    const someone = await makeUser('Someone Else', 'analyst');
+    assert.equal((await directoryViewer.patch(`/users/${someone.id}`, { name: 'Renamed' })).status, 403);
+    assert.equal((await directoryViewer.delete(`/users/${someone.id}`)).status, 403);
+  });
+
+  it('Users: without usersView, the list itself is refused (matches the old blanket-gated behaviour)', async () => {
+    const created = await owner.post('/roles', { name: 'No List Access', rank: 1, permissions: { usersCreate: true } });
+    const { client: inviterOnly } = await makeUser('Inv Iter', created.body.role.id);
+    assert.equal((await inviterOnly.get('/users')).status, 403, 'usersCreate alone does not imply usersView');
+  });
+
+  it('Posts: postsDelete lets a role delete ANY post, independent of postsWrite/postsPublish', async () => {
+    const { client: editor } = await makeUser('Post Author', 'editor');
+    const draft = await editor.post('/posts', { content: 'Draft to be cleaned up', platforms: ['bluesky'], status: 'draft' });
+    assert.equal(draft.status, 201);
+
+    const created = await owner.post('/roles', { name: 'Post Cleaner', rank: 1, permissions: { postsDelete: true } });
+    const { client: cleaner } = await makeUser('Post Cleaner', created.body.role.id);
+
+    // No postsWrite at all: cannot create, and (own-draft carve-out aside) cannot edit either.
+    assert.equal((await cleaner.post('/posts', { content: 'x', platforms: ['bluesky'], status: 'draft' })).status, 403);
+    assert.equal((await cleaner.patch(`/posts/${draft.body.post.id}`, { content: 'edited' })).status, 403);
+
+    // But deleting someone else's post outright works purely off the postsDelete flag.
+    const deleted = await cleaner.delete(`/posts/${draft.body.post.id}`);
+    assert.equal(deleted.status, 200, JSON.stringify(deleted.body));
+  });
+
+  it('Media: create-only cannot delete a file it just uploaded', async () => {
+    const created = await owner.post('/roles', { name: 'Uploader Only', rank: 1, permissions: { mediaCreate: true } });
+    const { client: uploader } = await makeUser('Media Uploader', created.body.role.id);
+
+    const seeded = await query(
+      "INSERT INTO media_items (type, name, storage, public_url) VALUES ('image', 'seed.png', 'linked', 'https://example.com/seed.png') RETURNING id"
+    );
+    assert.equal((await uploader.delete(`/media/${seeded.rows[0].id}`)).status, 403);
+  });
+
+  it('Activity Logs: view and delete are separately grantable', async () => {
+    const viewerRole = await owner.post('/roles', { name: 'Log Viewer', rank: 1, permissions: { activityLogsView: true } });
+    const { client: logViewer } = await makeUser('Log Viewer', viewerRole.body.role.id);
+    assert.equal((await logViewer.get('/activity-logs')).status, 200);
+    assert.equal((await logViewer.delete('/activity-logs', { body: { ids: [1] } })).status, 403);
+  });
+
+  it('Settings: System Emails view and edit are separately grantable (workspace/language settings stay open to everyone)', async () => {
+    const viewerRole = await owner.post('/roles', { name: 'Email Reader', rank: 1, permissions: { settingsView: true } });
+    const { client: emailReader } = await makeUser('Email Reader', viewerRole.body.role.id);
+
+    assert.equal((await emailReader.get('/settings/languages')).status, 200, 'never gated, open to everyone');
+    assert.equal((await emailReader.get('/system-emails')).status, 200);
+    assert.equal((await emailReader.patch('/system-emails/users-invited', { isEnabled: false })).status, 403);
   });
 });

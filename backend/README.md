@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 308 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 314 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -52,27 +52,32 @@ change (seeded that way by migration `022_roles_permissions.sql`), but Super Adm
 create roles like "Ads Manager" or "Content Manager", each with its own permission set, and rename, edit,
 duplicate, archive or delete any non-protected role.
 
-**Permissions are 12 real, enforced booleans** (`usersManage`, `rolesManage`, `postsWrite`, `postsPublish`,
-`socialAccountsManage`, `adsManage`, `campaignsManage`, `reportsView`, `mediaManage`, `templatesManage`,
-`activityLogsManage`, `settingsManage`) — one per real gate in `services/permissions.js`, not a decorative
-"View/Create/Edit/Delete" matrix that doesn't correspond to anything the backend actually checks. Every
-service that used to check `actor.role === 'admin'` now checks a capability flag the `authenticate`
-middleware already joined onto `req.user` from the role table, so a custom role is enforced identically to
-a built-in one everywhere: campaigns, ads, ad creative templates, media, activity logs and settings each got
-their own dedicated flag (they used to piggyback on a coarser check); Posts kept two (`postsWrite`/
-`postsPublish`, already a real distinction); Social Accounts also covers the storage provider and ad-account
-sync (same trust boundary as connecting a platform, unchanged from before).
+**Permissions are ~30 real, individually-enforced booleans, split into View/Create/Edit/Delete wherever
+that's a genuinely distinct backend operation** (see `services/permissions.js` and `roleService.js`'s
+`PERMISSION_KEYS` for the exact, current list) — not a decorative matrix. The first version of this
+rework (below) shipped 12 coarser "manage" flags (one per module); later the same day it was expanded to
+the current per-action split at the user's explicit request, migration `024_granular_permissions.sql`.
+Every service that used to check `actor.role === 'admin'` checks a capability flag the `authenticate`
+middleware joins onto `req.user` from the role table, so a custom role is enforced identically to a
+built-in one everywhere. A module only has a **View** flag if viewing it was already restricted before
+this rework (Users, Activity Logs, System Emails) — Posts/Campaigns/Media/Templates/Social
+Accounts/Roles were always readable by any signed-in user and still are, unchanged; splitting Create/Edit/
+Delete for those didn't touch reading. Two real, independent-of-the-flags subtleties worth knowing:
+Posts' own-draft ownership carve-out (a write-only role can still edit/delete *their own* not-yet-approved
+post) applies on top of, not instead of, the real `postsDelete`/publish flags; and the Ads/Social-Accounts
+split deliberately keeps automated ad-rules and ad-account sync gated by `socialAccountsEdit` (not the Ads
+flags), preserving the higher trust bar Phase 8 of the Ads rework put there on purpose.
 
 **Safety rails, all server-side (never just a hidden button):**
 - Exactly one role (Super Admin) is `isProtected` — nobody, however permissioned, can rename it, edit its
   permissions, or delete it. This is the one hard lock that stops a bad edit from ever permanently locking
   everyone out, alongside the pre-existing "at least one active Super Admin" invariant (now phrased as "at
   least one active user on the protected role").
-- **Cannot grant a permission you do not hold yourself** — the actual anti-escalation guard. `rolesManage`
-  is an ordinary flag (both Super Admin and Admin have it, per spec), so without this check a
-  `rolesManage`-capable custom role could hand itself, or another role, capabilities its own creator never
-  had. Verified with a dedicated test: a custom role with only `rolesManage` can create more roles with
-  `rolesManage`, but is refused (403) the moment it tries to also grant `usersManage`.
+- **Cannot grant a permission you do not hold yourself** — the actual anti-escalation guard. `rolesCreate`/
+  `rolesEdit`/`rolesDelete` are ordinary flags (both Super Admin and Admin have them, per spec), so without
+  this check a roles-capable custom role could hand itself, or another role, capabilities its own creator
+  never had. Verified with a dedicated test: a custom role with only `rolesCreate` can create more roles
+  with `rolesCreate`, but is refused (403) the moment it tries to also grant `usersCreate`.
 - A role still assigned to at least one person cannot be deleted (409, "reassign them first") — a real FK
   (`users.role → roles.id`) backs this, not just an application check.
 - Archiving (`isActive: false`) blocks *new* assignment but never breaks people who already have the role —
@@ -83,18 +88,33 @@ sync (same trust boundary as connecting a platform, unchanged from before).
   definition, since the grant-guard above is what actually prevents escalation, and a strict rank comparison
   would have made the lowest tier permanently unable to create any role at all.
 
-Frontend: the Roles & Permissions tab (`RolesPanel.jsx`) shows the same real 12-capability list, grouped by
-module, each with a one-line honest description of what it actually does — not the old 78-checkbox fake
-matrix. `usersApi`'s role dropdown and filters now fetch the real role list instead of a static 5-item enum;
-a custom role's name is shown as-is (it cannot be translated, since nobody pre-wrote it in 21 languages) —
-only the 5 built-in roles' labels come from the translation catalog.
+Frontend: the Roles & Permissions tab (`RolesPanel.jsx`) shows the real capability list grouped by module
+(Users/Roles/Posts/Social Accounts/Ads/Campaigns/Media/Templates get 3-4 rows each — View where that's a
+real flag, always Create/Edit/Delete; Reports stays one View row), each with a one-line honest description
+of what it actually does — not the old 78-checkbox fake matrix this replaced originally, and not a
+cosmetic re-skin of it either: every checkbox shown is individually enforced. `usersApi`'s role dropdown
+and filters fetch the real role list instead of a static 5-item enum; a custom role's name is shown as-is
+(it cannot be translated, since nobody pre-wrote it in 21 languages) — only the 5 built-in roles' labels
+come from the translation catalog.
 
-13 new backend tests (`test/roles.test.js`): custom role creation (including "Admin, not just Super Admin,
-can do this" — the literal spec ask), the escalation guard, rank bounds, the protected-role lock, duplicate,
-delete blocked while assigned, archive-blocks-new-assignment-only, role assignment at invite time and via
-update, a made-up role id refused as 400 not 404/500, and end-to-end server-side enforcement (a role with
-only `campaignsManage` can create a campaign but is refused connecting a social account). 298 integration
-tests total (was 285).
+**A real router-level bug caught by the new tests, not by inspection**: `DELETE /api/posts/:id` and
+`POST /api/posts/bulk` both had a router-level `requireWriter` (the `postsWrite` flag) gate *in addition
+to* `deletePost()`'s own, more correct `canDeletePost` check — meaning a role granted only the new,
+independent `postsDelete` flag (no `postsWrite`) was wrongly blocked at the router before ever reaching
+the check that would have allowed it. Fixed by removing the redundant router-level gate on those two
+routes and trusting the service-layer check entirely, the same pattern every other module (Campaigns,
+Media, Templates, Ads) already used.
+
+19 backend tests in `test/roles.test.js` (was 13; +6 covering the View/Create/Edit/Delete split
+specifically): custom role creation (including "Admin, not just Super Admin, can do this" — the literal
+spec ask), the escalation guard, rank bounds, the protected-role lock, duplicate, delete blocked while
+assigned, archive-blocks-new-assignment-only, role assignment at invite time and via update, a made-up
+role id refused as 400 not 404/500, end-to-end per-module enforcement, and — new — proof that View/Create/
+Edit/Delete are genuinely independent: a users-view-only role can see the list but not invite/edit/remove
+anyone; a role with only `postsDelete` can delete *any* post while being unable to create or edit one at
+all; a `mediaCreate`-only role cannot delete a file it just uploaded; Activity Logs and Settings each have
+their view/edit (or view/delete) split independently provable too. 314 integration tests total (was 285
+before this whole feature; 298 after the first, coarser version).
 
 ### Two-Factor Authentication (real TOTP)
 

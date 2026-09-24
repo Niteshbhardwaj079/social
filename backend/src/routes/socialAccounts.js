@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, requireAccountManager } from '../middleware/auth.js';
+import { authenticate, requireAccountConnector, requireAccountDeleter, requireAccountEditor } from '../middleware/auth.js';
 import { providerLimiter } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
 import { isPlatform } from '../providers/index.js';
@@ -21,7 +21,7 @@ router.get('/pinterest/boards', async (_req, res) => res.json({ boards: await ge
 
 router.post(
   '/:platform/test',
-  requireAccountManager,
+  requireAccountConnector,
   providerLimiter,
   validate({ params: platformParams, body: z.object({ credentials }) }),
   async (req, res) => res.json(await testCredentials(req.valid.params.platform, req.valid.body.credentials))
@@ -29,7 +29,7 @@ router.post(
 
 router.put(
   '/:platform',
-  requireAccountManager,
+  requireAccountConnector,
   providerLimiter,
   validate({ params: platformParams, body: z.object({ credentials, apiTier: z.enum(['free', 'paid']).default('free') }) }),
   async (req, res) => {
@@ -47,7 +47,7 @@ router.put(
 
 router.post(
   '/:platform/recheck',
-  requireAccountManager,
+  requireAccountEditor,
   providerLimiter,
   validate({ params: platformParams }),
   async (req, res) => res.json({ account: await recheckAccount(req.valid.params.platform, { actor: req.user, ip: req.ip, userAgent: req.get('user-agent') }) })
@@ -55,7 +55,7 @@ router.post(
 
 router.delete(
   '/:platform',
-  requireAccountManager,
+  requireAccountDeleter,
   validate({ params: platformParams }),
   async (req, res) => res.json({ account: await disconnectAccount({ platform: req.valid.params.platform, actor: req.user, ip: req.ip, userAgent: req.get('user-agent') }) })
 );

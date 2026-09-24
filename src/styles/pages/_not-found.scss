@@ -1,0 +1,91 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+.not-found-page {
+  min-height: 100vh;
+  @include m.flex-center;
+  flex-direction: column;
+  padding: v.$space-6;
+  background-color: var(--color-bg);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.not-found-page__glow {
+  position: absolute;
+  top: -18rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60rem;
+  height: 60rem;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--color-primary) 0%, transparent 70%);
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.not-found-page__brand {
+  display: flex;
+  align-items: center;
+  gap: v.$space-2;
+  font-weight: 700;
+  font-size: v.$font-size-lg;
+  margin-bottom: v.$space-9;
+  position: relative;
+}
+
+.not-found-page__code {
+  font-size: 9.6rem;
+  font-weight: 800;
+  line-height: 1;
+  background: linear-gradient(160deg, var(--color-primary) 0%, #312e81 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  position: relative;
+
+  @include m.respond-down(v.$breakpoint-sm) {
+    font-size: 6.4rem;
+  }
+}
+
+.not-found-page__icon {
+  @include m.flex-center;
+  width: 5.6rem;
+  height: 5.6rem;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  margin: v.$space-5 auto v.$space-4;
+  position: relative;
+}
+
+.not-found-page__title {
+  font-size: v.$font-size-2xl;
+  font-weight: 700;
+  margin-bottom: v.$space-3;
+  position: relative;
+}
+
+.not-found-page__description {
+  color: var(--color-text-muted);
+  max-width: 40rem;
+  margin: 0 auto v.$space-7;
+  position: relative;
+}
+
+.not-found-page__actions {
+  display: flex;
+  gap: v.$space-3;
+  justify-content: center;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.not-found-page__footer {
+  margin-top: v.$space-9;
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+  position: relative;
+}

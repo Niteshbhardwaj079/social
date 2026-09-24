@@ -21,6 +21,7 @@ import { effectiveLanguage, getLanguageSettings, saveWorkspace } from './setting
 import { dispatchEmail } from './systemEmailService.js';
 import { recordActivity } from './auditService.js';
 import { toApiUser } from './userService.js';
+import { loadActor } from '../middleware/auth.js';
 import { badRequest, forbidden, notFound, tooManyRequests, unauthorized } from '../utils/httpError.js';
 import { describeDevice } from '../utils/device.js';
 import { hashToken } from '../utils/security.js';
@@ -32,12 +33,11 @@ const RESET_TTL_MS = 60 * 60 * 1000;
 const PUBLIC_COLUMNS = 'id, name, email, role, status, language, avatar_url, last_active_at, created_at';
 const INVALID_LOGIN = 'Invalid email or password';
 
+// Loads with the role join (rank/isProtected/permissions) so the session response's `user` carries
+// real capabilities immediately — the frontend needs these to decide which buttons to show.
 async function startSession(userId, meta) {
-  const [refreshToken, row] = await Promise.all([
-    createRefreshToken(userId, meta),
-    query(`SELECT ${PUBLIC_COLUMNS} FROM users WHERE id = $1`, [userId]),
-  ]);
-  return { user: toApiUser(row.rows[0]), accessToken: signAccessToken(userId), refreshToken };
+  const [refreshToken, actor] = await Promise.all([createRefreshToken(userId, meta), loadActor(userId)]);
+  return { user: toApiUser(actor), accessToken: signAccessToken(userId), refreshToken };
 }
 
 /** What the sign-in screens need before anyone is signed in. */
@@ -253,7 +253,9 @@ export async function updateProfile(actor, { name, language, avatarUrl }) {
     `UPDATE users SET name = $2, language = $3, avatar_url = $4, updated_at = now() WHERE id = $1 RETURNING ${PUBLIC_COLUMNS}`,
     [actor.id, name ?? actor.name, nextLanguage, avatarUrl === undefined ? (actor.avatar_url ?? null) : avatarUrl]
   );
-  return toApiUser(result.rows[0]);
+  // Role/permissions never change here — carry them over from the already-loaded actor rather than
+  // re-querying, so the frontend's `currentUser` (which this response wholesale-replaces) never loses them.
+  return toApiUser({ ...result.rows[0], permissions: actor.permissions, roleRank: actor.roleRank, roleIsProtected: actor.roleIsProtected });
 }
 
 /** Real, currently-signed-in devices (Settings → Security). `currentRawToken` marks which one is "this device". */

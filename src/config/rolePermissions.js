@@ -1,20 +1,25 @@
 // Every one of these keys is read by a real permission check on the backend (see
-// backend/src/services/permissions.js) — this list intentionally does NOT try to cover every
-// screen in the app at a "View/Create/Edit/Delete" granularity the backend doesn't actually
-// enforce; each row here gates something real.
+// backend/src/services/permissions.js) — split into View/Create/Edit/Delete wherever that's a
+// genuinely distinct backend operation. Where viewing was never restricted (Posts, Campaigns,
+// Media, Templates, Social Accounts, Roles), there's no View row at all — it stays open to any
+// signed-in user, same as always; only modules that were already view-gated (Users, Activity
+// Logs, Settings) have a real View toggle. Nothing here is decorative.
 export const ROLE_PERMISSION_GROUPS = [
   {
     module: 'Users',
-    rows: [{ key: 'usersManage', label: 'Manage users', description: 'Invite, edit and remove people; change their role.' }],
+    rows: [
+      { key: 'usersView', label: 'View', description: 'See the list of people in the workspace.' },
+      { key: 'usersCreate', label: 'Create', description: 'Invite new people.' },
+      { key: 'usersEdit', label: 'Edit', description: "Change someone's name, role, language or status." },
+      { key: 'usersDelete', label: 'Delete', description: 'Remove someone from the workspace.' },
+    ],
   },
   {
     module: 'Roles',
     rows: [
-      {
-        key: 'rolesManage',
-        label: 'Manage roles',
-        description: 'Create, edit and delete custom roles. Always locked for the Super Admin role itself.',
-      },
+      { key: 'rolesCreate', label: 'Create', description: 'Create a new custom role, or duplicate one.' },
+      { key: 'rolesEdit', label: 'Edit', description: "Rename a role or change what it can do. Always locked for Super Admin." },
+      { key: 'rolesDelete', label: 'Delete', description: 'Delete a custom role. Always locked for Super Admin.' },
     ],
   },
   {
@@ -22,25 +27,32 @@ export const ROLE_PERMISSION_GROUPS = [
     rows: [
       { key: 'postsWrite', label: 'Write', description: 'Create and edit drafts; submit for approval.' },
       { key: 'postsPublish', label: 'Publish', description: 'Approve, reject, retry and publish any post.' },
+      { key: 'postsDelete', label: 'Delete', description: 'Delete any post outright, not just your own draft.' },
     ],
   },
   {
     module: 'Social Accounts',
     rows: [
-      {
-        key: 'socialAccountsManage',
-        label: 'Manage',
-        description: 'Connect and disconnect social accounts and the storage provider; sync ad accounts.',
-      },
+      { key: 'socialAccountsConnect', label: 'Connect', description: 'Connect a social account or storage provider, or test credentials.' },
+      { key: 'socialAccountsEdit', label: 'Edit', description: 'Re-check/sync an already-connected account; manage automated ad rules.' },
+      { key: 'socialAccountsDelete', label: 'Delete', description: 'Disconnect a social account or the storage provider.' },
     ],
   },
   {
     module: 'Ads',
-    rows: [{ key: 'adsManage', label: 'Manage', description: 'Create, launch, pause and delete ads; manage automated rules.' }],
+    rows: [
+      { key: 'adsCreate', label: 'Create', description: 'Launch a new ad or ad variation.' },
+      { key: 'adsEdit', label: 'Edit', description: 'Pause or resume a launched ad.' },
+      { key: 'adsDelete', label: 'Delete', description: 'Delete an ad.' },
+    ],
   },
   {
     module: 'Campaigns',
-    rows: [{ key: 'campaignsManage', label: 'Manage', description: 'Create, edit and delete campaigns.' }],
+    rows: [
+      { key: 'campaignsCreate', label: 'Create', description: 'Create a new campaign.' },
+      { key: 'campaignsEdit', label: 'Edit', description: "Change a campaign's details or status." },
+      { key: 'campaignsDelete', label: 'Delete', description: 'Delete a campaign.' },
+    ],
   },
   {
     module: 'Reports',
@@ -48,19 +60,33 @@ export const ROLE_PERMISSION_GROUPS = [
   },
   {
     module: 'Media',
-    rows: [{ key: 'mediaManage', label: 'Manage', description: 'Upload, replace and delete media library files.' }],
+    rows: [
+      { key: 'mediaCreate', label: 'Create', description: 'Upload a new file or add one by link.' },
+      { key: 'mediaEdit', label: 'Edit', description: 'Replace or re-crop an existing file.' },
+      { key: 'mediaDelete', label: 'Delete', description: 'Delete a file from the Media Library.' },
+    ],
   },
   {
     module: 'Templates',
-    rows: [{ key: 'templatesManage', label: 'Manage', description: 'Save, edit and delete ad creative templates.' }],
+    rows: [
+      { key: 'templatesCreate', label: 'Create', description: 'Save a new ad creative template.' },
+      { key: 'templatesEdit', label: 'Edit', description: 'Edit a saved template.' },
+      { key: 'templatesDelete', label: 'Delete', description: 'Delete a saved template.' },
+    ],
   },
   {
     module: 'Activity Logs',
-    rows: [{ key: 'activityLogsManage', label: 'Manage', description: 'View and delete activity log entries.' }],
+    rows: [
+      { key: 'activityLogsView', label: 'View', description: 'View the activity log.' },
+      { key: 'activityLogsDelete', label: 'Delete', description: 'Delete activity log entries.' },
+    ],
   },
   {
     module: 'Settings',
-    rows: [{ key: 'settingsManage', label: 'Manage', description: 'Workspace settings and system email templates.' }],
+    rows: [
+      { key: 'settingsView', label: 'View', description: 'View workspace, language and system email settings.' },
+      { key: 'settingsEdit', label: 'Edit', description: 'Change workspace, language and system email settings.' },
+    ],
   },
 ];
 

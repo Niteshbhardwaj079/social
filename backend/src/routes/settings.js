@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, requireSettingsManager } from '../middleware/auth.js';
+import { authenticate, requireSettingsEditor } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { LANGUAGES, isValidLanguage } from '../emails/builder.js';
 import { getLanguageSettings, getWorkspace, saveLanguageSettings, saveWorkspace } from '../services/settingsService.js';
@@ -12,13 +12,16 @@ router.use(authenticate);
 const languageCode = z.string().refine(isValidLanguage, 'Unknown language');
 
 // ---------------------------------------------------------------- languages
+// Deliberately open to anyone signed in (not gated by settingsView) — unlike System Emails below,
+// this was never restricted even before the granular rework, and workspace/language basics aren't
+// sensitive the way email template content is.
 router.get('/languages', async (_req, res) => {
   res.json({ ...(await getLanguageSettings()), languages: LANGUAGES });
 });
 
 router.put(
   '/languages',
-  requireSettingsManager,
+  requireSettingsEditor,
   validate({
     body: z
       .object({ enabledLanguages: z.array(languageCode).min(1, 'Keep at least one language on'), defaultLanguage: languageCode })
@@ -49,7 +52,7 @@ router.get('/workspace', async (_req, res) => res.json(await getWorkspace()));
 
 router.put(
   '/workspace',
-  requireSettingsManager,
+  requireSettingsEditor,
   validate({
     body: z
       .object({

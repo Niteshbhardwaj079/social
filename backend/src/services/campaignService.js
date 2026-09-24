@@ -1,6 +1,6 @@
 import { query } from '../db/pool.js';
 import { forbidden, notFound } from '../utils/httpError.js';
-import { canManageCampaigns } from './permissions.js';
+import { canCreateCampaigns, canDeleteCampaigns, canEditCampaigns } from './permissions.js';
 import { recordActivity } from './auditService.js';
 
 const CAMPAIGN_SELECT = 'SELECT c.*, u.name AS creator_name FROM campaigns c LEFT JOIN users u ON u.id = c.created_by';
@@ -71,7 +71,7 @@ export async function getCampaign(id) {
 }
 
 export async function createCampaign({ actor, input, ip, userAgent }) {
-  if (!canManageCampaigns(actor)) throw forbidden('Your role cannot create campaigns.');
+  if (!canCreateCampaigns(actor)) throw forbidden('Your role cannot create campaigns.');
   const row = (
     await query(
       `INSERT INTO campaigns (name, description, objective, status, platforms, start_date, end_date, created_by)
@@ -84,7 +84,7 @@ export async function createCampaign({ actor, input, ip, userAgent }) {
 }
 
 export async function updateCampaign({ id, actor, input, ip, userAgent }) {
-  if (!canManageCampaigns(actor)) throw forbidden('Your role cannot change campaigns.');
+  if (!canEditCampaigns(actor)) throw forbidden('Your role cannot change campaigns.');
   const existing = await getRow(id);
   if (!existing) throw notFound('Campaign not found');
   const row = (
@@ -110,7 +110,7 @@ export async function updateCampaign({ id, actor, input, ip, userAgent }) {
 }
 
 export async function deleteCampaign({ id, actor, ip, userAgent }) {
-  if (!canManageCampaigns(actor)) throw forbidden('Your role cannot delete campaigns.');
+  if (!canDeleteCampaigns(actor)) throw forbidden('Your role cannot delete campaigns.');
   const existing = await getRow(id);
   if (!existing) throw notFound('Campaign not found');
   await query('DELETE FROM campaigns WHERE id = $1', [id]);

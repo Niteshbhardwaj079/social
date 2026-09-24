@@ -12,34 +12,64 @@ export async function resetDatabase() {
   );
   // `roles` is seed/config data, like storage_settings below — a test may create custom roles or
   // edit the 5 built-in ones, so remove anything extra and put the built-in 5 back exactly as
-  // migration 022 seeded them (keep this block's values in sync with that migration).
+  // migration 024 seeded them (keep this block's values in sync with that migration).
   await query("DELETE FROM roles WHERE id NOT IN ('superAdmin', 'admin', 'editor', 'contributor', 'analyst')");
-  await query(`
-    INSERT INTO roles (
-      id, name, description, icon, accent, rank, is_protected,
-      users_manage, roles_manage, posts_write, posts_publish, social_accounts_manage,
-      ads_manage, campaigns_manage, reports_view, media_manage, templates_manage,
-      activity_logs_manage, settings_manage
-    ) VALUES
-      ('superAdmin', 'Super Admin', 'Full access to every module. Cannot be renamed, edited or deleted.', 'ShieldCheck', 'rose', 4, true,
-       true, true, true, true, true, true, true, true, true, true, true, true),
-      ('admin', 'Admin', 'Manage users, content and settings.', 'Settings2', 'purple', 3, false,
-       true, true, true, true, true, true, true, true, true, true, true, true),
-      ('editor', 'Editor', 'Create, edit and publish content across all connected accounts.', 'PenSquare', 'blue', 2, false,
-       false, false, true, true, false, true, true, true, true, true, false, false),
-      ('contributor', 'Contributor', 'Draft and submit content for approval; cannot publish directly.', 'Users', 'teal', 1, false,
-       false, false, true, false, false, false, false, true, true, false, false, false),
-      ('analyst', 'Analyst', 'Read-only access to analytics and reporting.', 'BarChart3', 'slate', 1, false,
-       false, false, false, false, false, false, false, true, false, false, false, false)
-    ON CONFLICT (id) DO UPDATE SET
-      name = excluded.name, description = excluded.description, icon = excluded.icon, accent = excluded.accent,
-      rank = excluded.rank, is_protected = excluded.is_protected, users_manage = excluded.users_manage,
-      roles_manage = excluded.roles_manage, posts_write = excluded.posts_write, posts_publish = excluded.posts_publish,
-      social_accounts_manage = excluded.social_accounts_manage, ads_manage = excluded.ads_manage,
-      campaigns_manage = excluded.campaigns_manage, reports_view = excluded.reports_view,
-      media_manage = excluded.media_manage, templates_manage = excluded.templates_manage,
-      activity_logs_manage = excluded.activity_logs_manage, settings_manage = excluded.settings_manage
-  `);
+  const ROLE_COLUMNS =
+    'id, name, description, icon, accent, rank, is_protected, ' +
+    'users_view, users_create, users_edit, users_delete, roles_create, roles_edit, roles_delete, ' +
+    'posts_write, posts_publish, posts_delete, ' +
+    'social_accounts_connect, social_accounts_edit, social_accounts_delete, ' +
+    'ads_create, ads_edit, ads_delete, campaigns_create, campaigns_edit, campaigns_delete, reports_view, ' +
+    'media_create, media_edit, media_delete, templates_create, templates_edit, templates_delete, ' +
+    'activity_logs_view, activity_logs_delete, settings_view, settings_edit';
+  const T = true;
+  const F = false;
+  const ROLE_SEEDS = [
+    // id, name, description, icon, accent, rank, is_protected, then the 30 permission flags in ROLE_COLUMNS order.
+    ['superAdmin', 'Super Admin', 'Full access to every module. Cannot be renamed, edited or deleted.', 'ShieldCheck', 'rose', 4, T, ...Array(30).fill(T)],
+    ['admin', 'Admin', 'Manage users, content and settings.', 'Settings2', 'purple', 3, F, ...Array(30).fill(T)],
+    [
+      'editor', 'Editor', 'Create, edit and publish content across all connected accounts.', 'PenSquare', 'blue', 2, F,
+      F, F, F, F, F, F, F, // users, roles
+      T, T, T, // posts write/publish/delete
+      F, F, F, // social accounts
+      T, T, T, T, T, T, // ads, campaigns
+      T, // reportsView
+      T, T, T, T, T, T, // media, templates
+      F, F, F, F, // activity logs, settings
+    ],
+    [
+      'contributor', 'Contributor', 'Draft and submit content for approval; cannot publish directly.', 'Users', 'teal', 1, F,
+      F, F, F, F, F, F, F,
+      T, F, F, // posts: write only, not publish/delete (still deletes own via the ownership carve-out)
+      F, F, F,
+      F, F, F, F, F, F,
+      T,
+      T, T, T, F, F, F, // media yes, templates no
+      F, F, F, F,
+    ],
+    [
+      'analyst', 'Analyst', 'Read-only access to analytics and reporting.', 'BarChart3', 'slate', 1, F,
+      F, F, F, F, F, F, F,
+      F, F, F,
+      F, F, F,
+      F, F, F, F, F, F,
+      T,
+      F, F, F, F, F, F,
+      F, F, F, F,
+    ],
+  ];
+  const placeholders = (row, offset) => row.map((_, i) => `$${offset + i + 1}`).join(', ');
+  for (const row of ROLE_SEEDS) {
+    await query(
+      `INSERT INTO roles (${ROLE_COLUMNS}) VALUES (${placeholders(row, 0)})
+       ON CONFLICT (id) DO UPDATE SET ${ROLE_COLUMNS.split(', ')
+         .slice(1)
+         .map((column) => `${column} = excluded.${column}`)
+         .join(', ')}`,
+      row
+    );
+  }
   // storage_settings always has exactly one row (id=true); TRUNCATE would remove it, so reset it in place instead.
   await query(
     `UPDATE storage_settings SET server_enabled = true, external_enabled = false, limit_value = NULL, limit_unit = 'GB',

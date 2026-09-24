@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, requireUserManager } from '../middleware/auth.js';
+import { authenticate, requireUsersViewer } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { isValidLanguage } from '../emails/builder.js';
 import * as users from '../services/userService.js';
 
 const router = Router();
-router.use(authenticate, requireUserManager);
+router.use(authenticate);
 
 const email = z.string().trim().toLowerCase().email('Enter a valid email address').max(254);
 const name = z.string().trim().min(1, 'Name is required').max(120);
@@ -18,6 +18,7 @@ const idParam = z.object({ id: z.string().uuid() });
 
 router.get(
   '/',
+  requireUsersViewer,
   validate({
     query: z.object({
       search: z.string().trim().max(120).optional(),

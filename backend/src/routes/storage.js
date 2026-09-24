@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, requireStorageManager } from '../middleware/auth.js';
+import { authenticate, requireAccountConnector, requireAccountDeleter, requireAccountEditor } from '../middleware/auth.js';
 import { providerLimiter } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
 import { isStorageProvider, STORAGE_LIMIT_UNITS } from '../storage/providers.js';
@@ -18,7 +18,7 @@ router.get('/', async (_req, res) => res.json(await storageService.getSettings()
 
 router.post(
   '/providers/:providerKey/test',
-  requireStorageManager,
+  requireAccountConnector,
   providerLimiter,
   validate({ params: providerParams, body: z.object({ values, kind: z.enum(['connection', 'upload']).default('connection') }) }),
   async (req, res) => res.json(await storageService.testProvider(req.valid.params.providerKey, req.valid.body.values, req.valid.body.kind))
@@ -26,18 +26,18 @@ router.post(
 
 router.put(
   '/providers/:providerKey',
-  requireStorageManager,
+  requireAccountConnector,
   providerLimiter,
   validate({ params: providerParams, body: z.object({ values }) }),
   async (req, res) =>
     res.json(await storageService.saveProvider({ providerKey: req.valid.params.providerKey, input: req.valid.body.values, actor: req.user, ip: req.ip, userAgent: req.get('user-agent') }))
 );
 
-router.delete('/provider', requireStorageManager, async (req, res) => res.json(await storageService.disconnectProvider({ actor: req.user, ip: req.ip, userAgent: req.get('user-agent') })));
+router.delete('/provider', requireAccountDeleter, async (req, res) => res.json(await storageService.disconnectProvider({ actor: req.user, ip: req.ip, userAgent: req.get('user-agent') })));
 
 router.put(
   '/preferences',
-  requireStorageManager,
+  requireAccountEditor,
   validate({
     body: z.object({
       serverEnabled: z.boolean(),
