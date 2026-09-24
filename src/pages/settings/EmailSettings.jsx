@@ -6,17 +6,28 @@ import TextField from '../../components/forms/TextField';
 import PasswordField from '../../components/forms/PasswordField';
 import { SkeletonKpiRow } from '../../components/common/LoadingSkeleton';
 import { getEmailSettings, saveEmailSettings, disconnectEmailSettings, testEmailSettings, sendTestEmail } from '../../services/api/emailSettingsApi';
+import { EMAIL_PROVIDERS, getEmailProvider, providerKeyForHost } from '../../config/emailProviders';
 import { REQUEST_STATUS } from '../../config/constants';
 import { formatDate } from '../../utils/formatters';
 import { useToast } from '../../components/common/ToastProvider';
 import { useSelector } from 'react-redux';
 
 const TEST = { IDLE: 'idle', RUNNING: 'running', OK: 'ok', FAILED: 'failed' };
+const DEFAULT_PROVIDER_KEY = EMAIL_PROVIDERS[0].key;
 
 const EMPTY_FORM = { host: '', port: 587, secure: false, username: '', password: '', fromEmail: '', fromName: '' };
 
-function formFromSaved(saved) {
-  return { host: saved.host, port: saved.port, secure: saved.secure, username: saved.username, password: '', fromEmail: saved.fromEmail, fromName: saved.fromName };
+function formFromSaved(saved, providerKey) {
+  const provider = getEmailProvider(providerKey);
+  return {
+    host: providerKey === 'custom' ? saved.host : provider.host,
+    port: providerKey === 'custom' ? saved.port : provider.port,
+    secure: providerKey === 'custom' ? saved.secure : provider.secure,
+    username: saved.username,
+    password: '',
+    fromEmail: saved.fromEmail,
+    fromName: saved.fromName,
+  };
 }
 
 function EmailSettings() {
@@ -25,6 +36,7 @@ function EmailSettings() {
 
   const [requestStatus, setRequestStatus] = useState(REQUEST_STATUS.LOADING);
   const [saved, setSaved] = useState(null);
+  const [providerKey, setProviderKey] = useState(DEFAULT_PROVIDER_KEY);
   const [form, setForm] = useState(EMPTY_FORM);
   const [testState, setTestState] = useState({ status: TEST.IDLE, message: '' });
   const [isSaving, setIsSaving] = useState(false);
@@ -35,7 +47,9 @@ function EmailSettings() {
 
   function applySettings(settings) {
     setSaved(settings);
-    setForm(formFromSaved(settings));
+    const activeKey = settings.configured ? providerKeyForHost(settings.host) : DEFAULT_PROVIDER_KEY;
+    setProviderKey(activeKey);
+    setForm(formFromSaved(settings, activeKey));
     setRecipient((current) => current || currentUserEmail);
   }
 
@@ -57,11 +71,26 @@ function EmailSettings() {
   if (requestStatus === REQUEST_STATUS.LOADING) return <SkeletonKpiRow count={1} />;
   if (requestStatus === REQUEST_STATUS.FAILED) return <ErrorState onRetry={load} />;
 
+  const provider = getEmailProvider(providerKey);
+  const isConnectedToThis = saved.configured && providerKeyForHost(saved.host) === providerKey;
+  const isCustom = providerKey === 'custom';
+
   const isRunning = testState.status === TEST.RUNNING;
   const isSending = sendState.status === TEST.RUNNING;
 
   function handleFieldChange(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
+    setTestState({ status: TEST.IDLE, message: '' });
+  }
+
+  function handleProviderChange(nextKey) {
+    setProviderKey(nextKey);
+    // Switching TO a known provider overwrites host/port/secure with its fixed values; switching
+    // to Custom just leaves whatever was there as an editable starting point.
+    if (nextKey !== 'custom') {
+      const nextProvider = getEmailProvider(nextKey);
+      setForm((current) => ({ ...current, host: nextProvider.host, port: nextProvider.port, secure: nextProvider.secure }));
+    }
     setTestState({ status: TEST.IDLE, message: '' });
   }
 
@@ -164,7 +193,45 @@ function EmailSettings() {
 
         <h4 className="h6 mt-4 mb-3">{saved.configured ? 'Change email settings' : 'Connect your email'}</h4>
 
-        <div className="connect-form__grid">
+        <div className="mb-4">
+          <label htmlFor="email-provider" className="form-label-custom">
+            Email provider
+          </label>
+          <select id="email-provider" className="form-select" value={providerKey} onChange={(event) => handleProviderChange(event.target.value)}>
+            {EMAIL_PROVIDERS.map((item) => (
+              <option key={item.key} value={item.key}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+          <div className="form-hint">{provider.summary}</div>
+        </div>
+
+        {provider.caution ? (
+          <div className="callout-banner callout-banner--warning">
+            <Icon name="AlertTriangle" size={16} />
+            <span>{provider.caution}</span>
+          </div>
+        ) : null}
+
+        {provider.steps ? (
+          <details className="storage-guide" open={!isConnectedToThis}>
+            <summary>How to get these details</summary>
+            <ol className="connect-guide__steps">
+              {provider.steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+            {provider.providerUrl ? (
+              <a href={provider.providerUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline-primary-custom mb-3">
+                <Icon name="ExternalLink" size={16} />
+                {provider.providerLabel}
+              </a>
+            ) : null}
+          </details>
+        ) : null}
+
+        <div className="connect-form__grid mt-4">
           <TextField
             id="email-host"
             label={<>Host<span className="text-danger"> *</span></>}
@@ -173,6 +240,8 @@ function EmailSettings() {
             placeholder="smtp.gmail.com"
             autoComplete="off"
             spellCheck={false}
+            disabled={!isCustom}
+            hint={!isCustom ? 'Fixed for this provider — choose "Custom SMTP server" above to set your own.' : undefined}
           />
           <TextField
             id="email-port"
@@ -181,6 +250,7 @@ function EmailSettings() {
             value={form.port}
             onChange={(event) => handleFieldChange('port', event.target.value)}
             placeholder="587"
+            disabled={!isCustom}
           />
           <TextField
             id="email-username"
@@ -202,7 +272,9 @@ function EmailSettings() {
             hint={
               saved.configured
                 ? 'Stored encrypted. Never shown again once saved — leave this blank to keep the current one.'
-                : 'For Gmail, use a 16-character App Password, not your regular password.'
+                : isCustom
+                  ? 'Your SMTP account’s password or API key.'
+                  : 'See "How to get these details" above — most providers need an app password here, not your regular one.'
             }
           />
           <TextField
@@ -230,6 +302,7 @@ function EmailSettings() {
                 role="switch"
                 id="email-secure"
                 checked={form.secure}
+                disabled={!isCustom}
                 onChange={(event) => handleFieldChange('secure', event.target.checked)}
               />
               <label htmlFor="email-secure" className="form-check-label">
