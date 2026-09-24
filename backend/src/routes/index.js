@@ -10,6 +10,7 @@ import authRoutes from './auth.js';
 import userRoutes from './users.js';
 import roleRoutes from './roles.js';
 import settingsRoutes from './settings.js';
+import emailSettingsRoutes from './emailSettings.js';
 import systemEmailRoutes from './systemEmails.js';
 import socialAccountRoutes from './socialAccounts.js';
 import postRoutes from './posts.js';
@@ -30,7 +31,7 @@ const router = Router();
 router.get('/health', async (_req, res) => {
   try {
     await query('SELECT 1');
-    res.json({ status: 'ok', database: 'up', mail: mailMode() });
+    res.json({ status: 'ok', database: 'up', mail: await mailMode() });
   } catch {
     res.status(503).json({ status: 'degraded', database: 'down' });
   }
@@ -43,6 +44,7 @@ router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/roles', roleRoutes);
 router.use('/settings', settingsRoutes);
+router.use('/email-settings', emailSettingsRoutes);
 router.use('/system-emails', systemEmailRoutes);
 router.use('/social-accounts', socialAccountRoutes);
 router.use('/posts', postRoutes);

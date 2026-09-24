@@ -52,6 +52,7 @@ const NotificationSettings = lazy(() => import('../pages/settings/NotificationSe
 const AppearanceSettings = lazy(() => import('../pages/settings/AppearanceSettings'));
 const SecuritySettings = lazy(() => import('../pages/settings/SecuritySettings'));
 const StorageSettings = lazy(() => import('../pages/settings/StorageSettings'));
+const EmailSettings = lazy(() => import('../pages/settings/EmailSettings'));
 const IntegrationSettings = lazy(() => import('../pages/settings/IntegrationSettings'));
 const LanguageSettings = lazy(() => import('../pages/settings/LanguageSettings'));
 
@@ -118,6 +119,7 @@ function AppRoutes() {
               <Route path="appearance" element={<AppearanceSettings />} />
               <Route path="security" element={<SecuritySettings />} />
               <Route path="storage" element={<StorageSettings />} />
+              <Route path="email" element={<EmailSettings />} />
               <Route path="integrations" element={<IntegrationSettings />} />
               <Route path="language" element={<LanguageSettings />} />
             </Route>

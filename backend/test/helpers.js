@@ -2,6 +2,7 @@ import { createApp } from '../src/app.js';
 import { prepareDatabase } from '../src/bootstrap.js';
 import { pool, query } from '../src/db/pool.js';
 import { ensureEmailRows } from '../src/services/systemEmailService.js';
+import { invalidateTransportCache } from '../src/services/emailSettingsService.js';
 
 export const PASSWORD = 'Sup3r-secret-pass';
 
@@ -70,12 +71,18 @@ export async function resetDatabase() {
       row
     );
   }
-  // storage_settings always has exactly one row (id=true); TRUNCATE would remove it, so reset it in place instead.
+  // storage_settings and email_settings always have exactly one row (id=true); TRUNCATE would
+  // remove it, so reset them in place instead.
   await query(
     `UPDATE storage_settings SET server_enabled = true, external_enabled = false, limit_value = NULL, limit_unit = 'GB',
         provider_key = NULL, provider_values = '{}', secret_hints = '{}', credentials = NULL,
         connected_at = NULL, last_tested_at = NULL, last_test_message = NULL WHERE id = true`
   );
+  await query(
+    `UPDATE email_settings SET host = NULL, port = NULL, secure = false, username = NULL, from_email = NULL, from_name = NULL,
+        credentials = NULL, secret_hint = NULL, connected_at = NULL, last_tested_at = NULL, last_test_message = NULL WHERE id = true`
+  );
+  invalidateTransportCache();
   await ensureEmailRows();
 }
 

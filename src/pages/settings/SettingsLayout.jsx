@@ -10,6 +10,7 @@ const SETTINGS_TABS = [
   { path: '/settings/appearance', labelKey: 'settings.tabs.appearance', icon: 'Palette' },
   { path: '/settings/security', labelKey: 'settings.tabs.security', icon: 'Lock' },
   { path: '/settings/storage', labelKey: 'settings.tabs.storage', icon: 'HardDrive' },
+  { path: '/settings/email', labelKey: 'settings.tabs.email', icon: 'Mail' },
   { path: '/settings/integrations', labelKey: 'settings.tabs.integrations', icon: 'Plug' },
   { path: '/settings/language', labelKey: 'settings.tabs.language', icon: 'Languages' },
 ];

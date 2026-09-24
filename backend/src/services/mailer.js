@@ -1,12 +1,12 @@
-import nodemailer from 'nodemailer';
-import { config } from '../config/env.js';
 import { query } from '../db/pool.js';
 import { logger } from '../utils/logger.js';
+import { resolveTransport } from './emailSettingsService.js';
 
 /**
- * Sends email through ANY SMTP server you configure (SMTP_HOST, SMTP_USER...), so there is no
- * dependency on a paid mail API and clients bring their own mailbox or provider. Without SMTP
- * settings the app still works: messages are recorded in email_outbox as "logged".
+ * Sends email through ANY SMTP server the client configures — either in-app under
+ * Settings → Email (preferred, see emailSettingsService.js) or via SMTP_HOST/SMTP_USER... env
+ * vars as a fallback — so there is no dependency on a paid mail API. Without either, the app
+ * still works: messages are recorded in email_outbox as "logged".
  *
  * Every message is written to email_outbox first. If sending fails it is retried a few times
  * in the background, so a mail-server hiccup never loses an email or breaks a request.
@@ -14,19 +14,7 @@ import { logger } from '../utils/logger.js';
 const MAX_ATTEMPTS = 5;
 const WORKER_INTERVAL_MS = 60_000;
 
-const transport = config.smtp
-  ? nodemailer.createTransport({
-      host: config.smtp.host,
-      port: config.smtp.port,
-      secure: config.smtp.secure,
-      auth: config.smtp.user ? { user: config.smtp.user, pass: config.smtp.pass } : undefined,
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 20_000,
-    })
-  : null;
-
-export const mailMode = () => (transport ? 'smtp' : 'log');
+export const mailMode = async () => ((await resolveTransport()) ? 'smtp' : 'log');
 
 /** Stores a message for sending and returns its id. */
 export async function queueEmail({ toEmail, toName = null, language, eventKey, subject, html }) {
@@ -47,15 +35,16 @@ export async function deliver(id) {
   const message = claimed.rows[0];
   if (!message) return { status: 'skipped', error: null };
 
-  if (!transport) {
+  const resolved = await resolveTransport();
+  if (!resolved) {
     await query("UPDATE email_outbox SET status = 'logged', error = NULL WHERE id = $1", [id]);
-    logger.info('Email recorded (SMTP is not configured, nothing was sent)', { to: message.to_email, subject: message.subject });
+    logger.info('Email recorded (no SMTP configured, nothing was sent)', { to: message.to_email, subject: message.subject });
     return { status: 'logged', error: null };
   }
 
   try {
-    await transport.sendMail({
-      from: config.mailFrom,
+    await resolved.transport.sendMail({
+      from: resolved.mailFrom,
       to: message.to_name ? { name: message.to_name.replace(/["<>\r\n]/g, ''), address: message.to_email } : message.to_email,
       subject: message.subject,
       html: message.html,

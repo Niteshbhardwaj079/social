@@ -204,6 +204,7 @@ export default {
       appearance: 'Appearance',
       security: 'Security',
       storage: 'Storage',
+      email: 'Email',
       integrations: 'Integrations',
       language: 'Language',
     },
