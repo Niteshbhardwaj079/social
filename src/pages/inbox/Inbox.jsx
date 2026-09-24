@@ -6,7 +6,7 @@ import CustomerInfoPanel from '../../components/inbox/CustomerInfoPanel';
 import EmptyState from '../../components/common/EmptyState';
 import ErrorState from '../../components/common/ErrorState';
 import Icon from '../../components/common/Icon';
-import { getConversations, sendReply, updateConversationStatus, assignConversation, markConversationRead } from '../../services/api/inboxApi';
+import { getConversations, updateConversationStatus, assignConversation, markConversationRead } from '../../services/api/inboxApi';
 import { REQUEST_STATUS } from '../../config/constants';
 import useMediaQuery from '../../hooks/useMediaQuery';
 import { useI18n } from '../../i18n/useI18n';
@@ -51,18 +51,6 @@ function Inbox() {
     );
     if (wasUnread) markConversationRead(conversationId).catch(() => {});
     setIsMobileDetailOpen(true);
-  }
-
-  function handleSendReply(text) {
-    sendReply(activeConversationId, text).then((message) => {
-      setConversations((current) =>
-        current.map((conversation) =>
-          conversation.id === activeConversationId
-            ? { ...conversation, messages: [...conversation.messages, message], lastMessage: text, lastMessageAt: message.time }
-            : conversation
-        )
-      );
-    });
   }
 
   function handleAssign(assignee) {
@@ -149,7 +137,6 @@ function Inbox() {
           <div className="inbox-shell__thread">
             <ConversationThread
               conversation={activeConversation}
-              onSendReply={handleSendReply}
               onBack={() => setIsMobileDetailOpen(false)}
               showBackButton={isMobile}
             />
