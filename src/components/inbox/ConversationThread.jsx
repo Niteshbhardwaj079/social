@@ -1,8 +1,18 @@
+import { useState } from 'react';
 import Icon from '../common/Icon';
 import Avatar from '../common/Avatar';
 import { formatDateTime } from '../../utils/formatters';
 
-function ConversationThread({ conversation, onBack, showBackButton }) {
+function ConversationThread({ conversation, onSendReply, onBack, showBackButton }) {
+  const [replyText, setReplyText] = useState('');
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    if (!replyText.trim()) return;
+    onSendReply(replyText.trim());
+    setReplyText('');
+  }
+
   return (
     <div className="conversation-thread">
       <div className="conversation-thread__header">
@@ -26,6 +36,19 @@ function ConversationThread({ conversation, onBack, showBackButton }) {
           </div>
         ))}
       </div>
+
+      <form className="conversation-thread__composer" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Type a reply..."
+          value={replyText}
+          onChange={(event) => setReplyText(event.target.value)}
+        />
+        <button type="submit" className="btn btn-icon btn-primary" aria-label="Send reply">
+          <Icon name="Send" size={18} />
+        </button>
+      </form>
     </div>
   );
 }
