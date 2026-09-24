@@ -84,9 +84,14 @@ export function getUploadTarget() {
 
 // The "test" calls never reject in mock mode (a bad field just resolves with { ok: false }), so the API
 // branch normalizes network/validation failures the same way — the caller never needs its own .catch.
+// Talking to a real external storage provider (or waking up a sleeping free-tier backend first)
+// is slower than a normal API call — the shared client's default 15s timeout is too tight for
+// these specifically.
+const NETWORK_TIMEOUT_MS = 30000;
+
 function runProviderTest(providerKey, values, kind) {
   return axiosClient
-    .post(`/storage/providers/${providerKey}/test`, { values, kind })
+    .post(`/storage/providers/${providerKey}/test`, { values, kind }, { timeout: NETWORK_TIMEOUT_MS })
     .then((response) => response.data)
     .catch((error) => ({ ok: false, message: apiErrorMessage(error) }));
 }
@@ -117,7 +122,7 @@ export function testStorageUpload(providerKey, values) {
 
 export function saveStorageProvider(providerKey, values) {
   if (API_ENABLED) {
-    return axiosClient.put(`/storage/providers/${providerKey}`, { values }).then(
+    return axiosClient.put(`/storage/providers/${providerKey}`, { values }, { timeout: NETWORK_TIMEOUT_MS }).then(
       (response) => remember(response.data),
       (error) => {
         throw new Error(apiErrorMessage(error));

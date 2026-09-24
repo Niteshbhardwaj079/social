@@ -6,7 +6,13 @@ import { badRequest } from '../utils/httpError.js';
 import { recordActivity } from './auditService.js';
 
 const maskSecret = (value) => `••••${String(value).slice(-4)}`;
-const TRANSPORT_TIMEOUTS = { connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 20_000 };
+// Individually these bound each phase of the SMTP handshake, but nodemailer doesn't cap the
+// *overall* call — a slow DNS lookup, then a slow TCP connect, then a slow greeting can each
+// legitimately use their own allowance and add up well past any one of these numbers. verify()
+// below wraps the whole thing in one hard VERIFY_TIMEOUT_MS deadline so the frontend (which has
+// its own, shorter, request timeout) always gets a clear answer instead of a generic network error.
+const TRANSPORT_TIMEOUTS = { connectionTimeout: 8_000, greetingTimeout: 8_000, socketTimeout: 15_000 };
+const VERIFY_TIMEOUT_MS = 20_000;
 
 async function getRow() {
   return (await query('SELECT * FROM email_settings WHERE id = true')).rows[0];
@@ -71,7 +77,15 @@ function buildTransport(values) {
 async function verify(values) {
   const transport = buildTransport(values);
   try {
-    await transport.verify();
+    await Promise.race([
+      transport.verify(),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Could not reach ${values.host}:${values.port} within ${VERIFY_TIMEOUT_MS / 1000} seconds. Check the host and port, and that your network allows outbound email on this port.`)),
+          VERIFY_TIMEOUT_MS
+        )
+      ),
+    ]);
     return { ok: true, message: 'Connected — the mail server accepted the login.' };
   } catch (error) {
     return { ok: false, message: String(error?.message || error).slice(0, 300) };

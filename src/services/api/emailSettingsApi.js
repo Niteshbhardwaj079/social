@@ -12,6 +12,10 @@ function maskSecret(value) {
   return `••••${String(value).slice(-4)}`;
 }
 
+// Talking to a real mail server (or waking up a sleeping free-tier backend first) is slower than
+// a normal API call — the shared client's default 15s timeout is too tight for these specifically.
+const NETWORK_TIMEOUT_MS = 30000;
+
 const EMPTY_SETTINGS = {
   configured: false,
   host: '',
@@ -53,7 +57,7 @@ export function getEmailSettings() {
 
 function runTest(values) {
   return axiosClient
-    .post('/email-settings/test', values)
+    .post('/email-settings/test', values, { timeout: NETWORK_TIMEOUT_MS })
     .then((response) => response.data)
     .catch((error) => ({ ok: false, message: apiErrorMessage(error) }));
 }
@@ -67,7 +71,7 @@ export function testEmailSettings(values) {
 
 export function saveEmailSettings(values) {
   if (API_ENABLED) {
-    return axiosClient.put('/email-settings', values).then(
+    return axiosClient.put('/email-settings', values, { timeout: NETWORK_TIMEOUT_MS }).then(
       (response) => remember(response.data),
       (error) => {
         throw new Error(apiErrorMessage(error));
@@ -111,7 +115,7 @@ export function disconnectEmailSettings() {
 export function sendTestEmail(recipient) {
   if (API_ENABLED) {
     return axiosClient
-      .post('/email-settings/send-test', { recipient })
+      .post('/email-settings/send-test', { recipient }, { timeout: NETWORK_TIMEOUT_MS })
       .then((response) => response.data)
       .catch((error) => {
         throw new Error(apiErrorMessage(error));

@@ -204,7 +204,10 @@ function EmailSettings() {
               </option>
             ))}
           </select>
-          <div className="form-hint">{provider.summary}</div>
+          <div className="form-hint">
+            {provider.summary}
+            {!isCustom ? ` Uses ${provider.host}:${provider.port}.` : ''}
+          </div>
         </div>
 
         {provider.caution ? (
@@ -232,26 +235,27 @@ function EmailSettings() {
         ) : null}
 
         <div className="connect-form__grid mt-4">
-          <TextField
-            id="email-host"
-            label={<>Host<span className="text-danger"> *</span></>}
-            value={form.host}
-            onChange={(event) => handleFieldChange('host', event.target.value)}
-            placeholder="smtp.gmail.com"
-            autoComplete="off"
-            spellCheck={false}
-            disabled={!isCustom}
-            hint={!isCustom ? 'Fixed for this provider — choose "Custom SMTP server" above to set your own.' : undefined}
-          />
-          <TextField
-            id="email-port"
-            label={<>Port<span className="text-danger"> *</span></>}
-            type="number"
-            value={form.port}
-            onChange={(event) => handleFieldChange('port', event.target.value)}
-            placeholder="587"
-            disabled={!isCustom}
-          />
+          {isCustom ? (
+            <>
+              <TextField
+                id="email-host"
+                label={<>Host<span className="text-danger"> *</span></>}
+                value={form.host}
+                onChange={(event) => handleFieldChange('host', event.target.value)}
+                placeholder="smtp.gmail.com"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <TextField
+                id="email-port"
+                label={<>Port<span className="text-danger"> *</span></>}
+                type="number"
+                value={form.port}
+                onChange={(event) => handleFieldChange('port', event.target.value)}
+                placeholder="587"
+              />
+            </>
+          ) : null}
           <TextField
             id="email-username"
             label="Username"
@@ -294,22 +298,23 @@ function EmailSettings() {
             placeholder="Your Company"
             autoComplete="off"
           />
-          <div className="connect-form__field--wide">
-            <div className="form-check form-switch mb-0">
-              <input
-                type="checkbox"
-                className="form-check-input"
-                role="switch"
-                id="email-secure"
-                checked={form.secure}
-                disabled={!isCustom}
-                onChange={(event) => handleFieldChange('secure', event.target.checked)}
-              />
-              <label htmlFor="email-secure" className="form-check-label">
-                Use TLS/SSL (usually needed for port 465; leave off for 587 or 25)
-              </label>
+          {isCustom ? (
+            <div className="connect-form__field--wide">
+              <div className="form-check form-switch mb-0">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  role="switch"
+                  id="email-secure"
+                  checked={form.secure}
+                  onChange={(event) => handleFieldChange('secure', event.target.checked)}
+                />
+                <label htmlFor="email-secure" className="form-check-label">
+                  Use TLS/SSL (usually needed for port 465; leave off for 587 or 25)
+                </label>
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
         {testState.status === TEST.OK || testState.status === TEST.FAILED ? (
