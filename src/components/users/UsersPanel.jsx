@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
 import Avatar from '../common/Avatar';
 import EmptyState from '../common/EmptyState';
 import ErrorState from '../common/ErrorState';
@@ -41,6 +42,7 @@ const EMPTY_FORM_STATE = { isOpen: false, editingUser: null };
 function UsersPanel({ formState, onFormStateChange }) {
   const { t } = useI18n();
   const { showToast } = useToast();
+  const currentUserId = useSelector((state) => state.auth.currentUser?.id);
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -228,6 +230,16 @@ function UsersPanel({ formState, onFormStateChange }) {
   }
 
   function UserActionsMenu({ user }) {
+    // You cannot change your own role/status or remove yourself (the backend refuses it either
+    // way) — Edit/Disable/Delete here would just be dead ends. Account settings is where you
+    // manage your own profile instead.
+    if (user.id === currentUserId) {
+      return (
+        <button type="button" className="btn btn-icon-sm btn-outline-secondary-custom" disabled aria-label={t('users.thisIsYou')} data-tooltip={t('users.thisIsYou')}>
+          <Icon name="MoreVertical" size={16} />
+        </button>
+      );
+    }
     return (
       <DropdownMenu
         trigger={
@@ -351,6 +363,7 @@ function UsersPanel({ formState, onFormStateChange }) {
                       className="form-check-input flex-shrink-0"
                       checked={selectedIds.has(user.id)}
                       onChange={() => toggleSelectOne(user.id)}
+                      disabled={user.id === currentUserId}
                       aria-label={t('users.selectUser', { name: user.name })}
                     />
                     <Avatar name={user.name} size="sm" />
@@ -408,6 +421,7 @@ function UsersPanel({ formState, onFormStateChange }) {
                           className="form-check-input"
                           checked={selectedIds.has(user.id)}
                           onChange={() => toggleSelectOne(user.id)}
+                          disabled={user.id === currentUserId}
                           aria-label={t('users.selectUser', { name: user.name })}
                         />
                       </td>

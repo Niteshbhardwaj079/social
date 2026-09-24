@@ -246,6 +246,7 @@ export default {
     lastActive: 'Last active {when}',
     userOptions: 'User options',
     moreOptions: 'More options',
+    thisIsYou: 'You can’t manage your own account here — use Account settings.',
     emptyTitle: 'No users yet',
     emptyText: 'Invite teammates to collaborate on your workspace.',
     noneTitle: 'No users found',
