@@ -49,7 +49,7 @@ const USER_COLUMNS_QUALIFIED = USER_COLUMNS.split(', ')
 
 /** Loads a user together with their role's rank/isProtected/name — needed by canAssignRole/canManageTarget,
  *  which compare seniority. `runner` is either the pool's `query` or a transaction's `client.query`. */
-async function findUserWithRole(runner, id, { forUpdate = false } = {}) {
+export async function findUserWithRole(runner, id, { forUpdate = false } = {}) {
   const result = await runner(
     `SELECT ${USER_COLUMNS_QUALIFIED}, roles.rank AS role_rank, roles.is_protected AS role_is_protected, roles.name AS role_name
        FROM users JOIN roles ON roles.id = users.role

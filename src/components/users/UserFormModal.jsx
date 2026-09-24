@@ -10,7 +10,7 @@ import { useI18n } from '../../i18n/useI18n';
 const BUILTIN_ROLE_IDS = new Set(Object.values(USER_ROLES));
 const roleLabel = (t, role) => (BUILTIN_ROLE_IDS.has(role.id) ? t(`roles.${role.id}`) : role.name);
 
-function UserFormModal({ isOpen, onClose, onSubmit, editingUser }) {
+function UserFormModal({ isOpen, onClose, onSubmit, editingUser, isEditingSelf = false }) {
   const { t, enabledLanguages, defaultLanguage } = useI18n();
   // A new person starts in the workspace's default language.
   const emptyValues = { name: '', email: '', role: USER_ROLES.CONTRIBUTOR, language: defaultLanguage };
@@ -85,6 +85,7 @@ function UserFormModal({ isOpen, onClose, onSubmit, editingUser }) {
             className="form-select"
             value={formValues.role}
             onChange={(event) => handleChange('role', event.target.value)}
+            disabled={isEditingSelf}
           >
             {roleChoices.map((role) => (
               <option key={role.id} value={role.id}>
@@ -92,6 +93,7 @@ function UserFormModal({ isOpen, onClose, onSubmit, editingUser }) {
               </option>
             ))}
           </select>
+          {isEditingSelf ? <div className="form-hint">{t('users.cannotChangeOwnRole')}</div> : null}
         </div>
         <div className="mt-4 mb-0">
           <label htmlFor="userLanguage" className="form-label-custom">

@@ -20,7 +20,8 @@ import { verifyLoginCode } from './twoFactorService.js';
 import { effectiveLanguage, getLanguageSettings, saveWorkspace } from './settingsService.js';
 import { dispatchEmail } from './systemEmailService.js';
 import { recordActivity } from './auditService.js';
-import { toApiUser } from './userService.js';
+import { findUserWithRole, toApiUser } from './userService.js';
+import { canEditUsers, canManageTarget } from './permissions.js';
 import { loadActor } from '../middleware/auth.js';
 import { badRequest, forbidden, notFound, tooManyRequests, unauthorized } from '../utils/httpError.js';
 import { describeDevice } from '../utils/device.js';
@@ -183,8 +184,12 @@ export async function logout(rawRefreshToken) {
   if (rawRefreshToken) await revokeRefreshToken(rawRefreshToken);
 }
 
-/** Always looks successful, so the form cannot be used to find out who has an account. */
-export async function requestPasswordReset(email, meta) {
+/**
+ * Always looks successful, so the form cannot be used to find out who has an account.
+ * `actorId`/`action` let an admin-triggered reset (see `adminRequestPasswordReset` below) record
+ * itself accurately in the activity log — who actually asked for it, not just whose it is.
+ */
+export async function requestPasswordReset(email, meta, { actorId, action = 'auth.password_reset_requested' } = {}) {
   const found = await query(`SELECT ${PUBLIC_COLUMNS}, password_hash FROM users WHERE lower(email) = lower($1)`, [email]);
   const user = found.rows[0];
   if (!user || user.status !== 'active' || !user.password_hash) return;
@@ -195,7 +200,24 @@ export async function requestPasswordReset(email, meta) {
     reset_link: `${config.appUrl}/reset-password?token=${encodeURIComponent(token)}`,
     expires_in: formatDuration(language, RESET_TTL_MS / 60_000, 'minute'),
   }));
-  await recordActivity({ actorId: user.id, action: 'auth.password_reset_requested', entity: 'user', entityId: user.id, ip: meta.ip, userAgent: meta.userAgent });
+  await recordActivity({ actorId: actorId ?? user.id, action, entity: 'user', entityId: user.id, ip: meta.ip, userAgent: meta.userAgent });
+}
+
+/**
+ * A Super Admin / Admin sends someone else a real password-reset link instead of ever knowing or
+ * typing their password themselves — the same email/flow as "Forgot password", just started by an
+ * admin on someone's behalf (e.g. they're locked out and cannot get to the login screen's own
+ * link). Refuses your own account (use Change Password in Account settings for that) and anyone
+ * who has not accepted their invitation yet (there is no password to reset — resend the invite).
+ */
+export async function adminRequestPasswordReset(actor, targetId, meta) {
+  if (!canEditUsers(actor)) throw forbidden('Your role cannot edit people.');
+  const target = await findUserWithRole(query, targetId);
+  if (!target) throw notFound('No such user');
+  if (target.id === actor.id) throw forbidden('Use Change Password in Account settings to change your own password.');
+  if (!canManageTarget(actor, target)) throw forbidden('You cannot change this person');
+  if (target.status !== 'active') throw badRequest('This person has not accepted their invitation yet, so there is no password to reset yet. Resend their invite instead.');
+  await requestPasswordReset(target.email, meta, { actorId: actor.id, action: 'users.password_reset_sent' });
 }
 
 async function notifyPasswordChanged(user) {

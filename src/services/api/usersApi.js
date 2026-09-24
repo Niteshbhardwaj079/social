@@ -42,3 +42,11 @@ export function deleteUser(userId) {
   usersStore = usersStore.filter((user) => user.id !== userId);
   return mockRequest({ success: true });
 }
+
+/** Sends a real password-reset email to someone else, the same "Forgot password" flow they'd use
+ *  themselves — you never see or set their password directly. */
+export function sendPasswordReset(userId) {
+  if (API_ENABLED) return axiosClient.post(`/users/${userId}/reset-password`).then((response) => response.data);
+  const user = usersStore.find((item) => item.id === userId);
+  return mockRequest(null).then(() => dispatchSystemEmail('auth.passwordResetRequested', user?.language || 'en'));
+}

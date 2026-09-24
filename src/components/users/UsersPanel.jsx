@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import Avatar from '../common/Avatar';
 import EmptyState from '../common/EmptyState';
 import ErrorState from '../common/ErrorState';
@@ -11,7 +11,7 @@ import { SkeletonTable } from '../common/LoadingSkeleton';
 import { StatCardGrid } from '../common/StatCard';
 import { BulkActionBar, Pager, TableToolbar } from '../common/DataTableParts';
 import usePagination from '../../hooks/usePagination';
-import { getUsers, createUser, updateUser, deleteUser } from '../../services/api/usersApi';
+import { getUsers, createUser, updateUser, deleteUser, sendPasswordReset } from '../../services/api/usersApi';
 import { getRoles } from '../../services/api/rolesApi';
 import { USER_ROLES, USER_STATUS } from '../../config/constants';
 import { API_ENABLED } from '../../config/runtime';
@@ -21,6 +21,7 @@ import { formatRelativeTime } from '../../utils/formatters';
 import { useToast } from '../common/ToastProvider';
 import useMediaQuery from '../../hooks/useMediaQuery';
 import { useI18n } from '../../i18n/useI18n';
+import { setCurrentUser } from '../../store/slices/authSlice';
 
 const BUILTIN_ROLE_IDS = new Set(Object.values(USER_ROLES));
 const roleLabel = (t, roleId, roleNameById) => (BUILTIN_ROLE_IDS.has(roleId) ? t(`roles.${roleId}`) : roleNameById[roleId] || roleId);
@@ -42,12 +43,15 @@ const EMPTY_FORM_STATE = { isOpen: false, editingUser: null };
 function UsersPanel({ formState, onFormStateChange }) {
   const { t } = useI18n();
   const { showToast } = useToast();
-  const currentUserId = useSelector((state) => state.auth.currentUser?.id);
+  const dispatch = useDispatch();
+  const currentUser = useSelector((state) => state.auth.currentUser);
+  const currentUserId = currentUser?.id;
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [userPendingDelete, setUserPendingDelete] = useState(null);
+  const [userPendingPasswordReset, setUserPendingPasswordReset] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -55,6 +59,17 @@ function UsersPanel({ formState, onFormStateChange }) {
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
   const [roleChoices, setRoleChoices] = useState(Object.values(USER_ROLES).map((id) => ({ id, name: id })));
   const roleNameById = useMemo(() => Object.fromEntries(roleChoices.map((role) => [role.id, role.name])), [roleChoices]);
+
+  // Mirrors the backend's canManageTarget (userService.js/permissions.js) exactly: a protected
+  // role (Super Admin) can manage anyone; otherwise only a strictly-lower, non-protected rank.
+  // Editing, disabling, deleting and resetting the password of anyone this returns false for is
+  // refused server-side regardless — this just keeps the UI from offering a guaranteed dead end.
+  function canManageRole(roleId) {
+    if (currentUser?.roleIsProtected) return true;
+    const role = roleChoices.find((item) => item.id === roleId);
+    if (!role || role.isProtected) return false;
+    return (role.rank ?? 0) < (currentUser?.roleRank ?? 0);
+  }
 
   useEffect(() => {
     if (!API_ENABLED) return;
@@ -144,6 +159,12 @@ function UsersPanel({ formState, onFormStateChange }) {
       updateUser(formState.editingUser.id, formValues)
         .then((updatedUser) => {
           setUsers((current) => current.map((user) => (user.id === updatedUser.id ? updatedUser : user)));
+          // This list endpoint's response never carries permissions/roleRank (only the signed-in
+          // actor's own /auth/me-style responses do) — merge just the editable fields into the
+          // existing currentUser instead of replacing it, so a self-edit doesn't wipe those out.
+          if (updatedUser.id === currentUserId) {
+            dispatch(setCurrentUser({ ...currentUser, name: updatedUser.name, email: updatedUser.email, language: updatedUser.language }));
+          }
           closeForm();
           showToast({ type: 'success', title: t('users.updated') });
         })
@@ -190,6 +211,19 @@ function UsersPanel({ formState, onFormStateChange }) {
       });
   }
 
+  function handlePasswordResetConfirmed() {
+    if (!userPendingPasswordReset) return;
+    sendPasswordReset(userPendingPasswordReset.id)
+      .then(() => {
+        showToast({ type: 'success', title: t('users.passwordResetSentToast', { name: userPendingPasswordReset.name }) });
+        setUserPendingPasswordReset(null);
+      })
+      .catch((error) => {
+        setUserPendingPasswordReset(null);
+        showError(error);
+      });
+  }
+
   function handleBulkStatusChange(nextStatus) {
     const ids = [...selectedIds];
     // allSettled: if one person cannot be changed (a server refusal), the others still are.
@@ -230,16 +264,18 @@ function UsersPanel({ formState, onFormStateChange }) {
   }
 
   function UserActionsMenu({ user }) {
-    // You cannot change your own role/status or remove yourself (the backend refuses it either
-    // way) — Edit/Disable/Delete here would just be dead ends. Account settings is where you
-    // manage your own profile instead.
-    if (user.id === currentUserId) {
+    // You CAN edit your own name/email/language here — the backend allows that. You cannot
+    // change your own role or status, or remove yourself, so those two stay off your own row.
+    const isSelf = user.id === currentUserId;
+
+    if (!isSelf && !canManageRole(user.role)) {
       return (
-        <button type="button" className="btn btn-icon-sm btn-outline-secondary-custom" disabled aria-label={t('users.thisIsYou')} data-tooltip={t('users.thisIsYou')}>
+        <button type="button" className="btn btn-icon-sm btn-outline-secondary-custom" disabled aria-label={t('users.cannotManageHint')} data-tooltip={t('users.cannotManageHint')}>
           <Icon name="MoreVertical" size={16} />
         </button>
       );
     }
+
     return (
       <DropdownMenu
         trigger={
@@ -265,28 +301,44 @@ function UsersPanel({ formState, onFormStateChange }) {
             >
               <Icon name="Edit3" size={16} /> {t('common.edit')}
             </button>
-            <button
-              type="button"
-              className="dropdown-item"
-              onClick={() => {
-                handleToggleStatus(user);
-                close();
-              }}
-            >
-              <Icon name={user.status === USER_STATUS.DISABLED ? 'CheckCircle2' : 'Ban'} size={16} />
-              {user.status === USER_STATUS.DISABLED ? t('common.enable') : t('common.disable')}
-            </button>
-            <div className="dropdown-divider" />
-            <button
-              type="button"
-              className="dropdown-item text-danger"
-              onClick={() => {
-                setUserPendingDelete(user);
-                close();
-              }}
-            >
-              <Icon name="Trash2" size={16} /> {t('common.delete')}
-            </button>
+            {isSelf || user.status !== USER_STATUS.ACTIVE ? null : (
+              <button
+                type="button"
+                className="dropdown-item"
+                onClick={() => {
+                  setUserPendingPasswordReset(user);
+                  close();
+                }}
+              >
+                <Icon name="KeyRound" size={16} /> {t('users.resetPassword')}
+              </button>
+            )}
+            {isSelf ? null : (
+              <button
+                type="button"
+                className="dropdown-item"
+                onClick={() => {
+                  handleToggleStatus(user);
+                  close();
+                }}
+              >
+                <Icon name={user.status === USER_STATUS.DISABLED ? 'CheckCircle2' : 'Ban'} size={16} />
+                {user.status === USER_STATUS.DISABLED ? t('common.enable') : t('common.disable')}
+              </button>
+            )}
+            {isSelf ? null : <div className="dropdown-divider" />}
+            {isSelf ? null : (
+              <button
+                type="button"
+                className="dropdown-item text-danger"
+                onClick={() => {
+                  setUserPendingDelete(user);
+                  close();
+                }}
+              >
+                <Icon name="Trash2" size={16} /> {t('common.delete')}
+              </button>
+            )}
           </>
         )}
       </DropdownMenu>
@@ -363,7 +415,8 @@ function UsersPanel({ formState, onFormStateChange }) {
                       className="form-check-input flex-shrink-0"
                       checked={selectedIds.has(user.id)}
                       onChange={() => toggleSelectOne(user.id)}
-                      disabled={user.id === currentUserId}
+                      disabled={user.id === currentUserId || !canManageRole(user.role)}
+                      title={user.id === currentUserId ? t('users.selfBulkHint') : !canManageRole(user.role) ? t('users.cannotManageHint') : undefined}
                       aria-label={t('users.selectUser', { name: user.name })}
                     />
                     <Avatar name={user.name} size="sm" />
@@ -421,7 +474,8 @@ function UsersPanel({ formState, onFormStateChange }) {
                           className="form-check-input"
                           checked={selectedIds.has(user.id)}
                           onChange={() => toggleSelectOne(user.id)}
-                          disabled={user.id === currentUserId}
+                          disabled={user.id === currentUserId || !canManageRole(user.role)}
+                          title={user.id === currentUserId ? t('users.selfBulkHint') : !canManageRole(user.role) ? t('users.cannotManageHint') : undefined}
                           aria-label={t('users.selectUser', { name: user.name })}
                         />
                       </td>
@@ -461,6 +515,7 @@ function UsersPanel({ formState, onFormStateChange }) {
         onClose={closeForm}
         onSubmit={handleFormSubmit}
         editingUser={formState.editingUser}
+        isEditingSelf={formState.editingUser?.id === currentUserId}
       />
 
       <ConfirmDialog
@@ -481,6 +536,15 @@ function UsersPanel({ formState, onFormStateChange }) {
         message={t('users.removeBulkText')}
         confirmLabel={t('common.remove')}
         isDanger
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(userPendingPasswordReset)}
+        onClose={() => setUserPendingPasswordReset(null)}
+        onConfirm={handlePasswordResetConfirmed}
+        title={t('users.resetPasswordTitle', { name: userPendingPasswordReset?.name || '' })}
+        message={t('users.resetPasswordText')}
+        confirmLabel={t('users.resetPassword')}
       />
     </>
   );

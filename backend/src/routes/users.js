@@ -4,6 +4,7 @@ import { authenticate, requireUsersViewer } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { isValidLanguage } from '../emails/builder.js';
 import * as users from '../services/userService.js';
+import { adminRequestPasswordReset } from '../services/authService.js';
 
 const router = Router();
 router.use(authenticate);
@@ -55,6 +56,11 @@ router.delete('/:id', validate({ params: idParam }), async (req, res) => {
 router.post('/:id/resend-invite', validate({ params: idParam }), async (req, res) => {
   await users.resendInvite(req.user, req.valid.params.id);
   res.json({ message: 'Invitation sent again' });
+});
+
+router.post('/:id/reset-password', validate({ params: idParam }), async (req, res) => {
+  await adminRequestPasswordReset(req.user, req.valid.params.id, { ip: req.ip, userAgent: req.get('user-agent') });
+  res.json({ message: 'Password reset email sent' });
 });
 
 export default router;

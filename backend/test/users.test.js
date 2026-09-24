@@ -182,6 +182,47 @@ describe('role change emails', () => {
   });
 });
 
+describe('sending someone a real password reset', () => {
+  it('sends a real reset email for an active person, attributed to the admin who asked for it', async () => {
+    const { user } = await addPerson('Reset Target', 'resettarget@example.com', 'contributor', 'en');
+    const before = (await outboxFor('resettarget@example.com')).length;
+    assert.equal((await owner.post(`/users/${user.id}/reset-password`)).status, 200);
+    const email = await waitFor(async () => (await outboxFor('resettarget@example.com')).find((row) => row.event_key === 'auth.passwordResetRequested'));
+    assert.ok((await outboxFor('resettarget@example.com')).length > before);
+
+    const token = tokenFromEmail(email.html, 'reset-password');
+    assert.ok(token);
+    const anonymous = createClient(server.baseUrl);
+    assert.equal((await anonymous.post('/auth/reset-password', { token, password: 'Admin-set-pass-9' })).status, 200);
+    assert.equal((await createClient(server.baseUrl).signIn('resettarget@example.com', 'Admin-set-pass-9')).status, 200);
+
+    const log = await owner.get('/activity-logs');
+    const entry = log.body.activity.find((row) => row.action === 'users.password_reset_sent' && row.entityId === user.id);
+    assert.ok(entry, 'recorded with its own distinct action name, separate from a real self-service request');
+    const ownerId = (await owner.get('/auth/me')).body.user.id;
+    assert.equal(entry.actor.id, ownerId, 'attributed to the admin who sent it, not the target');
+  });
+
+  it('refuses your own account — Account settings is where you change your own password', async () => {
+    const me = (await owner.get('/auth/me')).body.user;
+    const response = await owner.post(`/users/${me.id}/reset-password`);
+    assert.equal(response.status, 403);
+    assert.match(response.body.error.message, /Change Password/);
+  });
+
+  it('refuses someone who has not accepted their invitation yet', async () => {
+    const created = await owner.post('/users', { name: 'Still Invited', email: 'stillinvited@example.com', role: 'analyst', language: 'en' });
+    const response = await owner.post(`/users/${created.body.user.id}/reset-password`);
+    assert.equal(response.status, 400);
+    assert.match(response.body.error.message, /has not accepted their invitation/);
+  });
+
+  it('a role without usersEdit cannot trigger this for anyone', async () => {
+    const { user } = await addPerson('Another Target', 'anothertarget@example.com', 'analyst', 'en');
+    assert.equal((await clients.contributor.post(`/users/${user.id}/reset-password`)).status, 403);
+  });
+});
+
 describe('listing', () => {
   it('filters, and treats search text as text (no SQL injection)', async () => {
     const byRole = await owner.get('/users?role=editor');

@@ -30,6 +30,11 @@ const mockCurrentUser = {
   name: 'Nitesh Bhardwaj',
   email: 'nitesh@gowebkart.in',
   role: USER_ROLES.SUPER_ADMIN,
+  // Matches the real Super Admin role's rank/protection (see rolesMock.js) — without these, a
+  // rank-based UI check (e.g. "can I manage this person's row?") would see undefined and refuse
+  // everyone in demo mode, unlike a real Super Admin's real account.
+  roleRank: 4,
+  roleIsProtected: true,
   avatarUrl: null,
 };
 
