@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 314 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 333 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -20,7 +20,7 @@ Hindi/Arabic/Chinese text would fail to save). Tables are created automatically 
 
 Only environment variables — see [.env.example](.env.example). Required: `DATABASE_URL`, `JWT_SECRET`.
 Set `APP_URL` to the public address (it goes into email links) and `TRUST_PROXY` when behind a reverse proxy.
-Email uses **any SMTP server** you give it (`SMTP_*`); with none set, emails are recorded in `email_outbox` and logged.
+Email is configured by the client themselves in-app (Settings → Email), not by editing env vars — see "Email" below. `SMTP_*` env vars remain a fallback for a deployment that never opens that page; with neither set, emails are recorded in `email_outbox` and logged instead of sent.
 
 ## What it does
 
@@ -31,6 +31,7 @@ Email uses **any SMTP server** you give it (`SMTP_*`); with none set, emails are
 | Users & roles | `GET/POST /api/users` · `PATCH/DELETE /api/users/:id` · `POST /:id/resend-invite` (Super Admin / Admin) |
 | Roles & permissions | `GET /api/roles` (everyone) · `GET /:id` · `POST /api/roles` · `PATCH/DELETE /:id` · `POST /:id/duplicate` (needs the `rolesManage` capability — Super Admin and Admin have it by default) |
 | Settings | `GET/PUT /api/settings/languages` · `GET/PUT /api/settings/workspace` |
+| Email | `GET /api/email-settings` (everyone) · `POST /providers/:key/test` · `PUT /providers/:key` (connect: `smtp`, `resend`, `sendgrid` or `brevo`) · `DELETE /provider` · `POST /send-test` (Super Admin / Admin) |
 | System emails | `GET /api/system-emails?lang=` · `PUT/DELETE /:id/translations/:lang` · `PATCH /:id` (on/off) · `POST /:id/test` |
 | Social accounts | `GET /api/social-accounts` (everyone) · `POST /:platform/test` · `PUT /:platform` (connect) · `POST /:platform/recheck` · `DELETE /:platform` (Super Admin / Admin) |
 | Posts | `GET/POST /api/posts` · `GET/PATCH/DELETE /:id` · `POST /bulk` · `POST /:id/retry` · `/:id/approve` · `/:id/reject` |
@@ -664,6 +665,33 @@ anyone signed in to read (it never contains a secret — see below). Connecting 
   files instead of re-uploading them, and the Media Library's own "Use in Post" opens a fresh composer with that file
   already attached.
 - Not built yet: video thumbnails/limits beyond a raw size, folders/tags management beyond what's set at upload time.
+
+### Email
+
+`GET /api/email-settings` says whether outgoing email is connected and to what (never a secret — see below); anyone
+signed in may read it, only Super Admin / Admin may connect, test, save or disconnect. Same shape as Storage above:
+one singleton `email_settings` row holding whichever single provider is currently active.
+
+- **Two families of provider**, picked from Settings → Email:
+  - **SMTP** (`src/email/smtp.js`, via `nodemailer`) — any real mail server: Gmail, Outlook/Microsoft 365, Yahoo, Zoho,
+    iCloud (the web app pre-fills and locks their host/port) or "Custom SMTP server" for anything else.
+  - **An HTTPS API** — **Resend**, **SendGrid** or **Brevo** (`src/email/{resend,sendgrid,brevo}.js`, hand-written
+    `fetch` calls, no SDK) — just an API key, no SMTP socket at all.
+  - Both are dispatched through one interface (`src/email/index.js`), so `mailer.js` and the rest of the app never
+    know which kind is active.
+- **Why the API option exists**: Render's free web services block outbound traffic to SMTP ports 25, 465 and 587
+  entirely (as of 2025-09-26), so on a free-tier deployment SMTP cannot work at all, regardless of provider or port —
+  a plain HTTPS API sidesteps that completely. Paid Render instances don't have this restriction (25 stays blocked
+  everywhere, being EC2's own policy).
+- **Test connection** calls each provider's cheapest real authenticated endpoint without sending anything: SMTP does a
+  real `EHLO`/`AUTH` handshake (`transport.verify()`); the API providers each read their own account info
+  (`GET /domains`, `/user/account`, `/account`) — a bad key fails clearly, a good one proves it works. The whole call
+  is bounded by one hard 20-second deadline (`emailSettingsService.js`) so a hung connection never outlasts the web
+  app's own request timeout.
+- Keys/passwords are encrypted (`ENCRYPTION_KEY`) and only ever shown back as a masked hint; a save re-verifies first
+  and is refused if the test fails, and a blank secret on save reuses the one already stored.
+- **Send test email** (`POST /send-test`) delivers a real message through whatever is connected, or is recorded as
+  "logged" (not sent, not an error) when nothing is configured — same graceful fallback as any other outgoing email.
 
 ### Notifications
 

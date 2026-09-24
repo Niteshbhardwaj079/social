@@ -1,37 +1,35 @@
-import nodemailer from 'nodemailer';
 import { config } from '../config/env.js';
 import { query } from '../db/pool.js';
 import { decryptJson, encryptJson } from '../utils/crypto.js';
 import { badRequest } from '../utils/httpError.js';
 import { recordActivity } from './auditService.js';
+import * as email from '../email/index.js';
+import { EMAIL_PROVIDERS } from '../email/providers.js';
 
+const MAX_VALUE_LENGTH = 4096;
 const maskSecret = (value) => `••••${String(value).slice(-4)}`;
-// Individually these bound each phase of the SMTP handshake, but nodemailer doesn't cap the
-// *overall* call — a slow DNS lookup, then a slow TCP connect, then a slow greeting can each
-// legitimately use their own allowance and add up well past any one of these numbers. verify()
-// below wraps the whole thing in one hard VERIFY_TIMEOUT_MS deadline so the frontend (which has
-// its own, shorter, request timeout) always gets a clear answer instead of a generic network error.
-const TRANSPORT_TIMEOUTS = { connectionTimeout: 8_000, greetingTimeout: 8_000, socketTimeout: 15_000 };
+// email.testConnection() itself is not necessarily bounded (a real SMTP handshake or a hung fetch
+// has no built-in ceiling), so this hard deadline guarantees the frontend's own request timeout
+// always gets a clear answer instead of a generic network error.
 const VERIFY_TIMEOUT_MS = 20_000;
 
 async function getRow() {
   return (await query('SELECT * FROM email_settings WHERE id = true')).rows[0];
 }
 
-/** What the web app sees: never the password, only a masked hint of it (last 4 characters). */
+/** What the web app sees: never a secret, only a masked hint of it (last 4 characters). */
 function present(row) {
   return {
-    configured: Boolean(row.host),
-    host: row.host || '',
-    port: row.port || 587,
-    secure: row.secure,
-    username: row.username || '',
-    fromEmail: row.from_email || '',
-    fromName: row.from_name || '',
-    passwordHint: row.secret_hint || '',
-    connectedAt: row.connected_at,
-    lastTestedAt: row.last_tested_at,
-    lastTestMessage: row.last_test_message,
+    provider: row.provider_key
+      ? {
+          providerKey: row.provider_key,
+          values: row.provider_values,
+          secretHints: row.secret_hints,
+          connectedAt: row.connected_at,
+          lastTestedAt: row.last_tested_at,
+          lastTestMessage: row.last_test_message,
+        }
+      : null,
   };
 }
 
@@ -39,123 +37,141 @@ export async function getSettings() {
   return present(await getRow());
 }
 
-/** A saved password may be left blank — kept from what's already stored, same as Storage's providers. */
-function cleanInput(input, { hasSavedPassword }) {
-  const host = String(input?.host || '').trim();
-  const port = Number(input?.port);
-  const username = String(input?.username || '').trim();
-  const fromEmail = String(input?.fromEmail || '').trim();
-  const fromName = String(input?.fromName || '').trim();
-  const password = typeof input?.password === 'string' ? input.password.trim() : '';
-
-  if (!host) throw badRequest('Host is required', [{ field: 'host', message: 'This is required' }]);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) throw badRequest('Enter a valid port', [{ field: 'port', message: 'Enter a valid port' }]);
-  if (!fromEmail) throw badRequest('From email is required', [{ field: 'fromEmail', message: 'This is required' }]);
-  if (!password && !hasSavedPassword) throw badRequest('Password is required', [{ field: 'password', message: 'This is required' }]);
-
-  return { host, port, secure: Boolean(input?.secure), username, fromEmail, fromName, password };
+/** Keeps only the fields this provider needs, coercing `port`/`secure` (SMTP-only) to their real types. */
+function cleanValues(providerKey, input, { hasSaved }) {
+  const clean = {};
+  for (const field of EMAIL_PROVIDERS[providerKey].fields) {
+    if (field.key === 'port') {
+      const port = Number(input?.port ?? 587);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) throw badRequest('Enter a valid port', [{ field: 'port', message: 'Enter a valid port' }]);
+      clean.port = port;
+      continue;
+    }
+    if (field.key === 'secure') {
+      clean.secure = Boolean(input?.secure);
+      continue;
+    }
+    const raw = typeof input?.[field.key] === 'string' ? input[field.key].trim() : '';
+    if (!raw) {
+      if (!field.required) continue;
+      if (field.secret && hasSaved) continue; // kept from the saved value, filled in below
+      throw badRequest(`${field.key} is required`, [{ field: field.key, message: 'This is required' }]);
+    }
+    if (raw.length > MAX_VALUE_LENGTH) throw badRequest(`${field.key} is too long`, [{ field: field.key, message: 'Too long' }]);
+    clean[field.key] = raw;
+  }
+  return clean;
 }
 
-async function withSavedPassword(values) {
-  if (values.password) return values;
+/** Splits a provider's field values into the public part (shown back as-is) and the secret hints (masked). */
+function splitForDisplay(providerKey, values) {
+  const publicValues = {};
+  const secretHints = {};
+  for (const field of EMAIL_PROVIDERS[providerKey].fields) {
+    if (field.secret) secretHints[field.key] = values[field.key] ? maskSecret(values[field.key]) : '';
+    else publicValues[field.key] = values[field.key] ?? '';
+  }
+  return { publicValues, secretHints };
+}
+
+/** Fills in any blank secret fields from what is already saved for this same provider, so re-testing does not need them retyped. */
+async function withSavedSecrets(providerKey, values) {
   const row = await getRow();
-  if (!row.credentials) return values;
+  if (row.provider_key !== providerKey || !row.credentials) return values;
   const saved = decryptJson(row.credentials);
-  return saved?.password ? { ...values, password: saved.password } : values;
+  if (!saved) return values;
+  const filled = { ...values };
+  for (const field of EMAIL_PROVIDERS[providerKey].fields) {
+    if (field.secret && !filled[field.key] && saved[field.key]) filled[field.key] = saved[field.key];
+  }
+  return filled;
 }
 
-function buildTransport(values) {
-  return nodemailer.createTransport({
-    host: values.host,
-    port: values.port,
-    secure: values.secure,
-    auth: values.username ? { user: values.username, pass: values.password } : undefined,
-    ...TRANSPORT_TIMEOUTS,
-  });
-}
-
-async function verify(values) {
-  const transport = buildTransport(values);
+async function verify(providerKey, values) {
   try {
     await Promise.race([
-      transport.verify(),
+      email.testConnection({ key: providerKey, values }),
       new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`Could not reach ${values.host}:${values.port} within ${VERIFY_TIMEOUT_MS / 1000} seconds. Check the host and port, and that your network allows outbound email on this port.`)),
-          VERIFY_TIMEOUT_MS
-        )
+        setTimeout(() => reject(new Error(`Timed out after ${VERIFY_TIMEOUT_MS / 1000} seconds. Check the details and try again.`)), VERIFY_TIMEOUT_MS)
       ),
     ]);
-    return { ok: true, message: 'Connected — the mail server accepted the login.' };
+    return { ok: true, message: 'Connected — the details were accepted.' };
   } catch (error) {
+    if (error instanceof email.EmailProviderError) return { ok: false, message: error.message };
     return { ok: false, message: String(error?.message || error).slice(0, 300) };
-  } finally {
-    transport.close();
   }
 }
 
-export async function testSettings(input) {
+export async function testProvider(providerKey, input) {
   const row = await getRow();
-  const values = await withSavedPassword(cleanInput(input, { hasSavedPassword: Boolean(row.credentials) }));
-  return verify(values);
+  const values = await withSavedSecrets(providerKey, cleanValues(providerKey, input, { hasSaved: row.provider_key === providerKey }));
+  return verify(providerKey, values);
 }
 
-export async function saveSettings({ input, actor, ip, userAgent }) {
+export async function saveProvider({ providerKey, input, actor, ip, userAgent }) {
   const row = await getRow();
-  const values = await withSavedPassword(cleanInput(input, { hasSavedPassword: Boolean(row.credentials) }));
-  const result = await verify(values);
+  const values = await withSavedSecrets(providerKey, cleanValues(providerKey, input, { hasSaved: row.provider_key === providerKey }));
+  const result = await verify(providerKey, values);
   if (!result.ok) throw badRequest(result.message);
 
+  const { publicValues, secretHints } = splitForDisplay(providerKey, values);
+  const keepConnectedAt = row.provider_key === providerKey ? row.connected_at : null;
   const updated = await query(
     `UPDATE email_settings SET
-        host = $1, port = $2, secure = $3, username = $4, from_email = $5, from_name = $6,
-        credentials = $7, secret_hint = $8,
-        connected_at = COALESCE(connected_at, now()), last_tested_at = now(), last_test_message = $9, updated_at = now()
+        provider_key = $1, provider_values = $2, secret_hints = $3, credentials = $4,
+        connected_at = COALESCE($5, now()), last_tested_at = now(), last_test_message = $6, updated_at = now()
       WHERE id = true RETURNING *`,
-    [values.host, values.port, values.secure, values.username || null, values.fromEmail, values.fromName || null, encryptJson({ password: values.password }), maskSecret(values.password), result.message]
+    [providerKey, JSON.stringify(publicValues), JSON.stringify(secretHints), encryptJson(values), keepConnectedAt, result.message]
   );
-  invalidateTransportCache();
-  await recordActivity({ actorId: actor.id, action: 'email_settings.connected', entity: 'email_settings', ip, userAgent });
+  invalidateProviderCache();
+  await recordActivity({ actorId: actor.id, action: 'email_settings.connected', entity: 'email_settings', entityId: providerKey, ip, userAgent });
   return present(updated.rows[0]);
 }
 
-export async function disconnectSettings({ actor, ip, userAgent }) {
+export async function disconnectProvider({ actor, ip, userAgent }) {
   const updated = await query(
-    `UPDATE email_settings SET host = NULL, port = NULL, secure = false, username = NULL, from_email = NULL, from_name = NULL,
-        credentials = NULL, secret_hint = NULL, connected_at = NULL, last_tested_at = NULL, last_test_message = NULL, updated_at = now()
+    `UPDATE email_settings SET provider_key = NULL, provider_values = '{}', secret_hints = '{}', credentials = NULL,
+        connected_at = NULL, last_tested_at = NULL, last_test_message = NULL, updated_at = now()
       WHERE id = true RETURNING *`
   );
-  invalidateTransportCache();
+  invalidateProviderCache();
   await recordActivity({ actorId: actor.id, action: 'email_settings.disconnected', entity: 'email_settings', ip, userAgent });
   return present(updated.rows[0]);
+}
+
+/** "Name <email>" -> { email, name } for the env-var fallback below (MAIL_FROM is one combined string). */
+function parseMailFrom(raw) {
+  const match = /^(.*)<(.+)>$/.exec(String(raw || '').trim());
+  return match ? { name: match[1].trim(), email: match[2].trim() } : { name: '', email: String(raw || '').trim() };
 }
 
 // ---------------------------------------------------------------------------------------------
 // Used by mailer.js. Prefers the client's own settings from the database; falls back to the
 // SMTP_* environment variables so a deployment that never opens this UI keeps working exactly as
-// before. Cached in memory (rebuilding a transport per email would be wasteful) and invalidated
-// on every save/disconnect above, so a change here takes effect on the very next email.
-let cachedTransport;
+// before. Cached in memory (no need to hit the database on every single email) and invalidated on
+// every save/disconnect above, so a change here takes effect on the very next email.
+let cachedProvider;
 
-export function invalidateTransportCache() {
-  cachedTransport = undefined;
+export function invalidateProviderCache() {
+  cachedProvider = undefined;
 }
 
-export async function resolveTransport() {
-  if (cachedTransport !== undefined) return cachedTransport;
+export async function resolveProvider() {
+  if (cachedProvider !== undefined) return cachedProvider;
 
   const row = await getRow();
-  const saved = row.host && row.credentials ? decryptJson(row.credentials) : null;
-  if (saved?.password) {
-    cachedTransport = {
-      transport: buildTransport({ host: row.host, port: row.port, secure: row.secure, username: row.username, password: saved.password }),
-      mailFrom: row.from_name ? `${row.from_name} <${row.from_email}>` : row.from_email,
-    };
-    return cachedTransport;
+  const saved = row.provider_key && row.credentials ? decryptJson(row.credentials) : null;
+  if (saved) {
+    cachedProvider = { key: row.provider_key, values: saved };
+    return cachedProvider;
   }
 
-  cachedTransport = config.smtp
-    ? { transport: buildTransport({ host: config.smtp.host, port: config.smtp.port, secure: config.smtp.secure, username: config.smtp.user, password: config.smtp.pass }), mailFrom: config.mailFrom }
-    : null;
-  return cachedTransport;
+  if (config.smtp) {
+    const { name, email: fromEmail } = parseMailFrom(config.mailFrom);
+    cachedProvider = { key: 'smtp', values: { host: config.smtp.host, port: config.smtp.port, secure: config.smtp.secure, username: config.smtp.user, password: config.smtp.pass, fromEmail, fromName: name } };
+    return cachedProvider;
+  }
+
+  cachedProvider = null;
+  return cachedProvider;
 }

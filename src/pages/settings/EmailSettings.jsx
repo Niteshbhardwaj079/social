@@ -1,33 +1,37 @@
 import { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import Icon from '../../components/common/Icon';
 import ErrorState from '../../components/common/ErrorState';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import TextField from '../../components/forms/TextField';
 import PasswordField from '../../components/forms/PasswordField';
 import PageLoader from '../../components/common/PageLoader';
-import { getEmailSettings, saveEmailSettings, disconnectEmailSettings, testEmailSettings, sendTestEmail } from '../../services/api/emailSettingsApi';
-import { EMAIL_PROVIDERS, getEmailProvider, providerKeyForHost } from '../../config/emailProviders';
+import { getEmailSettings, saveEmailProvider, disconnectEmailProvider, testEmailProvider, sendTestEmail } from '../../services/api/emailSettingsApi';
+import { EMAIL_PROVIDERS, getEmailProvider, uiKeyForSaved } from '../../config/emailProviders';
 import { REQUEST_STATUS } from '../../config/constants';
 import { formatDate } from '../../utils/formatters';
 import { useToast } from '../../components/common/ToastProvider';
-import { useSelector } from 'react-redux';
 
 const TEST = { IDLE: 'idle', RUNNING: 'running', OK: 'ok', FAILED: 'failed' };
-const DEFAULT_PROVIDER_KEY = EMAIL_PROVIDERS[0].key;
+const DEFAULT_UI_KEY = EMAIL_PROVIDERS[0].key;
 
-const EMPTY_FORM = { host: '', port: 587, secure: false, username: '', password: '', fromEmail: '', fromName: '' };
+function isConnectedToThis(saved, uiKey) {
+  return Boolean(saved.provider) && uiKeyForSaved(saved.provider.providerKey, saved.provider.values) === uiKey;
+}
 
-function formFromSaved(saved, providerKey) {
-  const provider = getEmailProvider(providerKey);
-  return {
-    host: providerKey === 'custom' ? saved.host : provider.host,
-    port: providerKey === 'custom' ? saved.port : provider.port,
-    secure: providerKey === 'custom' ? saved.secure : provider.secure,
-    username: saved.username,
-    password: '',
-    fromEmail: saved.fromEmail,
-    fromName: saved.fromName,
-  };
+/** Builds the form's starting values for whichever provider is selected — from the saved
+ *  connection when it's this exact one, else that provider's own (often empty) defaults. */
+function valuesFromSaved(provider, savedProvider, connected) {
+  const values = {};
+  for (const field of provider.fields) {
+    values[field.key] = field.secret ? '' : connected ? (savedProvider.values[field.key] ?? '') : '';
+  }
+  if (provider.backendKey === 'smtp') {
+    values.host = provider.locked ? provider.host : connected ? savedProvider.values.host || '' : '';
+    values.port = provider.locked ? provider.port : connected ? savedProvider.values.port || 587 : provider.port;
+    values.secure = provider.locked ? provider.secure : connected ? Boolean(savedProvider.values.secure) : provider.secure;
+  }
+  return values;
 }
 
 function EmailSettings() {
@@ -36,8 +40,8 @@ function EmailSettings() {
 
   const [requestStatus, setRequestStatus] = useState(REQUEST_STATUS.LOADING);
   const [saved, setSaved] = useState(null);
-  const [providerKey, setProviderKey] = useState(DEFAULT_PROVIDER_KEY);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [uiKey, setUiKey] = useState(DEFAULT_UI_KEY);
+  const [values, setValues] = useState({});
   const [testState, setTestState] = useState({ status: TEST.IDLE, message: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [isDisconnectOpen, setIsDisconnectOpen] = useState(false);
@@ -47,9 +51,9 @@ function EmailSettings() {
 
   function applySettings(settings) {
     setSaved(settings);
-    const activeKey = settings.configured ? providerKeyForHost(settings.host) : DEFAULT_PROVIDER_KEY;
-    setProviderKey(activeKey);
-    setForm(formFromSaved(settings, activeKey));
+    const activeKey = settings.provider ? uiKeyForSaved(settings.provider.providerKey, settings.provider.values) : DEFAULT_UI_KEY;
+    setUiKey(activeKey);
+    setValues(valuesFromSaved(getEmailProvider(activeKey), settings.provider, isConnectedToThis(settings, activeKey)));
     setRecipient((current) => current || currentUserEmail);
   }
 
@@ -71,32 +75,26 @@ function EmailSettings() {
   if (requestStatus === REQUEST_STATUS.LOADING) return <PageLoader minHeight="24rem" />;
   if (requestStatus === REQUEST_STATUS.FAILED) return <ErrorState onRetry={load} />;
 
-  const provider = getEmailProvider(providerKey);
-  const isConnectedToThis = saved.configured && providerKeyForHost(saved.host) === providerKey;
-  const isCustom = providerKey === 'custom';
-
+  const provider = getEmailProvider(uiKey);
+  const connected = isConnectedToThis(saved, uiKey);
+  const isSmtp = provider.backendKey === 'smtp';
   const isRunning = testState.status === TEST.RUNNING;
   const isSending = sendState.status === TEST.RUNNING;
 
   function handleFieldChange(key, value) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setValues((current) => ({ ...current, [key]: value }));
     setTestState({ status: TEST.IDLE, message: '' });
   }
 
   function handleProviderChange(nextKey) {
-    setProviderKey(nextKey);
-    // Switching TO a known provider overwrites host/port/secure with its fixed values; switching
-    // to Custom just leaves whatever was there as an editable starting point.
-    if (nextKey !== 'custom') {
-      const nextProvider = getEmailProvider(nextKey);
-      setForm((current) => ({ ...current, host: nextProvider.host, port: nextProvider.port, secure: nextProvider.secure }));
-    }
+    setUiKey(nextKey);
+    setValues(valuesFromSaved(getEmailProvider(nextKey), saved.provider, isConnectedToThis(saved, nextKey)));
     setTestState({ status: TEST.IDLE, message: '' });
   }
 
   function runTest() {
     setTestState({ status: TEST.RUNNING, message: '' });
-    testEmailSettings(form).then((result) => {
+    testEmailProvider(uiKey, values).then((result) => {
       setTestState({ status: result.ok ? TEST.OK : TEST.FAILED, message: result.message });
     });
   }
@@ -104,21 +102,21 @@ function EmailSettings() {
   function handleSave(event) {
     event.preventDefault();
     setIsSaving(true);
-    saveEmailSettings(form)
+    saveEmailProvider(uiKey, values)
       .then((settings) => {
         applySettings(settings);
         setTestState({ status: TEST.IDLE, message: '' });
-        showToast({ type: 'success', title: 'Email settings saved', message: 'Outgoing email will now be sent from your own address.' });
+        showToast({ type: 'success', title: 'Email settings saved', message: 'Outgoing email will now be sent through this connection.' });
       })
       .catch((error) => showToast({ type: 'error', title: 'Could not save', message: error.message }))
       .finally(() => setIsSaving(false));
   }
 
   function handleDisconnectConfirmed() {
-    disconnectEmailSettings().then((settings) => {
+    disconnectEmailProvider().then((settings) => {
       applySettings(settings);
       setIsDisconnectOpen(false);
-      showToast({ type: 'info', title: 'Email settings disconnected', message: 'Emails will be recorded but not sent until you connect one again.' });
+      showToast({ type: 'info', title: 'Email disconnected', message: 'Emails will be recorded but not sent until you connect one again.' });
     });
   }
 
@@ -137,49 +135,59 @@ function EmailSettings() {
       .catch((error) => setSendState({ status: TEST.FAILED, message: error.message }));
   }
 
+  const connectedProviderLabel = saved.provider ? getEmailProvider(uiKeyForSaved(saved.provider.providerKey, saved.provider.values)).label : '';
+
   return (
     <div className="d-flex flex-column gap-5">
       <form className="surface-card" onSubmit={handleSave} noValidate>
         <h3 className="h5 mb-1">Email</h3>
         <p className="text-secondary-custom mb-4">
-          Connect your own outgoing mail server (SMTP) so invitations, alerts and notifications are sent from your own address. Social never
-          sends email on your behalf through a shared address.
+          Connect your own outgoing email — SMTP or an API provider — so invitations, alerts and notifications are sent from your own address.
+          Social never sends email on your behalf through a shared address.
         </p>
 
-        {saved.configured ? (
+        {saved.provider ? (
           <div className="storage-status">
             <div className="storage-status__head">
               <span className="status-badge status-badge--connected">Connected</span>
-              <strong>{saved.fromName ? `${saved.fromName} <${saved.fromEmail}>` : saved.fromEmail}</strong>
+              <strong>{connectedProviderLabel}</strong>
               <button type="button" className="btn btn-outline-secondary-custom text-danger ms-auto" onClick={() => setIsDisconnectOpen(true)}>
                 Disconnect
               </button>
             </div>
             <dl className="storage-status__list">
-              <div>
-                <dt>Host</dt>
-                <dd>
-                  {saved.host}:{saved.port} {saved.secure ? '(TLS/SSL)' : ''}
-                </dd>
-              </div>
-              {saved.username ? (
+              {saved.provider.providerKey === 'smtp' ? (
                 <div>
-                  <dt>Username</dt>
-                  <dd>{saved.username}</dd>
+                  <dt>Host</dt>
+                  <dd>
+                    {saved.provider.values.host}:{saved.provider.values.port} {saved.provider.values.secure ? '(TLS/SSL)' : ''}
+                  </dd>
                 </div>
               ) : null}
+              {saved.provider.values.username ? (
+                <div>
+                  <dt>Username</dt>
+                  <dd>{saved.provider.values.username}</dd>
+                </div>
+              ) : null}
+              {Object.entries(saved.provider.secretHints).map(([key, hint]) => (
+                <div key={key}>
+                  <dt>{key === 'apiKey' ? 'API Key' : 'Password'}</dt>
+                  <dd>{hint}</dd>
+                </div>
+              ))}
               <div>
-                <dt>Password</dt>
-                <dd>{saved.passwordHint}</dd>
+                <dt>From</dt>
+                <dd>{saved.provider.values.fromName ? `${saved.provider.values.fromName} <${saved.provider.values.fromEmail}>` : saved.provider.values.fromEmail}</dd>
               </div>
               <div>
                 <dt>Connected</dt>
-                <dd>{formatDate(saved.connectedAt)}</dd>
+                <dd>{formatDate(saved.provider.connectedAt)}</dd>
               </div>
               <div>
                 <dt>Last connection test</dt>
                 <dd>
-                  {formatDate(saved.lastTestedAt)} — {saved.lastTestMessage}
+                  {formatDate(saved.provider.lastTestedAt)} — {saved.provider.lastTestMessage}
                 </dd>
               </div>
             </dl>
@@ -191,13 +199,13 @@ function EmailSettings() {
           </div>
         )}
 
-        <h4 className="h6 mt-4 mb-3">{saved.configured ? 'Change email settings' : 'Connect your email'}</h4>
+        <h4 className="h6 mt-4 mb-3">{saved.provider ? 'Change email settings' : 'Connect your email'}</h4>
 
         <div className="mb-4">
           <label htmlFor="email-provider" className="form-label-custom">
             Email provider
           </label>
-          <select id="email-provider" className="form-select" value={providerKey} onChange={(event) => handleProviderChange(event.target.value)}>
+          <select id="email-provider" className="form-select" value={uiKey} onChange={(event) => handleProviderChange(event.target.value)}>
             {EMAIL_PROVIDERS.map((item) => (
               <option key={item.key} value={item.key}>
                 {item.label}
@@ -206,7 +214,7 @@ function EmailSettings() {
           </select>
           <div className="form-hint">
             {provider.summary}
-            {!isCustom ? ` Uses ${provider.host}:${provider.port}.` : ''}
+            {provider.locked ? ` Uses ${provider.host}:${provider.port}.` : ''}
           </div>
         </div>
 
@@ -218,7 +226,7 @@ function EmailSettings() {
         ) : null}
 
         {provider.steps ? (
-          <details className="storage-guide" open={!isConnectedToThis}>
+          <details className="storage-guide" open={!connected}>
             <summary>How to get these details</summary>
             <ol className="connect-guide__steps">
               {provider.steps.map((step) => (
@@ -235,12 +243,12 @@ function EmailSettings() {
         ) : null}
 
         <div className="connect-form__grid mt-4">
-          {isCustom ? (
+          {isSmtp && !provider.locked ? (
             <>
               <TextField
                 id="email-host"
                 label={<>Host<span className="text-danger"> *</span></>}
-                value={form.host}
+                value={values.host}
                 onChange={(event) => handleFieldChange('host', event.target.value)}
                 placeholder="smtp.gmail.com"
                 autoComplete="off"
@@ -250,55 +258,38 @@ function EmailSettings() {
                 id="email-port"
                 label={<>Port<span className="text-danger"> *</span></>}
                 type="number"
-                value={form.port}
+                value={values.port}
                 onChange={(event) => handleFieldChange('port', event.target.value)}
                 placeholder="587"
               />
             </>
           ) : null}
-          <TextField
-            id="email-username"
-            label="Username"
-            value={form.username}
-            onChange={(event) => handleFieldChange('username', event.target.value)}
-            placeholder="you@yourcompany.com"
-            autoComplete="off"
-            spellCheck={false}
-            hint="Leave blank if your server does not need a login."
-          />
-          <PasswordField
-            id="email-password"
-            label={<>Password<span className="text-danger"> *</span></>}
-            value={form.password}
-            onChange={(event) => handleFieldChange('password', event.target.value)}
-            placeholder={saved.configured ? 'Leave blank to keep the current password' : 'Your SMTP password or app password'}
-            autoComplete="off"
-            hint={
-              saved.configured
-                ? 'Stored encrypted. Never shown again once saved — leave this blank to keep the current one.'
-                : isCustom
-                  ? 'Your SMTP account’s password or API key.'
-                  : 'See "How to get these details" above — most providers need an app password here, not your regular one.'
-            }
-          />
-          <TextField
-            id="email-fromEmail"
-            label={<>From email<span className="text-danger"> *</span></>}
-            type="email"
-            value={form.fromEmail}
-            onChange={(event) => handleFieldChange('fromEmail', event.target.value)}
-            placeholder="no-reply@yourcompany.com"
-            autoComplete="off"
-          />
-          <TextField
-            id="email-fromName"
-            label="From name"
-            value={form.fromName}
-            onChange={(event) => handleFieldChange('fromName', event.target.value)}
-            placeholder="Your Company"
-            autoComplete="off"
-          />
-          {isCustom ? (
+
+          {provider.fields.map((field) => {
+            const Field = field.secret ? PasswordField : TextField;
+            const hint = field.secret && connected ? 'Stored encrypted. Never shown again once saved — leave this blank to keep the current one.' : field.hint;
+            return (
+              <Field
+                key={`${uiKey}-${field.key}`}
+                id={`email-${field.key}`}
+                label={
+                  <>
+                    {field.label}
+                    {field.required ? <span className="text-danger"> *</span> : null}
+                  </>
+                }
+                {...(field.secret ? {} : { type: field.type === 'email' ? 'email' : 'text' })}
+                value={values[field.key] || ''}
+                onChange={(event) => handleFieldChange(field.key, event.target.value)}
+                placeholder={field.secret && connected ? 'Leave blank to keep the current one' : field.placeholder}
+                autoComplete="off"
+                spellCheck={false}
+                hint={hint}
+              />
+            );
+          })}
+
+          {isSmtp && !provider.locked ? (
             <div className="connect-form__field--wide">
               <div className="form-check form-switch mb-0">
                 <input
@@ -306,7 +297,7 @@ function EmailSettings() {
                   className="form-check-input"
                   role="switch"
                   id="email-secure"
-                  checked={form.secure}
+                  checked={values.secure}
                   onChange={(event) => handleFieldChange('secure', event.target.checked)}
                 />
                 <label htmlFor="email-secure" className="form-check-label">
@@ -334,7 +325,7 @@ function EmailSettings() {
         </div>
       </form>
 
-      {saved.configured ? (
+      {saved.provider ? (
         <form className="surface-card" onSubmit={handleSendTest}>
           <h3 className="h5 mb-1">Send a test email</h3>
           <p className="text-secondary-custom mb-4">Send a real email through your connected server to make sure it actually arrives.</p>
@@ -363,7 +354,7 @@ function EmailSettings() {
         isOpen={isDisconnectOpen}
         onClose={() => setIsDisconnectOpen(false)}
         onConfirm={handleDisconnectConfirmed}
-        title="Disconnect this email server?"
+        title="Disconnect this email connection?"
         message="Invitations, alerts and notifications will stop being sent until you connect one again — they will still be recorded, just not delivered."
         confirmLabel="Disconnect"
         isDanger

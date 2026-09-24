@@ -3,42 +3,44 @@ import { z } from 'zod';
 import { authenticate, requireSettingsEditor, requireSettingsViewer } from '../middleware/auth.js';
 import { providerLimiter } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
+import { isEmailProvider } from '../email/providers.js';
 import * as emailSettingsService from '../services/emailSettingsService.js';
 import { sendEmail } from '../services/mailer.js';
 
 const router = Router();
 router.use(authenticate);
 
-const settingsBody = z.object({
-  host: z.string().trim().min(1).max(255),
-  port: z.coerce.number().int().min(1).max(65535),
-  secure: z.boolean().default(false),
-  username: z.string().trim().max(255).optional().default(''),
-  password: z.string().max(500).optional().default(''),
-  fromEmail: z.string().trim().email('Enter a valid email address').max(254),
-  fromName: z.string().trim().max(160).optional().default(''),
-});
+const providerParams = z.object({ providerKey: z.string().refine(isEmailProvider, 'Unknown email provider') });
+const values = z.record(z.string(), z.unknown()).refine((value) => Object.keys(value).length <= 20, 'Too many fields');
 
 router.get('/', requireSettingsViewer, async (_req, res) => res.json(await emailSettingsService.getSettings()));
 
 router.post(
-  '/test',
+  '/providers/:providerKey/test',
   requireSettingsEditor,
   providerLimiter,
-  validate({ body: settingsBody }),
-  async (req, res) => res.json(await emailSettingsService.testSettings(req.valid.body))
+  validate({ params: providerParams, body: z.object({ values }) }),
+  async (req, res) => res.json(await emailSettingsService.testProvider(req.valid.params.providerKey, req.valid.body.values))
 );
 
 router.put(
-  '/',
+  '/providers/:providerKey',
   requireSettingsEditor,
   providerLimiter,
-  validate({ body: settingsBody }),
+  validate({ params: providerParams, body: z.object({ values }) }),
   async (req, res) =>
-    res.json(await emailSettingsService.saveSettings({ input: req.valid.body, actor: req.user, ip: req.ip, userAgent: req.get('user-agent') }))
+    res.json(
+      await emailSettingsService.saveProvider({
+        providerKey: req.valid.params.providerKey,
+        input: req.valid.body.values,
+        actor: req.user,
+        ip: req.ip,
+        userAgent: req.get('user-agent'),
+      })
+    )
 );
 
-router.delete('/', requireSettingsEditor, async (req, res) => res.json(await emailSettingsService.disconnectSettings({ actor: req.user, ip: req.ip, userAgent: req.get('user-agent') })));
+router.delete('/provider', requireSettingsEditor, async (req, res) => res.json(await emailSettingsService.disconnectProvider({ actor: req.user, ip: req.ip, userAgent: req.get('user-agent') })));
 
 router.post(
   '/send-test',

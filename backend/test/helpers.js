@@ -2,7 +2,7 @@ import { createApp } from '../src/app.js';
 import { prepareDatabase } from '../src/bootstrap.js';
 import { pool, query } from '../src/db/pool.js';
 import { ensureEmailRows } from '../src/services/systemEmailService.js';
-import { invalidateTransportCache } from '../src/services/emailSettingsService.js';
+import { invalidateProviderCache } from '../src/services/emailSettingsService.js';
 
 export const PASSWORD = 'Sup3r-secret-pass';
 
@@ -79,10 +79,10 @@ export async function resetDatabase() {
         connected_at = NULL, last_tested_at = NULL, last_test_message = NULL WHERE id = true`
   );
   await query(
-    `UPDATE email_settings SET host = NULL, port = NULL, secure = false, username = NULL, from_email = NULL, from_name = NULL,
-        credentials = NULL, secret_hint = NULL, connected_at = NULL, last_tested_at = NULL, last_test_message = NULL WHERE id = true`
+    `UPDATE email_settings SET provider_key = NULL, provider_values = '{}', secret_hints = '{}', credentials = NULL,
+        connected_at = NULL, last_tested_at = NULL, last_test_message = NULL WHERE id = true`
   );
-  invalidateTransportCache();
+  invalidateProviderCache();
   await ensureEmailRows();
 }
 
