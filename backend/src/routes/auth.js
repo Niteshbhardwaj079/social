@@ -6,6 +6,7 @@ import { authLimiter } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
 import { passwordSchema } from '../services/passwordService.js';
 import * as auth from '../services/authService.js';
+import * as twoFactor from '../services/twoFactorService.js';
 import { isValidLanguage } from '../emails/builder.js';
 import { toApiUser } from '../services/userService.js';
 
@@ -48,7 +49,18 @@ router.post(
   '/login',
   authLimiter,
   validate({ body: z.object({ email, password: z.string().min(1).max(200) }) }),
-  async (req, res) => sendSession(res, await auth.login(req.valid.body, metaOf(req)))
+  async (req, res) => {
+    const result = await auth.login(req.valid.body, metaOf(req));
+    if (result.requires2fa) return res.json({ requires2fa: true, challengeToken: result.challengeToken });
+    sendSession(res, result);
+  }
+);
+
+router.post(
+  '/2fa/verify-login',
+  authLimiter,
+  validate({ body: z.object({ challengeToken: z.string().min(20).max(2000), code: z.string().trim().min(4).max(20) }) }),
+  async (req, res) => sendSession(res, await auth.completeTwoFactorLogin(req.valid.body, metaOf(req)))
 );
 
 router.post('/refresh', async (req, res) => {
@@ -107,6 +119,37 @@ router.post(
   authLimiter,
   validate({ body: z.object({ currentPassword: z.string().min(1).max(200), newPassword: passwordSchema }) }),
   async (req, res) => sendSession(res, await auth.changePassword(req.user, req.valid.body, metaOf(req)))
+);
+
+router.get('/2fa/status', authenticate, async (req, res) => res.json(await twoFactor.getStatus(req.user.id)));
+
+router.post('/2fa/setup', authenticate, authLimiter, async (req, res) => res.json(await twoFactor.startSetup(req.user)));
+
+router.post(
+  '/2fa/enable',
+  authenticate,
+  authLimiter,
+  validate({ body: z.object({ code: z.string().trim().min(4).max(20) }) }),
+  async (req, res) => res.json(await twoFactor.confirmEnable(req.user, req.valid.body.code, metaOf(req)))
+);
+
+router.post(
+  '/2fa/disable',
+  authenticate,
+  authLimiter,
+  validate({ body: z.object({ password: z.string().min(1).max(200) }) }),
+  async (req, res) => {
+    await twoFactor.disable(req.user, req.valid.body.password, metaOf(req));
+    res.json({ success: true });
+  }
+);
+
+router.post(
+  '/2fa/backup-codes/regenerate',
+  authenticate,
+  authLimiter,
+  validate({ body: z.object({ password: z.string().min(1).max(200) }) }),
+  async (req, res) => res.json(await twoFactor.regenerateBackupCodes(req.user, req.valid.body.password, metaOf(req)))
 );
 
 router.get('/sessions', authenticate, async (req, res) => res.json({ sessions: await auth.listSessions(req.user.id, req.cookies?.[REFRESH_COOKIE]) }));

@@ -238,7 +238,7 @@ export async function bulkChange({ action, ids, actor, ip, userAgent }) {
 
 // ---------------------------------------------------------------- approval
 export async function approvePost({ id, actor, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can approve posts.');
+  if (!canPublishPosts(actor)) throw forbidden('Your role cannot approve posts.');
   const row = await getRow(id);
   if (!row) throw notFound('Post not found');
   if (row.status !== 'pendingApproval') throw conflict('This post is not waiting for approval.');
@@ -270,7 +270,7 @@ export async function approvePost({ id, actor, ip, userAgent }) {
 }
 
 export async function rejectPost({ id, actor, reason, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can reject posts.');
+  if (!canPublishPosts(actor)) throw forbidden('Your role cannot reject posts.');
   const moved = await query(
     `UPDATE posts SET status = 'rejected', rejection_reason = $2, reviewed_by = $3, updated_at = now()
       WHERE id = $1 AND status = 'pendingApproval' RETURNING id, content, created_by`,
@@ -388,7 +388,7 @@ export async function runPublish(postId, actorId = null) {
 }
 
 export async function retryPost({ id, actor, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can retry a post.');
+  if (!canPublishPosts(actor)) throw forbidden('Your role cannot retry a post.');
   const moved = await query("UPDATE posts SET status = 'publishing', locked_at = now(), updated_at = now() WHERE id = $1 AND status = 'failed' RETURNING id, content", [id]);
   if (!moved.rowCount) {
     if (!(await getRow(id))) throw notFound('Post not found');

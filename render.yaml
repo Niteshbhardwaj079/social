@@ -1,0 +1,49 @@
+# Optional Render Blueprint — documents how the two live services (API + static front-end) are meant to be
+# configured, so a future recreate/redeploy doesn't silently lose settings that only exist today as manual
+# dashboard clicks. Secrets are marked `sync: false` (Render will ask for them once, never stores them here).
+#
+# This file does NOT need to be "synced" as a Blueprint for the app to keep working as-is — the one actual
+# fix for the blank-page-on-refresh bug is the `routes` rewrite rule below on the static site, which can
+# also be added directly in the existing service's dashboard under Settings -> Redirects/Rewrites, with no
+# code change or redeploy at all:
+#   Source: /*   Destination: /index.html   Action: Rewrite
+
+services:
+  - type: web
+    name: social-api
+    runtime: node
+    buildCommand: cd backend && npm ci --omit=dev
+    startCommand: cd backend && node src/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SERVE_FRONTEND
+        value: false
+      - key: CORS_ORIGINS
+        value: https://social-app-ujk3.onrender.com
+      - key: APP_URL
+        value: https://social-app-ujk3.onrender.com
+      - key: COOKIE_SECURE
+        value: true
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+
+  - type: web
+    name: social-app
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    routes:
+      # Without this, any deep link (e.g. /dashboard, /settings/language) that a user refreshes or opens
+      # directly hits Render's own 404 instead of the SPA, since a static host has no server-side router —
+      # this is the actual fix for the blank-page-on-refresh bug.
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -9,7 +9,7 @@ everything that costs money elsewhere (mail server, database, storage) is someth
 npm install
 npm run db:dev      # development only: real PostgreSQL 17 from node_modules, data in .pgdata, writes .env
 npm run dev         # API on http://localhost:4000 (restarts on file changes)
-npm test            # 285 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
+npm test            # 308 integration tests against a throw-away PostgreSQL (no real social platform is contacted)
 ```
 
 In production you do not use `db:dev`: point `DATABASE_URL` at any PostgreSQL server
@@ -29,6 +29,7 @@ Email uses **any SMTP server** you give it (`SMTP_*`); with none set, emails are
 | Setup & sign-in | `POST /api/auth/register` (first user only) · `login` · `refresh` · `logout` · `forgot-password` · `reset-password` · `accept-invite` · `GET/PATCH /me` (name, language, avatar) · `change-password` · `GET /api/public/config` |
 | Sessions | `GET /api/auth/sessions` (this person's real, currently-signed-in devices) · `DELETE /sessions/:id` (revoke one) |
 | Users & roles | `GET/POST /api/users` · `PATCH/DELETE /api/users/:id` · `POST /:id/resend-invite` (Super Admin / Admin) |
+| Roles & permissions | `GET /api/roles` (everyone) · `GET /:id` · `POST /api/roles` · `PATCH/DELETE /:id` · `POST /:id/duplicate` (needs the `rolesManage` capability — Super Admin and Admin have it by default) |
 | Settings | `GET/PUT /api/settings/languages` · `GET/PUT /api/settings/workspace` |
 | System emails | `GET /api/system-emails?lang=` · `PUT/DELETE /:id/translations/:lang` · `PATCH /:id` (on/off) · `POST /:id/test` |
 | Social accounts | `GET /api/social-accounts` (everyone) · `POST /:platform/test` · `PUT /:platform` (connect) · `POST /:platform/recheck` · `DELETE /:platform` (Super Admin / Admin) |
@@ -42,6 +43,104 @@ Email uses **any SMTP server** you give it (`SMTP_*`); with none set, emails are
 | Operations | `GET /api/health` · `GET /api/activity-logs` · `DELETE /api/activity-logs` (Super Admin / Admin) |
 
 Errors are always `{ "error": { "code", "message", "details?" } }`.
+
+### Roles & Permissions (custom roles, real per-module enforcement)
+
+(2026-09-24) Replaces the old hardcoded 5-role enum with real, editable rows — the 5 built-in roles
+(Super Admin, Admin, Editor, Contributor, Analyst) keep exactly the capabilities they had before this
+change (seeded that way by migration `022_roles_permissions.sql`), but Super Admin and Admin can now also
+create roles like "Ads Manager" or "Content Manager", each with its own permission set, and rename, edit,
+duplicate, archive or delete any non-protected role.
+
+**Permissions are 12 real, enforced booleans** (`usersManage`, `rolesManage`, `postsWrite`, `postsPublish`,
+`socialAccountsManage`, `adsManage`, `campaignsManage`, `reportsView`, `mediaManage`, `templatesManage`,
+`activityLogsManage`, `settingsManage`) — one per real gate in `services/permissions.js`, not a decorative
+"View/Create/Edit/Delete" matrix that doesn't correspond to anything the backend actually checks. Every
+service that used to check `actor.role === 'admin'` now checks a capability flag the `authenticate`
+middleware already joined onto `req.user` from the role table, so a custom role is enforced identically to
+a built-in one everywhere: campaigns, ads, ad creative templates, media, activity logs and settings each got
+their own dedicated flag (they used to piggyback on a coarser check); Posts kept two (`postsWrite`/
+`postsPublish`, already a real distinction); Social Accounts also covers the storage provider and ad-account
+sync (same trust boundary as connecting a platform, unchanged from before).
+
+**Safety rails, all server-side (never just a hidden button):**
+- Exactly one role (Super Admin) is `isProtected` — nobody, however permissioned, can rename it, edit its
+  permissions, or delete it. This is the one hard lock that stops a bad edit from ever permanently locking
+  everyone out, alongside the pre-existing "at least one active Super Admin" invariant (now phrased as "at
+  least one active user on the protected role").
+- **Cannot grant a permission you do not hold yourself** — the actual anti-escalation guard. `rolesManage`
+  is an ordinary flag (both Super Admin and Admin have it, per spec), so without this check a
+  `rolesManage`-capable custom role could hand itself, or another role, capabilities its own creator never
+  had. Verified with a dedicated test: a custom role with only `rolesManage` can create more roles with
+  `rolesManage`, but is refused (403) the moment it tries to also grant `usersManage`.
+- A role still assigned to at least one person cannot be deleted (409, "reassign them first") — a real FK
+  (`users.role → roles.id`) backs this, not just an application check.
+- Archiving (`isActive: false`) blocks *new* assignment but never breaks people who already have the role —
+  it is a soft "stop offering this one," not a retroactive lock-out.
+- Seniority (`rank`, 1-3; 4 is reserved for the protected role) still governs who can invite/edit/remove
+  whom (`canAssignRole`/`canManageTarget`, unchanged in spirit from before, just reading a DB column instead
+  of a hardcoded map) — it is deliberately **not** compared against the actor when creating/editing a role
+  definition, since the grant-guard above is what actually prevents escalation, and a strict rank comparison
+  would have made the lowest tier permanently unable to create any role at all.
+
+Frontend: the Roles & Permissions tab (`RolesPanel.jsx`) shows the same real 12-capability list, grouped by
+module, each with a one-line honest description of what it actually does — not the old 78-checkbox fake
+matrix. `usersApi`'s role dropdown and filters now fetch the real role list instead of a static 5-item enum;
+a custom role's name is shown as-is (it cannot be translated, since nobody pre-wrote it in 21 languages) —
+only the 5 built-in roles' labels come from the translation catalog.
+
+13 new backend tests (`test/roles.test.js`): custom role creation (including "Admin, not just Super Admin,
+can do this" — the literal spec ask), the escalation guard, rank bounds, the protected-role lock, duplicate,
+delete blocked while assigned, archive-blocks-new-assignment-only, role assignment at invite time and via
+update, a made-up role id refused as 400 not 404/500, and end-to-end server-side enforcement (a role with
+only `campaignsManage` can create a campaign but is refused connecting a social account). 298 integration
+tests total (was 285).
+
+### Two-Factor Authentication (real TOTP)
+
+(2026-09-24) Replaces the "Coming soon" chip in Settings > Security. Standard TOTP (RFC 6238, the same
+protocol Google Authenticator/Authy/1Password all speak) via `otplib` (pure JS, no network calls) +
+`qrcode` (renders the QR entirely locally, no third-party image-generation API) — both free/OSS, matching
+this project's "no paid services" rule.
+
+**Setup** (`POST /auth/2fa/setup` → `POST /auth/2fa/enable`): a fresh secret is generated and stored
+encrypted (`utils/crypto.js`'s existing AES-256-GCM helper, the same one social-account/storage credentials
+already use) but `totp_enabled` stays `false` until the person proves they can actually generate a real
+code from it — enabling without that check would risk locking someone out with an authenticator app that
+was never actually scanning the right thing. Only on a successful confirm are 10 backup codes generated and
+shown once (hashed with the same SHA-256 helper refresh tokens use — they're single-use verify-only, so
+there's nothing to decrypt back, unlike the TOTP secret itself).
+
+**Login** (`POST /auth/login` → `POST /auth/2fa/verify-login`): once 2FA is on, a correct password no
+longer returns a session directly — it returns `{ requires2fa: true, challengeToken }` (a short-lived,
+purpose-tagged JWT, 5 minutes, signed with the same secret as an access token but never usable as one).
+The second call trades that + a real code (from the app, or a backup code) for the actual session. Wrong
+codes count against the same `failed_login_count`/lockout the password step already uses — 5 wrong codes
+locks the account for 15 minutes, same as 5 wrong passwords, on the reasoning that a leaked password
+shouldn't buy unlimited guesses against the second factor either.
+
+**Replay protection**: `totp_last_step` records the last accepted 30-second time-step, so an observed code
+cannot be reused even within its own validity window (RFC 6238's own recommendation). Real bug caught while
+building this, before it shipped: `otplib`'s `epochTolerance` option is in **seconds**, not steps — the
+first pass used `epochTolerance: 1`, which in practice meant almost no real clock-drift tolerance at all
+(the code would only verify within about 1 second of "now"). Caught by the test suite itself, not by
+inspection: a test generating a second, later code for the same secret consistently failed to verify even
+though the code was genuinely correct, tracing back to that one misread option. Fixed to `30` (one full
+step), the standard allowance real authenticator apps expect.
+
+Turning 2FA off or regenerating backup codes both require re-entering the real password (not just an
+active session) — a signed-in browser tab alone isn't enough to weaken the account's own second factor.
+
+11 new backend tests (`test/twoFactor.test.js`): setup with a real otpauth QR + secret, a wrong code never
+turns it on, a real code does, cannot re-setup while already on, login returns a challenge not a session,
+a wrong code refused / the real code (for a genuinely later time-step, not a replay) completes sign-in, a
+garbage challenge token refused cleanly, a backup code signs in once and never twice, both destructive
+actions need the real password, regenerating replaces all 10 codes, turning it off reverts login to one
+step, and 5 wrong codes lock out even a subsequently-correct one. 308 integration tests total (was 298).
+Live-verified end to end with Playwright against a real dev DB: scanned the real QR's encoded secret with a
+standalone RFC 6238 generator, enabled 2FA, signed out, signed back in and hit the real code-entry screen,
+proved a wrong code is refused and the real code signs in, proved a backup code also works and cannot be
+reused, then disabled 2FA and confirmed login reverted to a single step — zero console errors.
 
 ### Languages and emails
 
@@ -604,11 +703,13 @@ pattern as everything already built above; none of them are blocked on this proj
 keys, only on the integration work (or, for a couple of them, a review process this project itself — not the
 client — would need to pass) itself.
 
-One page has no backend at all, by design so far — nobody has asked for it and it would really touch the
-whole app: the **Roles tab** of Users & Roles (custom permission editing would mean reworking the role
-system this app already has baked into `permissions.js` — every `canPublishPosts`/`canManageUsers`/etc.
-check across the whole backend assumes one of five fixed roles, not an arbitrary per-role permission set).
-Still honestly mock data, not silently faked.
+**Roles & Permissions is now real** (2026-09-24) — see its own section below. The 5 built-in roles
+(Super Admin/Admin/Editor/Contributor/Analyst) still work exactly as before; Admin and Super Admin can
+now also create, edit, duplicate, archive and delete custom roles with their own permission set.
+
+**Two-Factor Authentication is now real** (2026-09-24) — see its own section below. Replaces the
+"Coming soon" chip mentioned just below with a genuine TOTP setup, QR code, backup codes and a real
+second step at login.
 
 A full audit (2026-09-23) also found three Settings forms that looked real but weren't — Account, General
 and Security all just showed a success toast and changed nothing. Fixed: Account (name + password, both real;

@@ -29,7 +29,7 @@ function RoleSelectCard({ role, isSelected, onSelect, onClone, onRename, onDelet
       </div>
 
       <div className="role-select-card__body">
-        {role.isSystemRole ? (
+        {role.isProtected ? (
           <span className="role-select-card__name">
             {role.name}
             <Icon name="Lock" size={12} />
@@ -37,25 +37,28 @@ function RoleSelectCard({ role, isSelected, onSelect, onClone, onRename, onDelet
         ) : (
           <span className="role-select-card__name">{role.name}</span>
         )}
+        {role.isActive === false ? <span className="badge bg-secondary-subtle text-secondary-emphasis">Archived</span> : null}
         <p className="role-select-card__description">{role.description}</p>
       </div>
 
       <div className="role-select-card__footer">
         <span className="small text-muted-custom">{peopleLabel}</span>
         <div className="d-flex gap-1">
-          <button
-            type="button"
-            className="btn btn-icon-sm bg-transparent border-0"
-            onClick={(event) => {
-              event.stopPropagation();
-              onRename(role);
-            }}
-            aria-label={`Rename ${role.name}`}
-            title="Rename"
-          >
-            <Icon name="Pencil" size={14} />
-          </button>
-          {!role.isSystemRole ? (
+          {!role.isProtected ? (
+            <button
+              type="button"
+              className="btn btn-icon-sm bg-transparent border-0"
+              onClick={(event) => {
+                event.stopPropagation();
+                onRename(role);
+              }}
+              aria-label={`Edit ${role.name}`}
+              title="Edit"
+            >
+              <Icon name="Pencil" size={14} />
+            </button>
+          ) : null}
+          {!role.isProtected ? (
             <button
               type="button"
               className="btn btn-icon-sm bg-transparent border-0 text-danger"

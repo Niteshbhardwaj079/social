@@ -13,7 +13,10 @@ import {
   revokeRefreshTokenById,
   rotateRefreshToken,
   signAccessToken,
+  signTwoFactorChallenge,
+  verifyTwoFactorChallenge,
 } from './tokenService.js';
+import { verifyLoginCode } from './twoFactorService.js';
 import { effectiveLanguage, getLanguageSettings, saveWorkspace } from './settingsService.js';
 import { dispatchEmail } from './systemEmailService.js';
 import { recordActivity } from './auditService.js';
@@ -92,9 +95,30 @@ async function notifyNewSignIn(user, meta) {
   }));
 }
 
+/** The part of signing in that only happens once we're sure this is really them: records it, checks
+ *  whether this device has been seen before, opens the session, and emails about a genuinely new one. */
+async function finishLogin(user, meta) {
+  await recordActivity({ actorId: user.id, action: 'auth.login', entity: 'user', entityId: user.id, ip: meta.ip, userAgent: meta.userAgent });
+  // Checked before startSession() writes this sign-in's own session row, so it never sees itself as "known".
+  const device = describeDevice(meta.userAgent);
+  const isNew = device && !(await isKnownDevice(user.id, device));
+  const session = await startSession(user.id, meta);
+  if (isNew) await notifyNewSignIn(user, meta);
+  return session;
+}
+
+async function registerFailedAttempt(user, meta, action) {
+  const locks = user.failed_login_count + 1 >= MAX_FAILED_LOGINS;
+  await query(
+    `UPDATE users SET failed_login_count = $2, locked_until = CASE WHEN $3 THEN now() + ($4 || ' minutes')::interval ELSE locked_until END WHERE id = $1`,
+    [user.id, locks ? 0 : user.failed_login_count + 1, locks, String(LOCK_MINUTES)]
+  );
+  await recordActivity({ actorId: user.id, action, entity: 'user', entityId: user.id, ip: meta.ip, userAgent: meta.userAgent });
+}
+
 export async function login({ email, password }, meta) {
   const found = await query(
-    `SELECT ${PUBLIC_COLUMNS}, password_hash, failed_login_count, locked_until FROM users WHERE lower(email) = lower($1)`,
+    `SELECT ${PUBLIC_COLUMNS}, password_hash, failed_login_count, locked_until, totp_enabled FROM users WHERE lower(email) = lower($1)`,
     [email]
   );
   const user = found.rows[0];
@@ -106,27 +130,44 @@ export async function login({ email, password }, meta) {
   // Always do one password check, even for unknown emails, so timing does not reveal who exists.
   const matches = await verifyPassword(password, user?.password_hash || DUMMY_HASH);
   if (!user || !user.password_hash || !matches) {
-    if (user) {
-      const locks = user.failed_login_count + 1 >= MAX_FAILED_LOGINS;
-      await query(
-        `UPDATE users SET failed_login_count = $2, locked_until = CASE WHEN $3 THEN now() + ($4 || ' minutes')::interval ELSE locked_until END WHERE id = $1`,
-        [user.id, locks ? 0 : user.failed_login_count + 1, locks, String(LOCK_MINUTES)]
-      );
-      await recordActivity({ actorId: user.id, action: 'auth.login_failed', entity: 'user', entityId: user.id, ip: meta.ip, userAgent: meta.userAgent });
-    }
+    if (user) await registerFailedAttempt(user, meta, 'auth.login_failed');
     throw unauthorized(INVALID_LOGIN);
   }
   if (user.status === 'disabled') throw forbidden('This account is disabled. Ask an administrator.');
 
   await query('UPDATE users SET failed_login_count = 0, locked_until = NULL, last_active_at = now() WHERE id = $1', [user.id]);
-  await recordActivity({ actorId: user.id, action: 'auth.login', entity: 'user', entityId: user.id, ip: meta.ip, userAgent: meta.userAgent });
 
-  // Checked before startSession() writes this sign-in's own session row, so it never sees itself as "known".
-  const device = describeDevice(meta.userAgent);
-  const isNew = device && !(await isKnownDevice(user.id, device));
-  const session = await startSession(user.id, meta);
-  if (isNew) await notifyNewSignIn(user, meta);
-  return session;
+  // Password is genuinely correct — but if 2FA is on, that alone isn't enough to open a session yet.
+  if (user.totp_enabled) {
+    return { requires2fa: true, challengeToken: signTwoFactorChallenge(user.id) };
+  }
+  return finishLogin(user, meta);
+}
+
+/** The second step of signing in when 2FA is on: trades the password step's challenge token + a
+ *  real code (from the authenticator app, or a backup code) for an actual session. */
+export async function completeTwoFactorLogin({ challengeToken, code }, meta) {
+  const userId = verifyTwoFactorChallenge(challengeToken);
+  const EXPIRED = 'This code has expired. Please sign in again.';
+  if (!userId) throw unauthorized(EXPIRED);
+
+  const found = await query(
+    `SELECT ${PUBLIC_COLUMNS}, failed_login_count, locked_until, totp_enabled FROM users WHERE id = $1`,
+    [userId]
+  );
+  const user = found.rows[0];
+  if (!user || user.status !== 'active' || !user.totp_enabled) throw unauthorized(EXPIRED);
+  if (user.locked_until && new Date(user.locked_until) > new Date()) {
+    throw tooManyRequests(`Too many failed attempts. Try again in ${LOCK_MINUTES} minutes.`);
+  }
+
+  const result = await verifyLoginCode(userId, code);
+  if (!result.valid) {
+    await registerFailedAttempt(user, meta, 'auth.2fa_failed');
+    throw unauthorized('That code is not correct.');
+  }
+  await query('UPDATE users SET failed_login_count = 0, locked_until = NULL, last_active_at = now() WHERE id = $1', [user.id]);
+  return finishLogin(user, meta);
 }
 
 /** Trades a refresh token for a new access token + a new refresh token (the old one stops working). */

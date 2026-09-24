@@ -10,6 +10,36 @@ export async function resetDatabase() {
   await query(
     'TRUNCATE users, auth_tokens, settings, system_emails, system_email_translations, email_outbox, activity_logs, social_accounts, posts, post_targets, media_items, notifications, campaigns, recycling_entries, account_metrics_history, inbox_conversations, inbox_replies, ad_accounts, ad_campaigns, ad_sets, ad_creatives, ads, ad_daily_stats, ad_creative_templates, ad_rules, ad_rule_runs, short_links, short_link_clicks RESTART IDENTITY CASCADE'
   );
+  // `roles` is seed/config data, like storage_settings below — a test may create custom roles or
+  // edit the 5 built-in ones, so remove anything extra and put the built-in 5 back exactly as
+  // migration 022 seeded them (keep this block's values in sync with that migration).
+  await query("DELETE FROM roles WHERE id NOT IN ('superAdmin', 'admin', 'editor', 'contributor', 'analyst')");
+  await query(`
+    INSERT INTO roles (
+      id, name, description, icon, accent, rank, is_protected,
+      users_manage, roles_manage, posts_write, posts_publish, social_accounts_manage,
+      ads_manage, campaigns_manage, reports_view, media_manage, templates_manage,
+      activity_logs_manage, settings_manage
+    ) VALUES
+      ('superAdmin', 'Super Admin', 'Full access to every module. Cannot be renamed, edited or deleted.', 'ShieldCheck', 'rose', 4, true,
+       true, true, true, true, true, true, true, true, true, true, true, true),
+      ('admin', 'Admin', 'Manage users, content and settings.', 'Settings2', 'purple', 3, false,
+       true, true, true, true, true, true, true, true, true, true, true, true),
+      ('editor', 'Editor', 'Create, edit and publish content across all connected accounts.', 'PenSquare', 'blue', 2, false,
+       false, false, true, true, false, true, true, true, true, true, false, false),
+      ('contributor', 'Contributor', 'Draft and submit content for approval; cannot publish directly.', 'Users', 'teal', 1, false,
+       false, false, true, false, false, false, false, true, true, false, false, false),
+      ('analyst', 'Analyst', 'Read-only access to analytics and reporting.', 'BarChart3', 'slate', 1, false,
+       false, false, false, false, false, false, false, true, false, false, false, false)
+    ON CONFLICT (id) DO UPDATE SET
+      name = excluded.name, description = excluded.description, icon = excluded.icon, accent = excluded.accent,
+      rank = excluded.rank, is_protected = excluded.is_protected, users_manage = excluded.users_manage,
+      roles_manage = excluded.roles_manage, posts_write = excluded.posts_write, posts_publish = excluded.posts_publish,
+      social_accounts_manage = excluded.social_accounts_manage, ads_manage = excluded.ads_manage,
+      campaigns_manage = excluded.campaigns_manage, reports_view = excluded.reports_view,
+      media_manage = excluded.media_manage, templates_manage = excluded.templates_manage,
+      activity_logs_manage = excluded.activity_logs_manage, settings_manage = excluded.settings_manage
+  `);
   // storage_settings always has exactly one row (id=true); TRUNCATE would remove it, so reset it in place instead.
   await query(
     `UPDATE storage_settings SET server_enabled = true, external_enabled = false, limit_value = NULL, limit_unit = 'GB',

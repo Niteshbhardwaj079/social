@@ -53,6 +53,7 @@ export const restoreSession = createAsyncThunk('auth/restoreSession', async (_, 
   }
 });
 export const signIn = asThunk('signIn', authApi.loginRequest);
+export const verifyTwoFactorLogin = asThunk('verifyTwoFactorLogin', authApi.verifyTwoFactorLoginRequest);
 export const registerOwner = asThunk('registerOwner', authApi.registerRequest);
 export const acceptInvite = asThunk('acceptInvite', authApi.acceptInviteRequest);
 export const signOut = createAsyncThunk('auth/signOut', async () => {
@@ -65,6 +66,7 @@ const initialState = API_ENABLED
   : { isAuthenticated: Boolean(getStoredAuth()), currentUser: getStoredAuth() || null, isBootstrapping: false, setupRequired: false };
 
 const signedIn = (state, action) => {
+  if (action.payload.requires2fa) return; // password was right, but the 2FA code step isn't done yet
   state.isAuthenticated = true;
   state.currentUser = action.payload.user;
   state.setupRequired = false;
@@ -118,6 +120,7 @@ const authSlice = createSlice({
         state.isBootstrapping = false;
       })
       .addCase(signIn.fulfilled, signedIn)
+      .addCase(verifyTwoFactorLogin.fulfilled, signedIn)
       .addCase(registerOwner.fulfilled, signedIn)
       .addCase(acceptInvite.fulfilled, signedIn)
       // Optimistic: the person is signed out on screen at once, whatever the network does.

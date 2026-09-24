@@ -80,7 +80,7 @@ async function getRuleRow(id) {
 }
 
 export async function createRule({ actor, input, ip, userAgent }) {
-  if (!canManageAccounts(actor)) throw forbidden('Only an Admin or Super Admin can create an automated rule.');
+  if (!canManageAccounts(actor)) throw forbidden('Your role cannot create automated rules.');
   const row = (
     await query(
       `INSERT INTO ad_rules (name, ad_account_id, metric, comparator, threshold, window_days, action, is_active, cooldown_hours, created_by)
@@ -93,7 +93,7 @@ export async function createRule({ actor, input, ip, userAgent }) {
 }
 
 export async function updateRule({ id, actor, input, ip, userAgent }) {
-  if (!canManageAccounts(actor)) throw forbidden('Only an Admin or Super Admin can edit an automated rule.');
+  if (!canManageAccounts(actor)) throw forbidden('Your role cannot edit automated rules.');
   const existing = await getRuleRow(id);
   if (!existing) throw notFound('Rule not found');
   const row = (
@@ -116,7 +116,7 @@ export async function updateRule({ id, actor, input, ip, userAgent }) {
 }
 
 export async function deleteRule({ id, actor, ip, userAgent }) {
-  if (!canManageAccounts(actor)) throw forbidden('Only an Admin or Super Admin can delete an automated rule.');
+  if (!canManageAccounts(actor)) throw forbidden('Your role cannot delete automated rules.');
   const existing = await getRuleRow(id);
   if (!existing) throw notFound('Rule not found');
   await query('DELETE FROM ad_rules WHERE id = $1', [id]);

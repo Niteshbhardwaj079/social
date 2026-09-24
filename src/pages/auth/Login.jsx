@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import TextField from '../../components/forms/TextField';
 import PasswordField from '../../components/forms/PasswordField';
-import { login, signIn } from '../../store/slices/authSlice';
+import { login, signIn, verifyTwoFactorLogin } from '../../store/slices/authSlice';
 import { API_ENABLED } from '../../config/runtime';
 import CalloutBanner from '../../components/common/CalloutBanner';
 import { useToast } from '../../components/common/ToastProvider';
@@ -21,6 +21,9 @@ function Login() {
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  // Set once the password step succeeds but the account has 2FA on — switches the form to step 2.
+  const [challengeToken, setChallengeToken] = useState(null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
   // With a real server, sign-up exists only until the workspace owner has been created.
   const setupRequired = useSelector((state) => state.auth.setupRequired);
   const showSignUp = !API_ENABLED || setupRequired;
@@ -40,6 +43,11 @@ function Login() {
     return errors;
   }
 
+  function onSignedIn() {
+    showToast({ type: 'success', title: t('auth.welcomeBack'), message: t('auth.signedIn') });
+    navigate('/dashboard');
+  }
+
   function handleSubmit(event) {
     event.preventDefault();
     const errors = validate();
@@ -54,9 +62,13 @@ function Login() {
     if (API_ENABLED) {
       dispatch(signIn({ email: formValues.email.trim(), password: formValues.password }))
         .unwrap()
-        .then(() => {
-          showToast({ type: 'success', title: t('auth.welcomeBack'), message: t('auth.signedIn') });
-          navigate('/dashboard');
+        .then((result) => {
+          setIsSubmitting(false);
+          if (result.requires2fa) {
+            setChallengeToken(result.challengeToken);
+            return;
+          }
+          onSignedIn();
         })
         .catch((message) => {
           setFormError(message);
@@ -67,9 +79,73 @@ function Login() {
     window.setTimeout(() => {
       setIsSubmitting(false);
       dispatch(login());
-      showToast({ type: 'success', title: t('auth.welcomeBack'), message: t('auth.signedIn') });
-      navigate('/dashboard');
+      onSignedIn();
     }, LOGIN_SIMULATION_DELAY_MS);
+  }
+
+  function handleTwoFactorSubmit(event) {
+    event.preventDefault();
+    if (!twoFactorCode.trim()) return;
+    setFormError('');
+    setIsSubmitting(true);
+    dispatch(verifyTwoFactorLogin({ challengeToken, code: twoFactorCode.trim() }))
+      .unwrap()
+      .then(onSignedIn)
+      .catch((message) => {
+        setFormError(message);
+        setIsSubmitting(false);
+      });
+  }
+
+  if (challengeToken) {
+    return (
+      <div className="fade-in">
+        <h2 className="mb-1">Enter your authentication code</h2>
+        <p className="text-secondary-custom mb-5">
+          Open your authenticator app and enter the 6-digit code, or use one of your backup codes.
+        </p>
+
+        {formError ? (
+          <CalloutBanner icon="AlertCircle" tone="danger">
+            {formError}
+          </CalloutBanner>
+        ) : null}
+
+        <form onSubmit={handleTwoFactorSubmit} noValidate>
+          <TextField
+            id="twoFactorCode"
+            label="Code"
+            placeholder="123456"
+            value={twoFactorCode}
+            onChange={(event) => setTwoFactorCode(event.target.value)}
+            autoComplete="one-time-code"
+            autoFocus
+          />
+          <button type="submit" className="btn btn-primary w-100 btn-lg mb-3" disabled={isSubmitting || !twoFactorCode.trim()}>
+            {isSubmitting ? (
+              <>
+                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                Verifying...
+              </>
+            ) : (
+              'Verify'
+            )}
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-secondary-custom w-100"
+            disabled={isSubmitting}
+            onClick={() => {
+              setChallengeToken(null);
+              setTwoFactorCode('');
+              setFormError('');
+            }}
+          >
+            Back to sign in
+          </button>
+        </form>
+      </div>
+    );
   }
 
   return (

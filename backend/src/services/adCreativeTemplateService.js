@@ -1,6 +1,6 @@
 import { query } from '../db/pool.js';
 import { mediaForIds } from './mediaService.js';
-import { canPublishPosts } from './permissions.js';
+import { canManageTemplates } from './permissions.js';
 import { forbidden, notFound } from '../utils/httpError.js';
 import { recordActivity } from './auditService.js';
 
@@ -42,7 +42,7 @@ async function getTemplateRow(id) {
 }
 
 export async function createTemplate({ actor, input, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can save a creative template.');
+  if (!canManageTemplates(actor)) throw forbidden('Your role cannot save creative templates.');
   const row = (
     await query(
       `INSERT INTO ad_creative_templates (name, headline, body_text, cta, destination_url, media_id, created_by)
@@ -56,7 +56,7 @@ export async function createTemplate({ actor, input, ip, userAgent }) {
 }
 
 export async function updateTemplate({ id, actor, input, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can edit a creative template.');
+  if (!canManageTemplates(actor)) throw forbidden('Your role cannot edit creative templates.');
   const existing = await getTemplateRow(id);
   if (!existing) throw notFound('Template not found');
   const row = (
@@ -72,7 +72,7 @@ export async function updateTemplate({ id, actor, input, ip, userAgent }) {
 }
 
 export async function deleteTemplate({ id, actor, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can delete a creative template.');
+  if (!canManageTemplates(actor)) throw forbidden('Your role cannot delete creative templates.');
   const existing = await getTemplateRow(id);
   if (!existing) throw notFound('Template not found');
   await query('DELETE FROM ad_creative_templates WHERE id = $1', [id]);

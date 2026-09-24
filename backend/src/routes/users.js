@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { authenticate, requireUserManager } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { isValidLanguage } from '../emails/builder.js';
-import { ROLES } from '../services/permissions.js';
 import * as users from '../services/userService.js';
 
 const router = Router();
@@ -11,7 +10,9 @@ router.use(authenticate, requireUserManager);
 
 const email = z.string().trim().toLowerCase().email('Enter a valid email address').max(254);
 const name = z.string().trim().min(1, 'Name is required').max(120);
-const role = z.enum(ROLES);
+// Roles are real, editable rows now (see roleService.js) — existence/rank is checked in userService,
+// not a static enum, so a newly created custom role can be assigned without a code change.
+const role = z.string().min(1).max(120);
 const language = z.string().refine(isValidLanguage, 'Unknown language');
 const idParam = z.object({ id: z.string().uuid() });
 

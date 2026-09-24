@@ -103,24 +103,6 @@ export const USER_STATUS = {
   INVITED: 'invited',
 };
 
-export const PERMISSION_MODULES = [
-  'Dashboard',
-  'Users',
-  'Roles',
-  'Social Accounts',
-  'Posts',
-  'Campaigns',
-  'Inbox',
-  'Comments',
-  'Analytics',
-  'Media',
-  'Approvals',
-  'Settings',
-  'Activity Logs',
-];
-
-export const PERMISSION_ACTIONS = ['View', 'Create', 'Edit', 'Delete', 'Publish', 'Manage'];
-
 export const CONVERSATION_STATUS = {
   OPEN: 'open',
   PENDING: 'pending',

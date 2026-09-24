@@ -1,7 +1,8 @@
 import { config } from '../config/env.js';
 import { query, transaction } from '../db/pool.js';
 import { roleLabel } from '../emails/builder.js';
-import { canAssignRole, canManageTarget } from './permissions.js';
+import { BUILTIN_ROLE_IDS, canAssignRole, canManageTarget } from './permissions.js';
+import { getRoleOrNull } from './roleService.js';
 import { createStoredToken, invalidateStoredTokens, revokeAllRefreshTokens } from './tokenService.js';
 import { dispatchEmail } from './systemEmailService.js';
 import { effectiveLanguage } from './settingsService.js';
@@ -9,6 +10,12 @@ import { recordActivity } from './auditService.js';
 import { badRequest, conflict, forbidden, notFound } from '../utils/httpError.js';
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** A role's display name: translated for the 5 built-in roles, the real (untranslatable, since
+ *  it's user-typed) name for a custom one. */
+function roleDisplayLabel(language, roleId, roleName) {
+  return BUILTIN_ROLE_IDS.includes(roleId) ? roleLabel(language, roleId) : roleName || roleId;
+}
 
 /** How a user looks to the outside world (never includes the password hash or tokens). */
 export function toApiUser(row) {
@@ -27,6 +34,25 @@ export function toApiUser(row) {
 }
 
 const USER_COLUMNS = 'id, name, email, role, status, language, avatar_url, last_active_at, created_at';
+const USER_COLUMNS_QUALIFIED = USER_COLUMNS.split(', ')
+  .map((column) => `users.${column}`)
+  .join(', ');
+
+/** Loads a user together with their role's rank/isProtected/name — needed by canAssignRole/canManageTarget,
+ *  which compare seniority. `runner` is either the pool's `query` or a transaction's `client.query`. */
+async function findUserWithRole(runner, id, { forUpdate = false } = {}) {
+  const result = await runner(
+    `SELECT ${USER_COLUMNS_QUALIFIED}, roles.rank AS role_rank, roles.is_protected AS role_is_protected, roles.name AS role_name
+       FROM users JOIN roles ON roles.id = users.role
+      WHERE users.id = $1${forUpdate ? ' FOR UPDATE' : ''}`,
+    [id]
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  row.roleRank = row.role_rank;
+  row.roleIsProtected = row.role_is_protected;
+  return row;
+}
 
 export async function listUsers({ search, role, status } = {}) {
   const result = await query(
@@ -40,14 +66,12 @@ export async function listUsers({ search, role, status } = {}) {
   return result.rows.map(toApiUser);
 }
 
-export async function findUserById(id) {
-  const result = await query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [id]);
-  return result.rows[0] || null;
-}
-
-async function activeSuperAdminCount(client, excludingId = null) {
+/** The protected role (Super Admin) must always have at least one active user — the one invariant
+ *  that keeps a bad edit from ever locking everyone out of the app with no recovery path. */
+async function activeProtectedRoleUsersCount(client, excludingId = null) {
   const result = await client.query(
-    "SELECT count(*) AS n FROM users WHERE role = 'superAdmin' AND status = 'active' AND ($1::uuid IS NULL OR id <> $1)",
+    `SELECT count(*) AS n FROM users JOIN roles ON roles.id = users.role
+      WHERE roles.is_protected AND users.status = 'active' AND ($1::uuid IS NULL OR users.id <> $1)`,
     [excludingId]
   );
   return result.rows[0].n;
@@ -55,7 +79,10 @@ async function activeSuperAdminCount(client, excludingId = null) {
 
 /** Invites a person: creates the account (no password yet), emails them a link in THEIR language. */
 export async function createUser(actor, { name, email, role, language }, ip, userAgent) {
-  if (!canAssignRole(actor, role)) throw forbidden('You cannot invite someone with that role');
+  const targetRole = await getRoleOrNull(role);
+  if (!targetRole) throw badRequest('That role does not exist.');
+  if (!targetRole.isActive) throw badRequest('That role is archived and cannot be assigned. Reactivate it first.');
+  if (!canAssignRole(actor, targetRole)) throw forbidden('You cannot invite someone with that role');
   const invitedLanguage = await effectiveLanguage(language);
 
   let created;
@@ -76,16 +103,19 @@ export async function createUser(actor, { name, email, role, language }, ip, use
 
   const invitation = await dispatchEmail('users.invited', [{ email: created.email, name: created.name, language: created.language }], (language) => ({
     invited_by: actor.name,
-    role: roleLabel(language, created.role),
+    role: roleDisplayLabel(language, created.role, targetRole.name),
     accept_link: acceptLink,
   }));
 
-  // Every Super Admin gets a heads-up, each in their own language.
-  const admins = await query("SELECT name, email, language FROM users WHERE role = 'superAdmin' AND status = 'active' AND id <> $1", [created.id]);
+  // Every Super Admin (the protected role) gets a heads-up, each in their own language.
+  const admins = await query(
+    "SELECT users.name, users.email, users.language FROM users JOIN roles ON roles.id = users.role WHERE roles.is_protected AND users.status = 'active' AND users.id <> $1",
+    [created.id]
+  );
   await dispatchEmail('users.created', admins.rows, (language) => ({
     new_user_name: created.name,
     new_user_email: created.email,
-    role: roleLabel(language, created.role),
+    role: roleDisplayLabel(language, created.role, targetRole.name),
     added_by: actor.name,
     users_url: `${config.appUrl}/users`,
   }));
@@ -97,8 +127,7 @@ export async function createUser(actor, { name, email, role, language }, ip, use
 
 export async function updateUser(actor, id, changes, ip, userAgent) {
   const outcome = await transaction(async (client) => {
-    const found = await client.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1 FOR UPDATE`, [id]);
-    const target = found.rows[0];
+    const target = await findUserWithRole(client.query.bind(client), id, { forUpdate: true });
     if (!target) throw notFound('No such user');
 
     const isSelf = target.id === actor.id;
@@ -107,12 +136,18 @@ export async function updateUser(actor, id, changes, ip, userAgent) {
     const statusChanges = changes.status !== undefined && changes.status !== target.status;
     if (!isSelf && !canManageTarget(actor, target)) throw forbidden('You cannot change this person');
     if (isSelf && (roleChanges || statusChanges)) throw forbidden('You cannot change your own role or status');
-    if (roleChanges && !canAssignRole(actor, changes.role)) throw forbidden('You cannot give someone that role');
+    let targetRole = null;
+    if (roleChanges) {
+      targetRole = await getRoleOrNull(changes.role);
+      if (!targetRole) throw badRequest('That role does not exist.');
+      if (!targetRole.isActive) throw badRequest('That role is archived and cannot be assigned. Reactivate it first.');
+      if (!canAssignRole(actor, targetRole)) throw forbidden('You cannot give someone that role');
+    }
 
     const nextRole = changes.role ?? target.role;
     const nextStatus = changes.status ?? target.status;
-    const losesSuperAdmin = target.role === 'superAdmin' && target.status === 'active' && (nextRole !== 'superAdmin' || nextStatus !== 'active');
-    if (losesSuperAdmin && (await activeSuperAdminCount(client, target.id)) === 0) {
+    const losesProtectedRole = target.roleIsProtected && target.status === 'active' && (nextRole !== target.role || nextStatus !== 'active');
+    if (losesProtectedRole && (await activeProtectedRoleUsersCount(client, target.id)) === 0) {
       throw badRequest('There must always be at least one active Super Admin');
     }
     if (statusChanges && changes.status === 'active' && target.status === 'invited') {
@@ -132,15 +167,15 @@ export async function updateUser(actor, id, changes, ip, userAgent) {
       if (error.code === '23505') throw conflict('Someone with that email already exists');
       throw error;
     }
-    return { before: target, after: updated };
+    return { before: target, after: updated, targetRole };
   });
 
-  const { before, after } = outcome;
+  const { before, after, targetRole } = outcome;
   if (after.status === 'disabled' && before.status !== 'disabled') await revokeAllRefreshTokens(after.id);
   if (before.role !== after.role) {
     await dispatchEmail('users.roleChanged', [{ email: after.email, name: after.name, language: after.language }], (language) => ({
-      old_role: roleLabel(language, before.role),
-      new_role: roleLabel(language, after.role),
+      old_role: roleDisplayLabel(language, before.role, before.role_name),
+      new_role: roleDisplayLabel(language, after.role, targetRole?.name),
       changed_by: actor.name,
     }));
   }
@@ -158,12 +193,11 @@ export async function updateUser(actor, id, changes, ip, userAgent) {
 
 export async function deleteUser(actor, id, ip, userAgent) {
   await transaction(async (client) => {
-    const found = await client.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1 FOR UPDATE`, [id]);
-    const target = found.rows[0];
+    const target = await findUserWithRole(client.query.bind(client), id, { forUpdate: true });
     if (!target) throw notFound('No such user');
     if (target.id === actor.id) throw forbidden('You cannot remove yourself');
     if (!canManageTarget(actor, target)) throw forbidden('You cannot remove this person');
-    if (target.role === 'superAdmin' && target.status === 'active' && (await activeSuperAdminCount(client, target.id)) === 0) {
+    if (target.roleIsProtected && target.status === 'active' && (await activeProtectedRoleUsersCount(client, target.id)) === 0) {
       throw badRequest('There must always be at least one active Super Admin');
     }
     await client.query('DELETE FROM users WHERE id = $1', [id]);
@@ -173,7 +207,7 @@ export async function deleteUser(actor, id, ip, userAgent) {
 
 /** Starts a fresh invitation (the old link stops working). */
 export async function resendInvite(actor, id) {
-  const target = await findUserById(id);
+  const target = await findUserWithRole(query, id);
   if (!target) throw notFound('No such user');
   if (!canManageTarget(actor, target)) throw forbidden('You cannot change this person');
   if (target.status !== 'invited') throw badRequest('This person already accepted their invitation');
@@ -181,7 +215,7 @@ export async function resendInvite(actor, id) {
   const token = await createStoredToken(id, 'invite', INVITE_TTL_MS);
   await dispatchEmail('users.invited', [{ email: target.email, name: target.name, language: target.language }], (language) => ({
     invited_by: actor.name,
-    role: roleLabel(language, target.role),
+    role: roleDisplayLabel(language, target.role, target.role_name),
     accept_link: `${config.appUrl}/accept-invite?token=${encodeURIComponent(token)}`,
   }));
 }

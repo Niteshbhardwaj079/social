@@ -33,7 +33,14 @@ export async function fetchPublicConfig() {
 }
 
 export async function loginRequest({ email, password }) {
-  return rememberSession((await axiosClient.post('/auth/login', { email, password })).data);
+  const { data } = await axiosClient.post('/auth/login', { email, password });
+  if (data.requires2fa) return { requires2fa: true, challengeToken: data.challengeToken };
+  return rememberSession(data);
+}
+
+/** The second step when the account has 2FA on: a code from the authenticator app, or a backup code. */
+export async function verifyTwoFactorLoginRequest({ challengeToken, code }) {
+  return rememberSession((await axiosClient.post('/auth/2fa/verify-login', { challengeToken, code })).data);
 }
 
 export async function registerRequest(values) {
@@ -80,3 +87,15 @@ export async function changePasswordRequest(values) {
 export const getSessionsRequest = () => axiosClient.get('/auth/sessions').then((response) => response.data.sessions);
 
 export const revokeSessionRequest = (sessionId) => axiosClient.delete(`/auth/sessions/${sessionId}`);
+
+// ---------------------------------------------------------------- two-factor authentication (Settings > Security)
+export const getTwoFactorStatusRequest = () => axiosClient.get('/auth/2fa/status').then((response) => response.data);
+
+export const startTwoFactorSetupRequest = () => axiosClient.post('/auth/2fa/setup').then((response) => response.data);
+
+export const confirmTwoFactorEnableRequest = (code) => axiosClient.post('/auth/2fa/enable', { code }).then((response) => response.data);
+
+export const disableTwoFactorRequest = (password) => axiosClient.post('/auth/2fa/disable', { password });
+
+export const regenerateBackupCodesRequest = (password) =>
+  axiosClient.post('/auth/2fa/backup-codes/regenerate', { password }).then((response) => response.data);

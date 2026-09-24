@@ -6,7 +6,7 @@ import { assertPublicOrigin } from '../providers/http.js';
 import { HttpError, badRequest, forbidden, notFound } from '../utils/httpError.js';
 import { logger } from '../utils/logger.js';
 import { recordActivity } from './auditService.js';
-import { canWritePosts } from './permissions.js';
+import { canManageMedia } from './permissions.js';
 import * as storageService from './storageService.js';
 
 const DEFAULT_FOLDER = 'Campaigns';
@@ -85,7 +85,7 @@ async function assertWithinLimit(extraBytes) {
 
 /** A real upload: the bytes go to wherever Settings → Storage points uploads right now. */
 export async function uploadMedia({ buffer, contentType, originalName, type, folder, width, height, actor, ip, userAgent }) {
-  if (!canWritePosts(actor)) throw forbidden('Your role cannot upload files.');
+  if (!canManageMedia(actor)) throw forbidden('Your role cannot upload files.');
   await assertWithinLimit(buffer.length);
   const target = await storageService.resolveUploadTarget();
   if (!target.allowed) throw badRequest(target.reason);
@@ -113,7 +113,7 @@ export async function uploadMedia({ buffer, contentType, originalName, type, fol
 
 /** "Add an image that is already online": nothing is stored, the library just remembers the link. */
 export async function addLinkedMedia({ url, name, width, height, actor, ip, userAgent }) {
-  if (!canWritePosts(actor)) throw forbidden('Your role cannot add files.');
+  if (!canManageMedia(actor)) throw forbidden('Your role cannot add files.');
   try {
     await assertPublicOrigin(url, { requireHttps: false });
   } catch (error) {
@@ -143,7 +143,7 @@ export async function addLinkedMedia({ url, name, width, height, actor, ip, user
 
 /** Re-cropping an existing image: new bytes replace the old ones, everything else about the row stays. */
 export async function replaceMedia({ id, buffer, contentType, width, height, actor, ip, userAgent }) {
-  if (!canWritePosts(actor)) throw forbidden('Your role cannot change files.');
+  if (!canManageMedia(actor)) throw forbidden('Your role cannot change files.');
   const row = await getRow(id);
   if (row.storage === 'linked') throw badRequest('A linked image cannot be re-cropped — it is not ours to change.');
   await assertWithinLimit(buffer.length - Number(row.size_bytes));
@@ -172,7 +172,7 @@ async function removeFile(row) {
 }
 
 export async function deleteMedia({ id, actor, ip, userAgent }) {
-  if (!canWritePosts(actor)) throw forbidden('Your role cannot delete files.');
+  if (!canManageMedia(actor)) throw forbidden('Your role cannot delete files.');
   const row = await getRow(id);
   await removeFile(row).catch((error) => logger.warn('Could not remove a deleted file from storage', { id, error: error.message }));
   await transaction(async (client) => {

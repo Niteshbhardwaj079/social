@@ -11,13 +11,18 @@ import { StatCardGrid } from '../common/StatCard';
 import { BulkActionBar, Pager, TableToolbar } from '../common/DataTableParts';
 import usePagination from '../../hooks/usePagination';
 import { getUsers, createUser, updateUser, deleteUser } from '../../services/api/usersApi';
+import { getRoles } from '../../services/api/rolesApi';
 import { USER_ROLES, USER_STATUS } from '../../config/constants';
+import { API_ENABLED } from '../../config/runtime';
 import { getLanguage } from '../../i18n/languages';
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { formatRelativeTime } from '../../utils/formatters';
 import { useToast } from '../common/ToastProvider';
 import useMediaQuery from '../../hooks/useMediaQuery';
 import { useI18n } from '../../i18n/useI18n';
+
+const BUILTIN_ROLE_IDS = new Set(Object.values(USER_ROLES));
+const roleLabel = (t, roleId, roleNameById) => (BUILTIN_ROLE_IDS.has(roleId) ? t(`roles.${roleId}`) : roleNameById[roleId] || roleId);
 
 const USER_STATUS_MODIFIER = {
   [USER_STATUS.ACTIVE]: 'connected',
@@ -46,6 +51,13 @@ function UsersPanel({ formState, onFormStateChange }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
+  const [roleChoices, setRoleChoices] = useState(Object.values(USER_ROLES).map((id) => ({ id, name: id })));
+  const roleNameById = useMemo(() => Object.fromEntries(roleChoices.map((role) => [role.id, role.name])), [roleChoices]);
+
+  useEffect(() => {
+    if (!API_ENABLED) return;
+    getRoles().then(setRoleChoices);
+  }, []);
 
   function loadUsers() {
     setIsLoading(true);
@@ -289,9 +301,9 @@ function UsersPanel({ formState, onFormStateChange }) {
             <div className="filter-bar__field">
               <select className="form-select" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
                 <option value="all">{t('users.allRoles')}</option>
-                {Object.values(USER_ROLES).map((role) => (
-                  <option key={role} value={role}>
-                    {t(`roles.${role}`)}
+                {roleChoices.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {roleLabel(t, role.id, roleNameById)}
                   </option>
                 ))}
               </select>
@@ -352,7 +364,7 @@ function UsersPanel({ formState, onFormStateChange }) {
                     <span className={`status-badge status-badge--${USER_STATUS_MODIFIER[user.status]}`}>
                       {t(USER_STATUS_LABEL_KEY[user.status])}
                     </span>
-                    <span className="small text-muted-custom">{t(`roles.${user.role}`)}</span>
+                    <span className="small text-muted-custom">{roleLabel(t, user.role, roleNameById)}</span>
                     <span className="small text-muted-custom">·</span>
                     <span className="small text-muted-custom">{t('users.accounts', { count: user.accountsAssigned })}</span>
                     <span className="small text-muted-custom">·</span>
@@ -408,7 +420,7 @@ function UsersPanel({ formState, onFormStateChange }) {
                           </div>
                         </div>
                       </td>
-                      <td>{t(`roles.${user.role}`)}</td>
+                      <td>{roleLabel(t, user.role, roleNameById)}</td>
                       <td>
                         <span className={`status-badge status-badge--${USER_STATUS_MODIFIER[user.status]}`}>
                           {t(USER_STATUS_LABEL_KEY[user.status])}

@@ -16,7 +16,7 @@ import {
 } from '../providers/adsMeta.js';
 import { getCredentials, getPublishingContext } from './socialAccountService.js';
 import { mediaForIds } from './mediaService.js';
-import { canManageAccounts, canPublishPosts } from './permissions.js';
+import { canManageAccounts, canManageAds } from './permissions.js';
 import { HttpError, badRequest, forbidden, notFound } from '../utils/httpError.js';
 import { logger } from '../utils/logger.js';
 import { recordActivity } from './auditService.js';
@@ -93,6 +93,8 @@ export async function listAdAccounts() {
 
 /** "Sync Ad Accounts": calls Meta for real, using the Ads token already stored on the Facebook connection. */
 export async function syncAdAccounts({ actor, ip, userAgent }) {
+  // Same bar as connecting a social account (not `adsManage`) — syncing reads the Facebook
+  // connection's own stored credentials, the same trust boundary as Social Accounts.
   if (!canManageAccounts(actor)) throw forbidden('Your role cannot manage ad accounts.');
   const credentials = await requireAdsCredentials();
 
@@ -229,7 +231,7 @@ async function facebookPublishedExternalId(postId) {
 }
 
 export async function createCampaign({ actor, input, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can create an ad.');
+  if (!canManageAds(actor)) throw forbidden('Your role cannot create ads.');
 
   const adAccount = await getAdAccountRow(input.adAccountId);
   if (!adAccount) throw badRequest('Choose a real ad account — sync your ad accounts first if the list looks empty.');
@@ -348,7 +350,7 @@ export async function createCampaign({ actor, input, ip, userAgent }) {
  * saved here — matching createCampaign's own behaviour, not a new failure mode invented for bulk.
  */
 export async function createBulkCampaign({ actor, input, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can create an ad.');
+  if (!canManageAds(actor)) throw forbidden('Your role cannot create ads.');
 
   const adAccount = await getAdAccountRow(input.adAccountId);
   if (!adAccount) throw badRequest('Choose a real ad account — sync your ad accounts first if the list looks empty.');
@@ -486,7 +488,7 @@ async function cleanUpIfOrphaned(adSetId, adCampaignId) {
 }
 
 export async function updateCampaignStatus({ id, status, actor, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can change an ad.');
+  if (!canManageAds(actor)) throw forbidden('Your role cannot change ads.');
   const existing = await ensureAd(id);
   if (existing.external_ad_id) {
     const credentials = await requireAdsCredentials();
@@ -527,7 +529,7 @@ export async function updateCampaignsStatus({ ids, status, actor, ip, userAgent 
 }
 
 export async function deleteCampaign({ id, actor, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can delete an ad.');
+  if (!canManageAds(actor)) throw forbidden('Your role cannot delete ads.');
   const existing = await ensureAd(id);
   if (existing.external_ad_id) {
     const credentials = await requireAdsCredentials().catch(() => null);

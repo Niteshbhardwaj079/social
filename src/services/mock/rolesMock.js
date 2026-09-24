@@ -1,104 +1,80 @@
-import { PERMISSION_MODULES, PERMISSION_ACTIONS, USER_ROLES } from '../../config/constants';
+import { USER_ROLES } from '../../config/constants';
+import { ROLE_PERMISSION_KEYS } from '../../config/rolePermissions';
 
-function buildFullPermissions(actions = PERMISSION_ACTIONS) {
-  return PERMISSION_MODULES.reduce((permissions, moduleName) => {
-    permissions[moduleName] = actions;
-    return permissions;
-  }, {});
+function permissionsFrom(trueKeys) {
+  return Object.fromEntries(ROLE_PERMISSION_KEYS.map((key) => [key, trueKeys.includes(key)]));
 }
+
+const ALL_KEYS = ROLE_PERMISSION_KEYS;
 
 const rolesMock = [
   {
     id: USER_ROLES.SUPER_ADMIN,
     name: 'Super Admin',
-    description: 'Full access to every module, including billing and organization settings.',
+    description: 'Full access to every module. Cannot be renamed, edited or deleted.',
     usersCount: 1,
-    isSystemRole: true,
+    isProtected: true,
+    isActive: true,
+    rank: 4,
     icon: 'ShieldCheck',
     accent: 'rose',
-    permissions: buildFullPermissions(),
+    permissions: permissionsFrom(ALL_KEYS),
   },
   {
     id: USER_ROLES.ADMIN,
     name: 'Admin',
-    description: 'Manage users, content and settings, without billing access.',
+    description: 'Manage users, content and settings.',
     usersCount: 1,
-    isSystemRole: true,
+    isProtected: false,
+    isActive: true,
+    rank: 3,
     icon: 'Settings2',
     accent: 'purple',
-    permissions: buildFullPermissions(['View', 'Create', 'Edit', 'Delete', 'Publish']),
+    permissions: permissionsFrom(ALL_KEYS),
   },
   {
     id: USER_ROLES.EDITOR,
     name: 'Editor',
     description: 'Create, edit and publish content across all connected accounts.',
     usersCount: 1,
-    isSystemRole: false,
+    isProtected: false,
+    isActive: true,
+    rank: 2,
     icon: 'PenSquare',
     accent: 'blue',
-    permissions: {
-      Dashboard: ['View'],
-      Users: [],
-      Roles: [],
-      'Social Accounts': ['View'],
-      Posts: ['View', 'Create', 'Edit', 'Publish'],
-      Campaigns: ['View', 'Create', 'Edit'],
-      Inbox: ['View', 'Manage'],
-      Comments: ['View', 'Manage'],
-      Analytics: ['View'],
-      Media: ['View', 'Create'],
-      Approvals: ['View', 'Create'],
-      Settings: [],
-      'Activity Logs': [],
-    },
+    permissions: permissionsFrom([
+      'postsWrite',
+      'postsPublish',
+      'adsManage',
+      'campaignsManage',
+      'reportsView',
+      'mediaManage',
+      'templatesManage',
+    ]),
   },
   {
     id: USER_ROLES.CONTRIBUTOR,
     name: 'Contributor',
     description: 'Draft and submit content for approval; cannot publish directly.',
     usersCount: 1,
-    isSystemRole: false,
+    isProtected: false,
+    isActive: true,
+    rank: 1,
     icon: 'Users',
     accent: 'teal',
-    permissions: {
-      Dashboard: ['View'],
-      Users: [],
-      Roles: [],
-      'Social Accounts': ['View'],
-      Posts: ['View', 'Create'],
-      Campaigns: ['View'],
-      Inbox: ['View'],
-      Comments: ['View'],
-      Analytics: [],
-      Media: ['View', 'Create'],
-      Approvals: ['View', 'Create'],
-      Settings: [],
-      'Activity Logs': [],
-    },
+    permissions: permissionsFrom(['postsWrite', 'reportsView', 'mediaManage']),
   },
   {
     id: USER_ROLES.ANALYST,
     name: 'Analyst',
     description: 'Read-only access to analytics and reporting.',
     usersCount: 1,
-    isSystemRole: false,
+    isProtected: false,
+    isActive: true,
+    rank: 1,
     icon: 'BarChart3',
     accent: 'slate',
-    permissions: {
-      Dashboard: ['View'],
-      Users: [],
-      Roles: [],
-      'Social Accounts': ['View'],
-      Posts: ['View'],
-      Campaigns: ['View'],
-      Inbox: [],
-      Comments: [],
-      Analytics: ['View'],
-      Media: ['View'],
-      Approvals: [],
-      Settings: [],
-      'Activity Logs': [],
-    },
+    permissions: permissionsFrom(['reportsView']),
   },
 ];
 

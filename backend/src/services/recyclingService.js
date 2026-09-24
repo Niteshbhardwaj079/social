@@ -33,7 +33,7 @@ export async function listRecycling() {
 }
 
 export async function addToRecycling({ actor, input, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can manage the recycling queue.');
+  if (!canPublishPosts(actor)) throw forbidden('Your role cannot manage the recycling queue.');
   const post = await getPost(input.postId);
   if (post.status !== 'published') throw badRequest('Only a published post can be added to recycling.');
 
@@ -55,7 +55,7 @@ export async function addToRecycling({ actor, input, ip, userAgent }) {
 }
 
 export async function updateRecyclingEntry({ id, actor, input, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can manage the recycling queue.');
+  if (!canPublishPosts(actor)) throw forbidden('Your role cannot manage the recycling queue.');
   const existing = await getRow(id);
   if (!existing) throw notFound('Recycling entry not found');
 
@@ -74,21 +74,21 @@ export async function updateRecyclingEntry({ id, actor, input, ip, userAgent }) 
 }
 
 export async function bulkUpdateRecycling({ ids, isActive, actor, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can manage the recycling queue.');
+  if (!canPublishPosts(actor)) throw forbidden('Your role cannot manage the recycling queue.');
   const result = await query('UPDATE recycling_entries SET is_active = $2, updated_at = now() WHERE id = ANY($1) RETURNING id', [ids, isActive]);
   await recordActivity({ actorId: actor.id, action: 'recycling.updated', entity: 'recycling_entry', meta: { bulk: true, count: result.rowCount, isActive }, ip, userAgent });
   return { success: true, updated: result.rowCount };
 }
 
 export async function removeFromRecycling({ id, actor, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can manage the recycling queue.');
+  if (!canPublishPosts(actor)) throw forbidden('Your role cannot manage the recycling queue.');
   const result = await query('DELETE FROM recycling_entries WHERE id = $1 RETURNING id', [id]);
   if (!result.rowCount) throw notFound('Recycling entry not found');
   await recordActivity({ actorId: actor.id, action: 'recycling.removed', entity: 'recycling_entry', entityId: id, ip, userAgent });
 }
 
 export async function removeManyFromRecycling({ ids, actor, ip, userAgent }) {
-  if (!canPublishPosts(actor)) throw forbidden('Only an Editor or Admin can manage the recycling queue.');
+  if (!canPublishPosts(actor)) throw forbidden('Your role cannot manage the recycling queue.');
   const result = await query('DELETE FROM recycling_entries WHERE id = ANY($1) RETURNING id', [ids]);
   await recordActivity({ actorId: actor.id, action: 'recycling.removed', entity: 'recycling_entry', meta: { bulk: true, count: result.rowCount }, ip, userAgent });
   return { success: true, removed: result.rowCount };

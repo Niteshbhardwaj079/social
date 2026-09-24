@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { config } from '../config/env.js';
-import { authenticate, requireUserManager } from '../middleware/auth.js';
+import { authenticate, requireSettingsManager } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { badRequest } from '../utils/httpError.js';
 import { isValidLanguage } from '../emails/builder.js';
@@ -11,7 +11,7 @@ import * as emails from '../services/systemEmailService.js';
 import { recordActivity } from '../services/auditService.js';
 
 const router = Router();
-router.use(authenticate, requireUserManager);
+router.use(authenticate, requireSettingsManager);
 
 const languageCode = z.string().refine(isValidLanguage, 'Unknown language');
 const idParam = z.object({ id: z.string().min(1).max(80) });

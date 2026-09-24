@@ -3,13 +3,27 @@ import Modal from '../common/Modal';
 import { LANGUAGES } from '../../i18n/languages';
 import TextField from '../forms/TextField';
 import { USER_ROLES } from '../../config/constants';
+import { API_ENABLED } from '../../config/runtime';
+import { getRoles } from '../../services/api/rolesApi';
 import { useI18n } from '../../i18n/useI18n';
+
+const BUILTIN_ROLE_IDS = new Set(Object.values(USER_ROLES));
+const roleLabel = (t, role) => (BUILTIN_ROLE_IDS.has(role.id) ? t(`roles.${role.id}`) : role.name);
 
 function UserFormModal({ isOpen, onClose, onSubmit, editingUser }) {
   const { t, enabledLanguages, defaultLanguage } = useI18n();
   // A new person starts in the workspace's default language.
   const emptyValues = { name: '', email: '', role: USER_ROLES.CONTRIBUTOR, language: defaultLanguage };
   const [formValues, setFormValues] = useState(emptyValues);
+  const [roleChoices, setRoleChoices] = useState(
+    Object.values(USER_ROLES).map((id) => ({ id, name: id, isActive: true }))
+  );
+
+  useEffect(() => {
+    if (!API_ENABLED || !isOpen) return;
+    getRoles().then((roles) => setRoleChoices(roles.filter((role) => role.isActive || role.id === editingUser?.role)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   useEffect(() => {
     setFormValues(
@@ -72,9 +86,9 @@ function UserFormModal({ isOpen, onClose, onSubmit, editingUser }) {
             value={formValues.role}
             onChange={(event) => handleChange('role', event.target.value)}
           >
-            {Object.values(USER_ROLES).map((role) => (
-              <option key={role} value={role}>
-                {t(`roles.${role}`)}
+            {roleChoices.map((role) => (
+              <option key={role.id} value={role.id}>
+                {roleLabel(t, role)}
               </option>
             ))}
           </select>

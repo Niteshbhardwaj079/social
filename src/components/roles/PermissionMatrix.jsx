@@ -1,28 +1,9 @@
-import { PERMISSION_MODULES, PERMISSION_ACTIONS } from '../../config/constants';
+import { ROLE_PERMISSION_GROUPS } from '../../config/rolePermissions';
 
 function PermissionMatrix({ permissions, onChange, disabled = false }) {
-  function isChecked(moduleName, action) {
-    return (permissions[moduleName] || []).includes(action);
-  }
-
-  function isRowFullySelected(moduleName) {
-    const currentActions = permissions[moduleName] || [];
-    return PERMISSION_ACTIONS.every((action) => currentActions.includes(action));
-  }
-
-  function toggleAction(moduleName, action) {
+  function toggle(key) {
     if (disabled) return;
-    const currentActions = permissions[moduleName] || [];
-    const nextActions = currentActions.includes(action)
-      ? currentActions.filter((item) => item !== action)
-      : [...currentActions, action];
-    onChange({ ...permissions, [moduleName]: nextActions });
-  }
-
-  function toggleRow(moduleName) {
-    if (disabled) return;
-    const nextActions = isRowFullySelected(moduleName) ? [] : [...PERMISSION_ACTIONS];
-    onChange({ ...permissions, [moduleName]: nextActions });
+    onChange({ ...permissions, [key]: !permissions[key] });
   }
 
   return (
@@ -30,43 +11,33 @@ function PermissionMatrix({ permissions, onChange, disabled = false }) {
       <table className="data-table permission-matrix">
         <thead>
           <tr>
-            <th>Section</th>
-            {PERMISSION_ACTIONS.map((action) => (
-              <th key={action} className="text-center">
-                {action}
-              </th>
-            ))}
-            <th className="text-center">Select All</th>
+            <th>Module</th>
+            <th>Permission</th>
+            <th className="text-center">Allowed</th>
           </tr>
         </thead>
         <tbody>
-          {PERMISSION_MODULES.map((moduleName) => (
-            <tr key={moduleName}>
-              <td className="table-row-title">{moduleName}</td>
-              {PERMISSION_ACTIONS.map((action) => (
-                <td key={action} className="text-center">
+          {ROLE_PERMISSION_GROUPS.map((group) =>
+            group.rows.map((row, index) => (
+              <tr key={row.key}>
+                {index === 0 ? <td className="table-row-title" rowSpan={group.rows.length}>{group.module}</td> : null}
+                <td>
+                  <div>{row.label}</div>
+                  <p className="small text-muted-custom mb-0">{row.description}</p>
+                </td>
+                <td className="text-center">
                   <input
                     type="checkbox"
                     className="form-check-input"
-                    checked={isChecked(moduleName, action)}
-                    onChange={() => toggleAction(moduleName, action)}
+                    checked={Boolean(permissions[row.key])}
+                    onChange={() => toggle(row.key)}
                     disabled={disabled}
-                    aria-label={`${moduleName} - ${action}`}
+                    aria-label={`${group.module} - ${row.label}`}
                   />
                 </td>
-              ))}
-              <td className="text-center">
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  checked={isRowFullySelected(moduleName)}
-                  onChange={() => toggleRow(moduleName)}
-                  disabled={disabled}
-                  aria-label={`${moduleName} - select all`}
-                />
-              </td>
-            </tr>
-          ))}
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>

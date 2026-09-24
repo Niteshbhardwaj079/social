@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../db/pool.js';
-import { authenticate, requireUserManager } from '../middleware/auth.js';
+import { authenticate, requireActivityLogsManager } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { getPublicConfig } from '../services/authService.js';
 import { deleteActivityByIds, listActivity } from '../services/auditService.js';
 import { mailMode } from '../services/mailer.js';
 import authRoutes from './auth.js';
 import userRoutes from './users.js';
+import roleRoutes from './roles.js';
 import settingsRoutes from './settings.js';
 import systemEmailRoutes from './systemEmails.js';
 import socialAccountRoutes from './socialAccounts.js';
@@ -40,6 +41,7 @@ router.get('/public/config', async (_req, res) => res.json(await getPublicConfig
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
+router.use('/roles', roleRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/system-emails', systemEmailRoutes);
 router.use('/social-accounts', socialAccountRoutes);
@@ -58,7 +60,7 @@ router.use('/links', linkRoutes);
 router.get(
   '/activity-logs',
   authenticate,
-  requireUserManager,
+  requireActivityLogsManager,
   validate({ query: z.object({ limit: z.coerce.number().int().min(1).max(500).default(500), before: z.coerce.number().int().positive().optional() }) }),
   async (req, res) => res.json({ activity: await listActivity(req.valid.query) })
 );
@@ -66,7 +68,7 @@ router.get(
 router.delete(
   '/activity-logs',
   authenticate,
-  requireUserManager,
+  requireActivityLogsManager,
   validate({ body: z.object({ ids: z.array(z.coerce.number().int().positive()).min(1).max(500) }) }),
   async (req, res) => {
     await deleteActivityByIds(req.valid.body.ids);

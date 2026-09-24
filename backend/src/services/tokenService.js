@@ -22,6 +22,26 @@ export function verifyAccessToken(token) {
   }
 }
 
+/**
+ * A short-lived marker proving the password step of login already succeeded for this user, so the
+ * 2FA-code step doesn't need the password again. Signed with the same secret as an access token but
+ * tagged `purpose: '2fa'` so it can never be mistaken for (or used as) a real access token.
+ */
+const TWO_FACTOR_CHALLENGE_TTL_SEC = 5 * 60;
+
+export function signTwoFactorChallenge(userId) {
+  return jwt.sign({ purpose: '2fa' }, config.auth.jwtSecret, { subject: userId, algorithm: 'HS256', expiresIn: TWO_FACTOR_CHALLENGE_TTL_SEC });
+}
+
+export function verifyTwoFactorChallenge(token) {
+  try {
+    const payload = jwt.verify(token, config.auth.jwtSecret, { algorithms: ['HS256'] });
+    return payload.purpose === '2fa' && typeof payload.sub === 'string' ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------- stored, single-use tokens
 /** Creates a token for `purpose` and returns the raw secret (only its hash is stored). */
 export async function createStoredToken(userId, purpose, ttlMs, { userAgent = null, ip = null } = {}) {

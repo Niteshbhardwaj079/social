@@ -49,7 +49,7 @@ router.post(
   '/:id/reply',
   validate({ params: idParams, body: z.object({ text: z.string().trim().min(1, 'Write a reply first.').max(2000) }) }),
   async (req, res) => {
-    if (!canPublishPosts(req.user)) throw forbidden('Only an Editor or Admin can send a reply.');
+    if (!canPublishPosts(req.user)) throw forbidden('Your role cannot send a reply.');
     const message = await inboxService.sendReply(req.valid.params.id, req.user, req.valid.body.text, { ip: req.ip, userAgent: req.get('user-agent') });
     res.json({ message });
   }

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import TextField from '../../components/forms/TextField';
 import PasswordField from '../../components/forms/PasswordField';
@@ -10,10 +10,15 @@ import { updateProfileRequest, changePasswordRequest } from '../../services/api/
 import { uploadMediaItem } from '../../services/api/mediaApi';
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { API_ENABLED } from '../../config/runtime';
-import { USER_ROLE_LABELS } from '../../config/constants';
+import { USER_ROLE_LABELS, USER_ROLES } from '../../config/constants';
+import { getRoles } from '../../services/api/rolesApi';
+import { useI18n } from '../../i18n/useI18n';
 import { formatFileSize } from '../../utils/formatters';
 
+const BUILTIN_ROLE_IDS = new Set(Object.values(USER_ROLES));
+
 function AccountSettings() {
+  const { t } = useI18n();
   const { showToast } = useToast();
   const dispatch = useDispatch();
   const currentUser = useSelector((state) => state.auth.currentUser);
@@ -21,6 +26,16 @@ function AccountSettings() {
   const [pendingPhotoFile, setPendingPhotoFile] = useState(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [customRoleName, setCustomRoleName] = useState(null);
+
+  useEffect(() => {
+    if (!API_ENABLED || !currentUser?.role || BUILTIN_ROLE_IDS.has(currentUser.role)) return;
+    getRoles().then((roles) => setCustomRoleName(roles.find((role) => role.id === currentUser.role)?.name || null));
+  }, [currentUser?.role]);
+
+  const roleLabel = BUILTIN_ROLE_IDS.has(currentUser?.role)
+    ? t(`roles.${currentUser.role}`)
+    : customRoleName || USER_ROLE_LABELS[currentUser?.role] || currentUser?.role;
 
   const [profileValues, setProfileValues] = useState({
     name: currentUser?.name || '',
@@ -116,7 +131,7 @@ function AccountSettings() {
               ) : null}
             </div>
             <input ref={photoInputRef} type="file" accept="image/*" hidden onChange={handlePhotoFileChange} />
-            <p className="form-hint mb-0 mt-2">{USER_ROLE_LABELS[currentUser?.role]}</p>
+            <p className="form-hint mb-0 mt-2">{roleLabel}</p>
           </div>
         </div>
 

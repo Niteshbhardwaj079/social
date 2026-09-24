@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireReportsViewer } from '../middleware/auth.js';
 import { getDashboardOverview } from '../services/dashboardService.js';
 
 const router = Router();
-router.use(authenticate);
+router.use(authenticate, requireReportsViewer);
 
 router.get('/', async (_req, res) => res.json(await getDashboardOverview()));
 
