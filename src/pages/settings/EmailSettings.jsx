@@ -311,7 +311,10 @@ function EmailSettings() {
         {testState.status === TEST.OK || testState.status === TEST.FAILED ? (
           <div className={`callout-banner callout-banner--${testState.status === TEST.OK ? 'success' : 'danger'}`} role="status">
             <Icon name={testState.status === TEST.OK ? 'CheckCircle2' : 'AlertCircle'} size={16} />
-            <span>{testState.message}</span>
+            <span>
+              {testState.message}
+              {testState.status === TEST.OK ? ' This is only a test — click "Save changes" below to actually connect it.' : ''}
+            </span>
           </div>
         ) : null}
 
@@ -323,6 +326,7 @@ function EmailSettings() {
             {isSaving ? 'Saving...' : 'Save changes'}
           </button>
         </div>
+        <div className="form-hint mt-2">"Test Connection" only checks the details — nothing is connected until you click "Save changes".</div>
       </form>
 
       {saved.provider ? (
