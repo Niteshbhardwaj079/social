@@ -14,10 +14,22 @@ export const REFRESH_COOKIE = 'social_rt';
 
 // The refresh token lives ONLY in an httpOnly cookie that is sent to /api/auth, so page scripts
 // (and any XSS bug) can never read it. The short-lived access token goes back in the JSON body.
+//
+// The web app and this API are deployed as separate services on different subdomains (e.g.
+// social-app-*.onrender.com and social-api-*.onrender.com) — genuinely different sites as far as
+// the browser's cookie rules are concerned, even though they're both "ours". `SameSite=Lax` is
+// dropped by the browser on exactly this kind of cross-site fetch/XHR call, so /auth/refresh would
+// silently never receive the cookie: every hard page reload looked like a logout, even with a
+// perfectly valid session. `SameSite=None` (which browsers require pairing with `Secure`) is what
+// legitimate cross-site use needs; CORS (see app.js's explicit `CORS_ORIGINS` allowlist) — not
+// SameSite — is what actually keeps this safe from other sites. Locally, app and API are same-site
+// (Vite proxies `/api` through localhost:5173), `cookieSecure` is false, and `SameSite=None`
+// without `Secure` is rejected outright by the browser — so this only switches to 'none' once
+// `secure` is also true, keeping local dev on the simpler same-site 'lax' behavior.
 const cookieOptions = () => ({
   httpOnly: true,
   secure: config.auth.cookieSecure,
-  sameSite: 'lax',
+  sameSite: config.auth.cookieSecure ? 'none' : 'lax',
   path: '/api/auth',
 });
 

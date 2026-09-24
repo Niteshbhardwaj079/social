@@ -20,8 +20,26 @@ describe('first-run setup', () => {
     assert.equal(user.status, 'active');
     assert.ok(response.body.accessToken);
     assert.ok(response.setCookie.some((cookie) => /social_rt=.+HttpOnly/i.test(cookie)), 'refresh token is an httpOnly cookie');
+    // SameSite=Lax here because this test runs with cookieSecure=false (no COOKIE_SECURE, non-production
+    // NODE_ENV) — see routes/auth.js's cookieOptions(): production (cookieSecure=true, the app and API on
+    // different subdomains) switches to SameSite=None instead, which a browser requires pairing with
+    // Secure. Without that switch, the cookie is silently dropped on the cross-site /auth/refresh call a
+    // production frontend makes, and every hard page reload looks exactly like being logged out.
+    assert.ok(response.setCookie.some((cookie) => /social_rt=.+SameSite=Lax/i.test(cookie)), 'SameSite=Lax when the cookie is not Secure (this environment)');
     assert.ok(!('passwordHash' in user) && !('password_hash' in user), 'no password hash is ever returned');
     assert.equal((await anonymous.get('/public/config')).body.setupRequired, false);
+  });
+
+  it('switches to SameSite=None when the cookie is Secure (production, app and API on different subdomains)', async () => {
+    const { config } = await import('../src/config/env.js');
+    config.auth.cookieSecure = true;
+    try {
+      const response = await createClient(server.baseUrl).post('/auth/login', { email: 'owner@example.com', password: PASSWORD });
+      assert.ok(response.setCookie.some((cookie) => /social_rt=.+SameSite=None/i.test(cookie)));
+      assert.ok(response.setCookie.some((cookie) => /social_rt=.+Secure/i.test(cookie)), 'SameSite=None must be paired with Secure or browsers reject the cookie outright');
+    } finally {
+      config.auth.cookieSecure = false;
+    }
   });
 
   it('closes registration once someone exists', async () => {
