@@ -4,7 +4,7 @@ import ErrorState from '../../components/common/ErrorState';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import TextField from '../../components/forms/TextField';
 import PasswordField from '../../components/forms/PasswordField';
-import { SkeletonKpiRow } from '../../components/common/LoadingSkeleton';
+import PageLoader from '../../components/common/PageLoader';
 import { STORAGE_PROVIDERS, STORAGE_LIMIT_UNITS, getStorageProvider } from '../../config/storageProviders';
 import {
   getStorageSettings,
@@ -61,7 +61,7 @@ function StorageSettings() {
     load();
   }, []);
 
-  if (requestStatus === REQUEST_STATUS.LOADING) return <SkeletonKpiRow count={2} />;
+  if (requestStatus === REQUEST_STATUS.LOADING) return <PageLoader minHeight="24rem" />;
   if (requestStatus === REQUEST_STATUS.FAILED) return <ErrorState onRetry={load} />;
 
   const provider = getStorageProvider(providerKey);

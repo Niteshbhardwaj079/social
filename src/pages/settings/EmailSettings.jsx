@@ -4,7 +4,7 @@ import ErrorState from '../../components/common/ErrorState';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import TextField from '../../components/forms/TextField';
 import PasswordField from '../../components/forms/PasswordField';
-import { SkeletonKpiRow } from '../../components/common/LoadingSkeleton';
+import PageLoader from '../../components/common/PageLoader';
 import { getEmailSettings, saveEmailSettings, disconnectEmailSettings, testEmailSettings, sendTestEmail } from '../../services/api/emailSettingsApi';
 import { EMAIL_PROVIDERS, getEmailProvider, providerKeyForHost } from '../../config/emailProviders';
 import { REQUEST_STATUS } from '../../config/constants';
@@ -68,7 +68,7 @@ function EmailSettings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (requestStatus === REQUEST_STATUS.LOADING) return <SkeletonKpiRow count={1} />;
+  if (requestStatus === REQUEST_STATUS.LOADING) return <PageLoader minHeight="24rem" />;
   if (requestStatus === REQUEST_STATUS.FAILED) return <ErrorState onRetry={load} />;
 
   const provider = getEmailProvider(providerKey);
