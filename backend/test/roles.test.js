@@ -43,25 +43,32 @@ describe('reading roles', () => {
       usersCreate: false,
       usersEdit: false,
       usersDelete: false,
+      rolesView: true,
       rolesCreate: false,
       rolesEdit: false,
       rolesDelete: false,
+      postsView: true,
       postsWrite: true,
       postsPublish: true,
       postsDelete: true,
+      socialAccountsView: true,
       socialAccountsConnect: false,
       socialAccountsEdit: false,
       socialAccountsDelete: false,
+      adsView: true,
       adsCreate: true,
       adsEdit: true,
       adsDelete: true,
+      campaignsView: true,
       campaignsCreate: true,
       campaignsEdit: true,
       campaignsDelete: true,
       reportsView: true,
+      mediaView: true,
       mediaCreate: true,
       mediaEdit: true,
       mediaDelete: true,
+      templatesView: true,
       templatesCreate: true,
       templatesEdit: true,
       templatesDelete: true,
@@ -157,7 +164,7 @@ describe('who can manage role definitions', () => {
   });
 
   it('archiving a role blocks new assignment but does not break people who already have it', async () => {
-    const created = await owner.post('/roles', { name: 'Seasonal Role', rank: 1, permissions: { reportsView: true } });
+    const created = await owner.post('/roles', { name: 'Seasonal Role', rank: 1, permissions: { reportsView: true, rolesView: true } });
     const roleId = created.body.role.id;
     const { client: seasonalUser } = await makeUser('Season Al', roleId);
 
@@ -187,17 +194,17 @@ describe('assigning any available role, enforced server-side per module', () => 
     const campaign = await contentManager.post('/campaigns', { name: 'Diwali Push', description: '', status: 'scheduled' });
     assert.equal(campaign.status, 201, JSON.stringify(campaign.body));
 
-    assert.equal((await contentManager.get('/social-accounts')).status, 200, 'reading is always open');
+    assert.equal((await contentManager.get('/social-accounts')).status, 403, 'no socialAccountsView granted, so reading is refused too now');
     assert.equal((await contentManager.put('/social-accounts/bluesky', { credentials: { handle: 'x', appPassword: 'y' } })).status, 403);
   });
 
   it('a role can be assigned to a user at invite time and again later via update', async () => {
-    const created = await owner.post('/roles', { name: 'Viewer', rank: 1, permissions: { reportsView: true } });
+    const created = await owner.post('/roles', { name: 'Viewer', rank: 1, permissions: { reportsView: true, campaignsView: true } });
     const roleId = created.body.role.id;
     const { client: viewer, id: userId } = await makeUser('View Er', roleId);
 
     assert.equal((await viewer.get('/dashboard')).status, 200);
-    assert.equal((await viewer.get('/campaigns')).status, 200, 'read-only pages stay open');
+    assert.equal((await viewer.get('/campaigns')).status, 200, 'campaignsView was granted');
     assert.equal((await viewer.post('/campaigns', { name: 'X', description: '', status: 'scheduled' })).status, 403);
 
     // Re-assign them to Editor and confirm the new capability set applies immediately.

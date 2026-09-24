@@ -10,9 +10,16 @@ import {
   canEditAccounts,
   canEditRoles,
   canEditSettings,
+  canViewAccounts,
   canViewActivityLogs,
+  canViewAds,
+  canViewCampaigns,
+  canViewMedia,
+  canViewPosts,
   canViewReports,
+  canViewRoles,
   canViewSettings,
+  canViewTemplates,
   canViewUsers,
 } from '../services/permissions.js';
 
@@ -23,25 +30,32 @@ const PERMISSION_COLUMNS = [
   'users_create',
   'users_edit',
   'users_delete',
+  'roles_view',
   'roles_create',
   'roles_edit',
   'roles_delete',
+  'posts_view',
   'posts_write',
   'posts_publish',
   'posts_delete',
+  'social_accounts_view',
   'social_accounts_connect',
   'social_accounts_edit',
   'social_accounts_delete',
+  'ads_view',
   'ads_create',
   'ads_edit',
   'ads_delete',
+  'campaigns_view',
   'campaigns_create',
   'campaigns_edit',
   'campaigns_delete',
   'reports_view',
+  'media_view',
   'media_create',
   'media_edit',
   'media_delete',
+  'templates_view',
   'templates_create',
   'templates_edit',
   'templates_delete',
@@ -67,25 +81,32 @@ export function attachRoleCapabilities(row) {
     usersCreate: row.users_create,
     usersEdit: row.users_edit,
     usersDelete: row.users_delete,
+    rolesView: row.roles_view,
     rolesCreate: row.roles_create,
     rolesEdit: row.roles_edit,
     rolesDelete: row.roles_delete,
+    postsView: row.posts_view,
     postsWrite: row.posts_write,
     postsPublish: row.posts_publish,
     postsDelete: row.posts_delete,
+    socialAccountsView: row.social_accounts_view,
     socialAccountsConnect: row.social_accounts_connect,
     socialAccountsEdit: row.social_accounts_edit,
     socialAccountsDelete: row.social_accounts_delete,
+    adsView: row.ads_view,
     adsCreate: row.ads_create,
     adsEdit: row.ads_edit,
     adsDelete: row.ads_delete,
+    campaignsView: row.campaigns_view,
     campaignsCreate: row.campaigns_create,
     campaignsEdit: row.campaigns_edit,
     campaignsDelete: row.campaigns_delete,
     reportsView: row.reports_view,
+    mediaView: row.media_view,
     mediaCreate: row.media_create,
     mediaEdit: row.media_edit,
     mediaDelete: row.media_delete,
+    templatesView: row.templates_view,
     templatesCreate: row.templates_create,
     templatesEdit: row.templates_edit,
     templatesDelete: row.templates_delete,
@@ -135,6 +156,11 @@ export function requireUsersViewer(req, _res, next) {
 }
 
 // ---------------------------------------------------------------- Roles
+export function requireRoleViewer(req, _res, next) {
+  if (!canViewRoles(req.user)) throw forbidden();
+  next();
+}
+
 export function requireRoleCreator(req, _res, next) {
   if (!canCreateRoles(req.user)) throw forbidden();
   next();
@@ -179,6 +205,11 @@ export function requireReportsViewer(req, _res, next) {
 }
 
 // ---------------------------------------------------------------- Social Accounts (+ storage, ad-account sync)
+export function requireAccountViewer(req, _res, next) {
+  if (!canViewAccounts(req.user)) throw forbidden();
+  next();
+}
+
 /** Connecting a new account/provider, or testing credentials before connecting. */
 export function requireAccountConnector(req, _res, next) {
   if (!canConnectAccounts(req.user)) throw forbidden();
@@ -194,5 +225,35 @@ export function requireAccountEditor(req, _res, next) {
 /** Disconnecting a social account or the storage provider. */
 export function requireAccountDeleter(req, _res, next) {
   if (!canDisconnectAccounts(req.user)) throw forbidden();
+  next();
+}
+
+// ---------------------------------------------------------------- Posts
+export function requirePostsViewer(req, _res, next) {
+  if (!canViewPosts(req.user)) throw forbidden();
+  next();
+}
+
+// ---------------------------------------------------------------- Ads (Meta campaigns, automated rules)
+export function requireAdsViewer(req, _res, next) {
+  if (!canViewAds(req.user)) throw forbidden();
+  next();
+}
+
+// ---------------------------------------------------------------- Campaigns
+export function requireCampaignsViewer(req, _res, next) {
+  if (!canViewCampaigns(req.user)) throw forbidden();
+  next();
+}
+
+// ---------------------------------------------------------------- Media Library
+export function requireMediaViewer(req, _res, next) {
+  if (!canViewMedia(req.user)) throw forbidden();
+  next();
+}
+
+// ---------------------------------------------------------------- Ad Creative Templates
+export function requireTemplatesViewer(req, _res, next) {
+  if (!canViewTemplates(req.user)) throw forbidden();
   next();
 }

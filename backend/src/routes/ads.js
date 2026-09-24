@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireAccountViewer, requireAdsViewer, requireTemplatesViewer } from '../middleware/auth.js';
 import { providerLimiter } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
 import { isPlatform } from '../providers/index.js';
@@ -24,7 +24,7 @@ router.use(authenticate);
 
 // Ad accounts are discovered from the client's own Facebook connection (Social Accounts) — there is
 // no per-network connect/test/disconnect here any more, only "read the cache" and "sync it for real".
-router.get('/accounts', async (_req, res) => res.json(await listAdAccounts()));
+router.get('/accounts', requireAdsViewer, async (_req, res) => res.json(await listAdAccounts()));
 
 router.post('/accounts/sync', providerLimiter, async (req, res) =>
   res.json(await syncAdAccounts({ actor: req.user, ip: req.ip, userAgent: req.get('user-agent') }))
@@ -89,7 +89,7 @@ const bulkCreateSchema = z.object({
 // GET /:id below so the literal path "/templates" is never swallowed by the :id param route.
 const templateSchema = creativeSchema.extend({ name: z.string().trim().min(1).max(200) });
 
-router.get('/templates', async (_req, res) => res.json({ templates: await listTemplates() }));
+router.get('/templates', requireTemplatesViewer, async (_req, res) => res.json({ templates: await listTemplates() }));
 
 router.post(
   '/templates',
@@ -132,7 +132,8 @@ const ruleSchema = z.object({
   cooldownHours: z.coerce.number().int().min(1).max(720).default(24),
 });
 
-router.get('/rules', async (_req, res) => res.json({ rules: await listRules() }));
+// Automated Rules act on ad accounts/spend, not campaigns — same trust tier as Social Accounts (Phase 8).
+router.get('/rules', requireAccountViewer, async (_req, res) => res.json({ rules: await listRules() }));
 
 router.post(
   '/rules',
@@ -161,10 +162,11 @@ router.delete(
   }
 );
 
-router.get('/', async (_req, res) => res.json({ ads: await listCampaigns() }));
+router.get('/', requireAdsViewer, async (_req, res) => res.json({ ads: await listCampaigns() }));
 
 router.get(
   '/:id',
+  requireAdsViewer,
   validate({ params: z.object({ id: z.string().uuid() }) }),
   async (req, res) => {
     const ad = await getCampaign(req.valid.params.id);

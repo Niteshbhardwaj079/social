@@ -1,4 +1,4 @@
-import { ROLE_PERMISSION_GROUPS } from '../../config/rolePermissions';
+import { PERMISSION_COLUMNS, ROLE_PERMISSION_MODULES } from '../../config/rolePermissions';
 
 function PermissionMatrix({ permissions, onChange, disabled = false }) {
   function toggle(key) {
@@ -12,32 +12,35 @@ function PermissionMatrix({ permissions, onChange, disabled = false }) {
         <thead>
           <tr>
             <th>Module</th>
-            <th>Permission</th>
-            <th className="text-center">Allowed</th>
+            {PERMISSION_COLUMNS.map((column) => (
+              <th key={column.id} className="text-center">
+                {column.label}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {ROLE_PERMISSION_GROUPS.map((group) =>
-            group.rows.map((row, index) => (
-              <tr key={row.key}>
-                {index === 0 ? <td className="table-row-title" rowSpan={group.rows.length}>{group.module}</td> : null}
-                <td>
-                  <div>{row.label}</div>
-                  <p className="small text-muted-custom mb-0">{row.description}</p>
-                </td>
-                <td className="text-center">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={Boolean(permissions[row.key])}
-                    onChange={() => toggle(row.key)}
-                    disabled={disabled}
-                    aria-label={`${group.module} - ${row.label}`}
-                  />
-                </td>
-              </tr>
-            ))
-          )}
+          {ROLE_PERMISSION_MODULES.map((group) => (
+            <tr key={group.module}>
+              <td className="table-row-title">{group.module}</td>
+              {PERMISSION_COLUMNS.map((column) => {
+                const cell = group.cells[column.id];
+                if (!cell) return <td key={column.id} className="text-center" />;
+                return (
+                  <td key={column.id} className="text-center" title={cell.description}>
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={Boolean(permissions[cell.key])}
+                      onChange={() => toggle(cell.key)}
+                      disabled={disabled}
+                      aria-label={`${group.module} - ${column.label}: ${cell.description}`}
+                    />
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

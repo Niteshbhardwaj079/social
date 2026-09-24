@@ -17,46 +17,51 @@ export async function resetDatabase() {
   await query("DELETE FROM roles WHERE id NOT IN ('superAdmin', 'admin', 'editor', 'contributor', 'analyst')");
   const ROLE_COLUMNS =
     'id, name, description, icon, accent, rank, is_protected, ' +
-    'users_view, users_create, users_edit, users_delete, roles_create, roles_edit, roles_delete, ' +
-    'posts_write, posts_publish, posts_delete, ' +
-    'social_accounts_connect, social_accounts_edit, social_accounts_delete, ' +
-    'ads_create, ads_edit, ads_delete, campaigns_create, campaigns_edit, campaigns_delete, reports_view, ' +
-    'media_create, media_edit, media_delete, templates_create, templates_edit, templates_delete, ' +
+    'users_view, users_create, users_edit, users_delete, roles_view, roles_create, roles_edit, roles_delete, ' +
+    'posts_view, posts_write, posts_publish, posts_delete, ' +
+    'social_accounts_view, social_accounts_connect, social_accounts_edit, social_accounts_delete, ' +
+    'ads_view, ads_create, ads_edit, ads_delete, campaigns_view, campaigns_create, campaigns_edit, campaigns_delete, reports_view, ' +
+    'media_view, media_create, media_edit, media_delete, templates_view, templates_create, templates_edit, templates_delete, ' +
     'activity_logs_view, activity_logs_delete, settings_view, settings_edit';
   const T = true;
   const F = false;
   const ROLE_SEEDS = [
-    // id, name, description, icon, accent, rank, is_protected, then the 30 permission flags in ROLE_COLUMNS order.
-    ['superAdmin', 'Super Admin', 'Full access to every module. Cannot be renamed, edited or deleted.', 'ShieldCheck', 'rose', 4, T, ...Array(30).fill(T)],
-    ['admin', 'Admin', 'Manage users, content and settings.', 'Settings2', 'purple', 3, F, ...Array(30).fill(T)],
+    // id, name, description, icon, accent, rank, is_protected, then the 37 permission flags in ROLE_COLUMNS order.
+    // Every *_view flag mirrors migration 027's `DEFAULT true` backfill: every existing built-in role
+    // keeps exactly the (previously ungated) view access it already had, regardless of its other flags.
+    ['superAdmin', 'Super Admin', 'Full access to every module. Cannot be renamed, edited or deleted.', 'ShieldCheck', 'rose', 4, T, ...Array(37).fill(T)],
+    ['admin', 'Admin', 'Manage users, content and settings.', 'Settings2', 'purple', 3, F, ...Array(37).fill(T)],
     [
       'editor', 'Editor', 'Create, edit and publish content across all connected accounts.', 'PenSquare', 'blue', 2, F,
-      F, F, F, F, F, F, F, // users, roles
-      T, T, T, // posts write/publish/delete
-      F, F, F, // social accounts
-      T, T, T, T, T, T, // ads, campaigns
+      F, F, F, F, // users
+      T, F, F, F, // roles: view only
+      T, T, T, T, // posts: view/write/publish/delete
+      T, F, F, F, // social accounts: view only
+      T, T, T, T, T, T, T, T, // ads, campaigns (view + create/edit/delete each)
       T, // reportsView
-      T, T, T, T, T, T, // media, templates
+      T, T, T, T, T, T, T, T, // media, templates (view + create/edit/delete each)
       F, F, F, F, // activity logs, settings
     ],
     [
       'contributor', 'Contributor', 'Draft and submit content for approval; cannot publish directly.', 'Users', 'teal', 1, F,
-      F, F, F, F, F, F, F,
-      T, F, F, // posts: write only, not publish/delete (still deletes own via the ownership carve-out)
-      F, F, F,
-      F, F, F, F, F, F,
+      F, F, F, F,
+      T, F, F, F, // roles: view only
+      T, T, F, F, // posts: view + write only, not publish/delete (still deletes own via the ownership carve-out)
+      T, F, F, F, // social accounts: view only
+      T, F, F, F, T, F, F, F, // ads, campaigns: view only
       T,
-      T, T, T, F, F, F, // media yes, templates no
+      T, T, T, T, T, F, F, F, // media yes, templates view-only
       F, F, F, F,
     ],
     [
       'analyst', 'Analyst', 'Read-only access to analytics and reporting.', 'BarChart3', 'slate', 1, F,
-      F, F, F, F, F, F, F,
-      F, F, F,
-      F, F, F,
-      F, F, F, F, F, F,
+      F, F, F, F,
+      T, F, F, F, // roles: view only
+      T, F, F, F, // posts: view only
+      T, F, F, F, // social accounts: view only
+      T, F, F, F, T, F, F, F, // ads, campaigns: view only
       T,
-      F, F, F, F, F, F,
+      T, F, F, F, T, F, F, F, // media, templates: view only
       F, F, F, F,
     ],
   ];

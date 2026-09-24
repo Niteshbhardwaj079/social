@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireCampaignsViewer } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { isPlatform } from '../providers/index.js';
 import * as campaignService from '../services/campaignService.js';
@@ -22,9 +22,9 @@ const campaignBody = z.object({
   endDate: dateOnly.optional(),
 });
 
-router.get('/', async (_req, res) => res.json({ campaigns: await campaignService.listCampaigns() }));
+router.get('/', requireCampaignsViewer, async (_req, res) => res.json({ campaigns: await campaignService.listCampaigns() }));
 
-router.get('/:id', validate({ params: idParams }), async (req, res) => res.json({ campaign: await campaignService.getCampaign(req.valid.params.id) }));
+router.get('/:id', requireCampaignsViewer, validate({ params: idParams }), async (req, res) => res.json({ campaign: await campaignService.getCampaign(req.valid.params.id) }));
 
 router.post('/', validate({ body: campaignBody }), async (req, res) =>
   res.status(201).json({ campaign: await campaignService.createCampaign({ actor: req.user, input: req.valid.body, ip: req.ip, userAgent: req.get('user-agent') }) })

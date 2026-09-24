@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { config } from '../config/env.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireMediaViewer } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { badRequest } from '../utils/httpError.js';
 import * as mediaService from '../services/mediaService.js';
@@ -33,8 +33,8 @@ function oneFile(req, res, next) {
 const idParams = z.object({ id: z.string().uuid('Not a valid file id') });
 const dimension = z.coerce.number().int().positive().optional();
 
-router.get('/', async (_req, res) => res.json({ items: await mediaService.listMedia() }));
-router.get('/folders', async (_req, res) => res.json({ folders: await mediaService.listFolders() }));
+router.get('/', requireMediaViewer, async (_req, res) => res.json({ items: await mediaService.listMedia() }));
+router.get('/folders', requireMediaViewer, async (_req, res) => res.json({ folders: await mediaService.listFolders() }));
 
 router.post(
   '/',

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, requireRoleCreator, requireRoleDeleter, requireRoleEditor } from '../middleware/auth.js';
+import { authenticate, requireRoleCreator, requireRoleDeleter, requireRoleEditor, requireRoleViewer } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import * as roles from '../services/roleService.js';
 
@@ -20,9 +20,9 @@ const roleBody = z.object({
 });
 const idParam = z.object({ id: z.string().min(1).max(120) });
 
-router.get('/', async (_req, res) => res.json({ roles: await roles.listRoles() }));
+router.get('/', requireRoleViewer, async (_req, res) => res.json({ roles: await roles.listRoles() }));
 
-router.get('/:id', validate({ params: idParam }), async (req, res) => res.json({ role: await roles.getRole(req.valid.params.id) }));
+router.get('/:id', requireRoleViewer, validate({ params: idParam }), async (req, res) => res.json({ role: await roles.getRole(req.valid.params.id) }));
 
 router.post(
   '/',

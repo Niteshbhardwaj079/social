@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requirePostsViewer } from '../middleware/auth.js';
 import { providerLimiter } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
 import { forbidden } from '../utils/httpError.js';
@@ -27,8 +27,11 @@ const mediaIds = z.array(z.string().uuid()).max(10, 'At most 10 files per post')
 const campaignId = z.string().uuid('Not a valid campaign id').nullable();
 const pinterestBoardId = z.string().trim().min(1).max(100).nullable();
 
-router.get('/', validate({ query: z.object({ limit: z.coerce.number().int().min(1).max(1000).default(500) }) }), async (req, res) =>
-  res.json({ posts: await listPosts(req.valid.query) })
+router.get(
+  '/',
+  requirePostsViewer,
+  validate({ query: z.object({ limit: z.coerce.number().int().min(1).max(1000).default(500) }) }),
+  async (req, res) => res.json({ posts: await listPosts(req.valid.query) })
 );
 
 router.post(
@@ -49,7 +52,7 @@ router.post(
   async (req, res) => res.json(await bulkChange({ ...req.valid.body, actor: req.user, ip: req.ip, userAgent: req.get('user-agent') }))
 );
 
-router.get('/:id', validate({ params: idParams }), async (req, res) => res.json({ post: await getPost(req.valid.params.id) }));
+router.get('/:id', requirePostsViewer, validate({ params: idParams }), async (req, res) => res.json({ post: await getPost(req.valid.params.id) }));
 
 router.patch(
   '/:id',

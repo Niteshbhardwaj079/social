@@ -29,17 +29,17 @@ Email is configured by the client themselves in-app (Settings → Email), not by
 | Setup & sign-in | `POST /api/auth/register` (first user only) · `login` · `refresh` · `logout` · `forgot-password` · `reset-password` · `accept-invite` · `GET/PATCH /me` (name, language, avatar) · `change-password` · `GET /api/public/config` |
 | Sessions | `GET /api/auth/sessions` (this person's real, currently-signed-in devices) · `DELETE /sessions/:id` (revoke one) |
 | Users & roles | `GET/POST /api/users` · `PATCH/DELETE /api/users/:id` · `POST /:id/resend-invite` (Super Admin / Admin) |
-| Roles & permissions | `GET /api/roles` (everyone) · `GET /:id` · `POST /api/roles` · `PATCH/DELETE /:id` · `POST /:id/duplicate` (needs the `rolesManage` capability — Super Admin and Admin have it by default) |
+| Roles & permissions | `GET /api/roles` (needs `rolesView`) · `GET /:id` · `POST /api/roles` · `PATCH/DELETE /:id` · `POST /:id/duplicate` (needs the `rolesManage` capability — Super Admin and Admin have it by default) |
 | Settings | `GET/PUT /api/settings/languages` · `GET/PUT /api/settings/workspace` |
 | Email | `GET /api/email-settings` (everyone) · `POST /providers/:key/test` · `PUT /providers/:key` (connect: `smtp`, `resend`, `sendgrid` or `brevo`) · `DELETE /provider` · `POST /send-test` (Super Admin / Admin) |
 | System emails | `GET /api/system-emails?lang=` · `PUT/DELETE /:id/translations/:lang` · `PATCH /:id` (on/off) · `POST /:id/test` |
-| Social accounts | `GET /api/social-accounts` (everyone) · `POST /:platform/test` · `PUT /:platform` (connect) · `POST /:platform/recheck` · `DELETE /:platform` (Super Admin / Admin) |
-| Posts | `GET/POST /api/posts` · `GET/PATCH/DELETE /:id` · `POST /bulk` · `POST /:id/retry` · `/:id/approve` · `/:id/reject` |
+| Social accounts | `GET /api/social-accounts` (needs `socialAccountsView` — also what the composer's channel picker needs) · `POST /:platform/test` · `PUT /:platform` (connect) · `POST /:platform/recheck` · `DELETE /:platform` (Super Admin / Admin) |
+| Posts | `GET/POST /api/posts` (`GET` needs `postsView`) · `GET/PATCH/DELETE /:id` · `POST /bulk` · `POST /:id/retry` · `/:id/approve` · `/:id/reject` |
 | Storage | `GET /api/storage` (everyone) · `POST /providers/:key/test` · `PUT /providers/:key` (connect) · `DELETE /provider` · `PUT /preferences` (Super Admin / Admin) |
-| Media | `GET /api/media` · `GET /media/folders` · `POST /media` (upload) · `POST /media/link` · `PATCH/DELETE /media/:id` · `POST /media/bulk-delete` |
+| Media | `GET /api/media` (needs `mediaView`) · `GET /media/folders` · `POST /media` (upload) · `POST /media/link` · `PATCH/DELETE /media/:id` · `POST /media/bulk-delete` |
 | Analytics | `GET /api/analytics/overview?range=7d\|30d\|90d` · `GET /api/analytics/content` |
 | Inbox | `GET /api/inbox` · `GET /inbox/assignable-users` · `POST /:id/reply` (Editor+) · `POST /:id/read` · `PATCH /:id/status` · `PATCH /:id/assign` |
-| Ads | `GET /api/ads/accounts` (discovered ad accounts + Facebook/Ads connection status) · `POST /accounts/sync` (Super Admin / Admin) · `GET/POST /api/ads` · `GET /:id` · `PATCH /status` (bulk pause/resume, Editor+) · `DELETE /api/ads` (bulk) |
+| Ads | `GET /api/ads/accounts` (needs `adsView`; discovered ad accounts + Facebook/Ads connection status) · `POST /accounts/sync` (Super Admin / Admin) · `GET/POST /api/ads` (`GET` needs `adsView`) · `GET /:id` · `PATCH /status` (bulk pause/resume, Editor+) · `DELETE /api/ads` (bulk) · `GET /templates` (needs `templatesView`) · `GET /rules` (needs `socialAccountsView`) |
 | Links | `GET/POST /api/links` · `DELETE /api/links` (bulk) · `DELETE /api/links/:id` — plus the real redirect itself, `GET /l/:slug` (not under `/api`, no sign-in needed — anyone with the short link) |
 | Operations | `GET /api/health` · `GET /api/activity-logs` · `DELETE /api/activity-logs` (Super Admin / Admin) |
 
@@ -116,6 +116,32 @@ anyone; a role with only `postsDelete` can delete *any* post while being unable 
 all; a `mediaCreate`-only role cannot delete a file it just uploaded; Activity Logs and Settings each have
 their view/edit (or view/delete) split independently provable too. 314 integration tests total (was 285
 before this whole feature; 298 after the first, coarser version).
+
+**(2026-09-25) View is now real for every module, and the Permissions Matrix UI is a true grid.** Until
+now, View was only a distinct flag for modules that were already gated before the rework (Users, Activity
+Logs, Settings) — Roles, Posts, Social Accounts, Ads, Campaigns, Media and Templates stayed readable by
+any signed-in user regardless of their other permissions, same as before the whole rework. Per the user's
+explicit choice, migration `027_view_permissions.sql` adds a real `*_view` column to each of those seven
+modules (`DEFAULT true`, so every existing role — built-in or custom — keeps exactly the read access it
+already had), `services/permissions.js` gained matching `canView*` predicates, `middleware/auth.js` gained
+matching `require*Viewer` middleware, and the relevant `GET` routes are now actually gated by it (see the
+endpoint table above). `PERMISSION_KEYS`/`COLUMN_BY_KEY` in `roleService.js` grew from 30 to 37 entries.
+Two things worth knowing: the post composer's channel picker and Pinterest board picker both call
+`GET /api/social-accounts`, so a custom role that writes posts now also needs `socialAccountsView` (every
+existing role already has it via the migration backfill; only a newly-created custom role needs to
+remember it); and Ads' Automated Rules (`GET /api/ads/rules`) are gated by `socialAccountsView`, not
+`adsView`, consistent with the higher trust bar Phase 8 deliberately put on that endpoint.
+
+Frontend: the Permissions Matrix (`PermissionMatrix.jsx`) was rewritten from a flat one-row-per-permission
+list into a real grid — one row per module, four uniform columns (View / Create / Edit / Delete) for every
+module, per the user's explicit choice to keep the same four column labels everywhere rather than
+relabelling them per module. Where the underlying flag means something narrower than its column label
+(Posts' "Create" column is really `postsWrite`, its "Edit" column is really `postsPublish`; Social
+Accounts' "Create" column is really `socialAccountsConnect`), the cell's tooltip spells out the real
+meaning. A module gets an empty, disabled cell wherever that operation genuinely doesn't exist (Reports:
+View only; Activity Logs: no Create/Edit; Settings: no Create/Delete). `src/config/rolePermissions.js` now
+exports `ROLE_PERMISSION_MODULES` (module → `{view, create, edit, delete}` cells, `null` where absent) and
+`PERMISSION_COLUMNS` instead of the old flat `ROLE_PERMISSION_GROUPS`.
 
 ### Two-Factor Authentication (real TOTP)
 

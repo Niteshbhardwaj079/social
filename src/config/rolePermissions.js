@@ -1,96 +1,124 @@
-// Every one of these keys is read by a real permission check on the backend (see
-// backend/src/services/permissions.js) — split into View/Create/Edit/Delete wherever that's a
-// genuinely distinct backend operation. Where viewing was never restricted (Posts, Campaigns,
-// Media, Templates, Social Accounts, Roles), there's no View row at all — it stays open to any
-// signed-in user, same as always; only modules that were already view-gated (Users, Activity
-// Logs, Settings) have a real View toggle. Nothing here is decorative.
-export const ROLE_PERMISSION_GROUPS = [
+// Every key below is read by a real permission check on the backend (see
+// backend/src/services/permissions.js). Every module now has a real View flag (migration 027)
+// — existing roles keep exactly the (previously ungated) access they already had. The grid always
+// shows the same four columns (View / Create / Edit / Delete) for every module, even where the
+// underlying flag is semantically narrower — e.g. Posts' "Create" column is really `postsWrite`
+// (draft/edit/submit) and its "Edit" column is really `postsPublish` (approve/reject/publish); the
+// cell's `description` always spells out the real meaning. A module gets `null` for a column where
+// that operation genuinely doesn't exist (Reports has only View; Activity Logs has no Create/Edit;
+// Settings has no Create/Delete) — the matrix renders those cells empty and disabled.
+export const PERMISSION_COLUMNS = [
+  { id: 'view', label: 'View' },
+  { id: 'create', label: 'Create' },
+  { id: 'edit', label: 'Edit' },
+  { id: 'delete', label: 'Delete' },
+];
+
+export const ROLE_PERMISSION_MODULES = [
   {
     module: 'Users',
-    rows: [
-      { key: 'usersView', label: 'View', description: 'See the list of people in the workspace.' },
-      { key: 'usersCreate', label: 'Create', description: 'Invite new people.' },
-      { key: 'usersEdit', label: 'Edit', description: "Change someone's name, role, language or status." },
-      { key: 'usersDelete', label: 'Delete', description: 'Remove someone from the workspace.' },
-    ],
+    cells: {
+      view: { key: 'usersView', description: 'See the list of people in the workspace.' },
+      create: { key: 'usersCreate', description: 'Invite new people.' },
+      edit: { key: 'usersEdit', description: "Change someone's name, role, language or status." },
+      delete: { key: 'usersDelete', description: 'Remove someone from the workspace.' },
+    },
   },
   {
     module: 'Roles',
-    rows: [
-      { key: 'rolesCreate', label: 'Create', description: 'Create a new custom role, or duplicate one.' },
-      { key: 'rolesEdit', label: 'Edit', description: "Rename a role or change what it can do. Always locked for Super Admin." },
-      { key: 'rolesDelete', label: 'Delete', description: 'Delete a custom role. Always locked for Super Admin.' },
-    ],
+    cells: {
+      view: { key: 'rolesView', description: 'See the Roles & Permissions page.' },
+      create: { key: 'rolesCreate', description: 'Create a new custom role, or duplicate one.' },
+      edit: { key: 'rolesEdit', description: "Rename a role or change what it can do. Always locked for Super Admin." },
+      delete: { key: 'rolesDelete', description: 'Delete a custom role. Always locked for Super Admin.' },
+    },
   },
   {
     module: 'Posts',
-    rows: [
-      { key: 'postsWrite', label: 'Write', description: 'Create and edit drafts; submit for approval.' },
-      { key: 'postsPublish', label: 'Publish', description: 'Approve, reject, retry and publish any post.' },
-      { key: 'postsDelete', label: 'Delete', description: 'Delete any post outright, not just your own draft.' },
-    ],
+    cells: {
+      view: { key: 'postsView', description: 'See posts in the calendar and list.' },
+      create: { key: 'postsWrite', description: 'Create and edit drafts; submit for approval.' },
+      edit: { key: 'postsPublish', description: 'Approve, reject, retry and publish any post.' },
+      delete: { key: 'postsDelete', description: 'Delete any post outright, not just your own draft.' },
+    },
   },
   {
     module: 'Social Accounts',
-    rows: [
-      { key: 'socialAccountsConnect', label: 'Connect', description: 'Connect a social account or storage provider, or test credentials.' },
-      { key: 'socialAccountsEdit', label: 'Edit', description: 'Re-check/sync an already-connected account; manage automated ad rules.' },
-      { key: 'socialAccountsDelete', label: 'Delete', description: 'Disconnect a social account or the storage provider.' },
-    ],
+    cells: {
+      view: { key: 'socialAccountsView', description: 'See which accounts are connected (also needed by the post composer).' },
+      create: { key: 'socialAccountsConnect', description: 'Connect a social account or storage provider, or test credentials.' },
+      edit: { key: 'socialAccountsEdit', description: 'Re-check/sync an already-connected account; manage automated ad rules.' },
+      delete: { key: 'socialAccountsDelete', description: 'Disconnect a social account or the storage provider.' },
+    },
   },
   {
     module: 'Ads',
-    rows: [
-      { key: 'adsCreate', label: 'Create', description: 'Launch a new ad or ad variation.' },
-      { key: 'adsEdit', label: 'Edit', description: 'Pause or resume a launched ad.' },
-      { key: 'adsDelete', label: 'Delete', description: 'Delete an ad.' },
-    ],
+    cells: {
+      view: { key: 'adsView', description: 'See ad accounts, launched ads and their stats.' },
+      create: { key: 'adsCreate', description: 'Launch a new ad or ad variation.' },
+      edit: { key: 'adsEdit', description: 'Pause or resume a launched ad.' },
+      delete: { key: 'adsDelete', description: 'Delete an ad.' },
+    },
   },
   {
     module: 'Campaigns',
-    rows: [
-      { key: 'campaignsCreate', label: 'Create', description: 'Create a new campaign.' },
-      { key: 'campaignsEdit', label: 'Edit', description: "Change a campaign's details or status." },
-      { key: 'campaignsDelete', label: 'Delete', description: 'Delete a campaign.' },
-    ],
+    cells: {
+      view: { key: 'campaignsView', description: 'See the list of campaigns.' },
+      create: { key: 'campaignsCreate', description: 'Create a new campaign.' },
+      edit: { key: 'campaignsEdit', description: "Change a campaign's details or status." },
+      delete: { key: 'campaignsDelete', description: 'Delete a campaign.' },
+    },
   },
   {
     module: 'Reports',
-    rows: [{ key: 'reportsView', label: 'View', description: 'View the Dashboard and Analytics pages.' }],
+    cells: {
+      view: { key: 'reportsView', description: 'View the Dashboard and Analytics pages.' },
+      create: null,
+      edit: null,
+      delete: null,
+    },
   },
   {
     module: 'Media',
-    rows: [
-      { key: 'mediaCreate', label: 'Create', description: 'Upload a new file or add one by link.' },
-      { key: 'mediaEdit', label: 'Edit', description: 'Replace or re-crop an existing file.' },
-      { key: 'mediaDelete', label: 'Delete', description: 'Delete a file from the Media Library.' },
-    ],
+    cells: {
+      view: { key: 'mediaView', description: 'See files in the Media Library.' },
+      create: { key: 'mediaCreate', description: 'Upload a new file or add one by link.' },
+      edit: { key: 'mediaEdit', description: 'Replace or re-crop an existing file.' },
+      delete: { key: 'mediaDelete', description: 'Delete a file from the Media Library.' },
+    },
   },
   {
     module: 'Templates',
-    rows: [
-      { key: 'templatesCreate', label: 'Create', description: 'Save a new ad creative template.' },
-      { key: 'templatesEdit', label: 'Edit', description: 'Edit a saved template.' },
-      { key: 'templatesDelete', label: 'Delete', description: 'Delete a saved template.' },
-    ],
+    cells: {
+      view: { key: 'templatesView', description: 'See saved ad creative templates.' },
+      create: { key: 'templatesCreate', description: 'Save a new ad creative template.' },
+      edit: { key: 'templatesEdit', description: 'Edit a saved template.' },
+      delete: { key: 'templatesDelete', description: 'Delete a saved template.' },
+    },
   },
   {
     module: 'Activity Logs',
-    rows: [
-      { key: 'activityLogsView', label: 'View', description: 'View the activity log.' },
-      { key: 'activityLogsDelete', label: 'Delete', description: 'Delete activity log entries.' },
-    ],
+    cells: {
+      view: { key: 'activityLogsView', description: 'View the activity log.' },
+      create: null,
+      edit: null,
+      delete: { key: 'activityLogsDelete', description: 'Delete activity log entries.' },
+    },
   },
   {
     module: 'Settings',
-    rows: [
-      { key: 'settingsView', label: 'View', description: 'View workspace, language and system email settings.' },
-      { key: 'settingsEdit', label: 'Edit', description: 'Change workspace, language and system email settings.' },
-    ],
+    cells: {
+      view: { key: 'settingsView', description: 'View workspace, language and system email settings.' },
+      create: null,
+      edit: { key: 'settingsEdit', description: 'Change workspace, language and system email settings.' },
+      delete: null,
+    },
   },
 ];
 
-export const ROLE_PERMISSION_KEYS = ROLE_PERMISSION_GROUPS.flatMap((group) => group.rows.map((row) => row.key));
+export const ROLE_PERMISSION_KEYS = ROLE_PERMISSION_MODULES.flatMap((group) =>
+  PERMISSION_COLUMNS.map((column) => group.cells[column.id]).filter(Boolean).map((cell) => cell.key)
+);
 
 export const ROLE_ACCENTS = ['rose', 'purple', 'blue', 'teal', 'slate', 'amber'];
 

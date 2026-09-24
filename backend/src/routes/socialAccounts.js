@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, requireAccountConnector, requireAccountDeleter, requireAccountEditor } from '../middleware/auth.js';
+import { authenticate, requireAccountConnector, requireAccountDeleter, requireAccountEditor, requireAccountViewer } from '../middleware/auth.js';
 import { providerLimiter } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
 import { isPlatform } from '../providers/index.js';
@@ -13,11 +13,13 @@ const platformParams = z.object({ platform: z.string().refine(isPlatform, 'Unkno
 // Which fields are needed depends on the platform, so the service checks them; here it is only "an object of text".
 const credentials = z.record(z.string(), z.unknown()).refine((value) => Object.keys(value).length <= 20, 'Too many fields');
 
-// Everyone signed in can see which channels are connected (the composer needs it); managing them is for admins.
-router.get('/', async (_req, res) => res.json({ accounts: await listAccounts() }));
+// The composer needs this to pick which platforms to post to, so a role that writes posts also
+// needs socialAccountsView, same as it needs postsView — a real, migration-backfilled default for
+// every existing role, but a new custom role must remember to grant it too.
+router.get('/', requireAccountViewer, async (_req, res) => res.json({ accounts: await listAccounts() }));
 
-// Everyone who can write a post needs this for the Pinterest board picker, not just account managers.
-router.get('/pinterest/boards', async (_req, res) => res.json({ boards: await getPinterestBoards() }));
+// Same as above — the Pinterest board picker in the composer needs this, not just account managers.
+router.get('/pinterest/boards', requireAccountViewer, async (_req, res) => res.json({ boards: await getPinterestBoards() }));
 
 router.post(
   '/:platform/test',
