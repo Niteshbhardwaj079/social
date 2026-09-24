@@ -1,15 +1,6 @@
 @use '../abstracts/variables' as v;
 @use '../abstracts/mixins' as m;
 
-// Dropdown alignment uses logical sides so the menu opens toward the correct edge in RTL too.
-.dropdown-menu-custom--end {
-  inset-inline-end: 0;
-}
-
-.dropdown-menu-custom--start {
-  inset-inline-start: 0;
-}
-
 // ---- Header button: globe + short code ("HI", "AR")
 // Two classes so this beats .topbar-icon-btn (a fixed square) regardless of stylesheet order.
 .topbar-icon-btn.topbar-lang-btn {
@@ -40,11 +31,10 @@
 @include m.respond-down(v.$breakpoint-md) {
   .dropdown-menu-custom.language-menu {
     position: fixed !important;
-    top: calc(v.$topbar-height + 0.4rem);
-    inset-inline: v.$space-4;
+    top: calc(v.$topbar-height + 0.4rem) !important;
+    inset-inline: v.$space-4 !important;
     min-width: 0;
     max-width: none;
-    margin-top: 0 !important;
   }
 }
 
