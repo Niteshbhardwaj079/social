@@ -624,6 +624,7 @@ export default {
         phone: 'Телефон для постов (необязательно)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'напр. Gowebkart Fashion',
         industry: 'напр. Магазин одежды, стоматология',
         location: 'напр. Пуна',

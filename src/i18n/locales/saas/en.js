@@ -629,6 +629,7 @@ export default {
         phone: 'Phone for posts (optional)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'e.g. Gowebkart Fashion',
         industry: 'e.g. Clothing store, Dental clinic',
         location: 'e.g. Pune',

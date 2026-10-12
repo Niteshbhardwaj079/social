@@ -624,6 +624,7 @@ export default {
         phone: 'પોસ્ટ માટે ફોન (વૈકલ્પિક)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'દા.ત. Gowebkart Fashion',
         industry: 'દા.ત. કપડાંની દુકાન, ડેન્ટલ ક્લિનિક',
         location: 'દા.ત. પુણે',

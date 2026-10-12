@@ -624,6 +624,7 @@ export default {
         phone: 'పోస్ట్‌ల కోసం ఫోన్ (ఐచ్ఛికం)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'ఉదా. Gowebkart Fashion',
         industry: 'ఉదా. బట్టల దుకాణం, డెంటల్ క్లినిక్',
         location: 'ఉదా. Pune',

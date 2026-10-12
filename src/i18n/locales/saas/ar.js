@@ -624,6 +624,7 @@ export default {
         phone: 'هاتف للمنشورات (اختياري)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'مثلًا Gowebkart Fashion',
         industry: 'مثلًا متجر ملابس، عيادة أسنان',
         location: 'مثلًا بونه',

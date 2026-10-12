@@ -624,6 +624,7 @@ export default {
         phone: 'ಪೋಸ್ಟ್‌ಗಳಿಗೆ ಫೋನ್ (ಐಚ್ಛಿಕ)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'ಉದಾ. Gowebkart Fashion',
         industry: 'ಉದಾ. ಬಟ್ಟೆ ಅಂಗಡಿ, ದಂತ ಚಿಕಿತ್ಸಾಲಯ',
         location: 'ಉದಾ. Pune',

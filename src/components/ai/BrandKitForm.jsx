@@ -120,7 +120,7 @@ function BrandKitForm({ onSaved }) {
           id="kit-website"
           type="url"
           className="form-control brand-kit__website"
-          placeholder="https://yourbusiness.com"
+          placeholder={t('ai.brandKit.placeholders.website')}
           value={values.website}
           onChange={(event) => update('website', event.target.value)}
         />

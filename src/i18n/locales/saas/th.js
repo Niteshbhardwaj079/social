@@ -624,6 +624,7 @@ export default {
         phone: 'เบอร์โทรสำหรับโพสต์ (ไม่บังคับ)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'เช่น Gowebkart Fashion',
         industry: 'เช่น ร้านเสื้อผ้า คลินิกทันตกรรม',
         location: 'เช่น Pune',

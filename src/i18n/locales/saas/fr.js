@@ -624,6 +624,7 @@ export default {
         phone: 'Téléphone pour les publications (facultatif)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'ex. Gowebkart Fashion',
         industry: 'ex. Boutique de vêtements, cabinet dentaire',
         location: 'ex. Pune',

@@ -624,6 +624,7 @@ export default {
         phone: 'पोस्टसाठी फोन (ऐच्छिक)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'उदा. Gowebkart Fashion',
         industry: 'उदा. कपड्यांचे दुकान, डेंटल क्लिनिक',
         location: 'उदा. पुणे',

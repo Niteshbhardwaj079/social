@@ -624,6 +624,7 @@ export default {
         phone: 'Posts ke liye phone (optional)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'jaise Gowebkart Fashion',
         industry: 'jaise kapdon ki dukaan, dental clinic',
         location: 'jaise Pune',

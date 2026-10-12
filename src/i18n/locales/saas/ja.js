@@ -624,6 +624,7 @@ export default {
         phone: '投稿に載せる電話番号（任意）',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: '例: Gowebkart Fashion',
         industry: '例: 衣料品店、歯科医院',
         location: '例: プネー',

@@ -624,6 +624,7 @@ export default {
         phone: '게시물용 전화번호 (선택)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: '예: Gowebkart Fashion',
         industry: '예: 의류 매장, 치과',
         location: '예: 푸네',

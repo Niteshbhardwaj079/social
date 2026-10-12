@@ -624,6 +624,7 @@ export default {
         phone: 'பதிவுகளுக்கான தொலைபேசி (விருப்பத்தேர்வு)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'எ.கா. Gowebkart Fashion',
         industry: 'எ.கா. துணிக்கடை, பல் மருத்துவமனை',
         location: 'எ.கா. Pune',

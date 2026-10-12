@@ -624,6 +624,7 @@ export default {
         phone: '帖子中的电话（可选）',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: '例如 Gowebkart Fashion',
         industry: '例如 服装店、牙科诊所',
         location: '例如 Pune',

@@ -624,6 +624,7 @@ export default {
         phone: 'পোস্টের জন্য ফোন (ঐচ্ছিক)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'যেমন Gowebkart Fashion',
         industry: 'যেমন পোশাকের দোকান, ডেন্টাল ক্লিনিক',
         location: 'যেমন পুনে',

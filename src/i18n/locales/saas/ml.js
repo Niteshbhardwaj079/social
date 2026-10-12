@@ -624,6 +624,7 @@ export default {
         phone: 'പോസ്റ്റുകൾക്കുള്ള ഫോൺ (ഓപ്ഷണൽ)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'ഉദാ. Gowebkart Fashion',
         industry: 'ഉദാ. തുണിക്കട, ഡെന്റൽ ക്ലിനിക്',
         location: 'ഉദാ. Pune',

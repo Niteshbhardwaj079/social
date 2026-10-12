@@ -624,6 +624,7 @@ export default {
         phone: 'ਪੋਸਟਾਂ ਲਈ ਫ਼ੋਨ (ਵਿਕਲਪਿਕ)',
       },
       placeholders: {
+        website: 'https://yourbusiness.com',
         companyName: 'ਜਿਵੇਂ Gowebkart Fashion',
         industry: 'ਜਿਵੇਂ ਕੱਪੜਿਆਂ ਦੀ ਦੁਕਾਨ, ਡੈਂਟਲ ਕਲੀਨਿਕ',
         location: 'ਜਿਵੇਂ ਪੁਣੇ',
