@@ -162,9 +162,11 @@ describe('email settings: connecting a client’s own SMTP', () => {
     assert.match(smtpReceived[0].raw, /Test email from your Social workspace/);
   });
 
-  it('the health check reports which provider is active', async () => {
+  it('the public health check reports only the platform’s own mail mode, never a customer’s', async () => {
+    // SaaS: each organization connects its own mail provider; /health (no sign-in) must not reveal it.
     const response = await owner.get('/health');
-    assert.equal(response.body.mail, 'smtp');
+    assert.equal(response.body.mail, 'log', 'no SMTP_* env vars are set for the platform in tests');
+    assert.equal((await owner.get('/email-settings')).body.provider.providerKey, 'smtp', 'the organization itself still uses its own SMTP');
   });
 
   it('disconnecting clears the saved settings and falls back to logging emails instead of sending', async () => {

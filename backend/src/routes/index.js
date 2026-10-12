@@ -24,6 +24,9 @@ import analyticsRoutes from './analytics.js';
 import inboxRoutes from './inbox.js';
 import adsRoutes from './ads.js';
 import linkRoutes from './links.js';
+import billingRoutes from './billing.js';
+import platformRoutes from './platform.js';
+import aiRoutes from './ai.js';
 
 const router = Router();
 
@@ -58,6 +61,9 @@ router.use('/analytics', analyticsRoutes);
 router.use('/inbox', inboxRoutes);
 router.use('/ads', adsRoutes);
 router.use('/links', linkRoutes);
+router.use('/billing', billingRoutes);
+router.use('/platform', platformRoutes);
+router.use('/ai', aiRoutes);
 
 router.get(
   '/activity-logs',

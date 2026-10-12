@@ -54,6 +54,7 @@
 @use './pages/guide';
 @use './pages/auth';
 @use './pages/not-found';
+@use './pages/billing';
 
 // Must stay last: right-to-left overrides win the cascade.
 @use './layout/rtl';

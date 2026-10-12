@@ -34,12 +34,7 @@ import useMediaQuery from '../../hooks/useMediaQuery';
 import useUploadGuard from '../../hooks/useUploadGuard';
 import { useI18n } from '../../i18n/useI18n';
 
-const SORT_OPTIONS = [
-  { value: 'recent', label: 'Newest' },
-  { value: 'oldest', label: 'Oldest' },
-  { value: 'name', label: 'Name A–Z' },
-  { value: 'largest', label: 'Largest' },
-];
+const SORT_KEYS = ['recent', 'oldest', 'name', 'largest'];
 
 function sortItems(items, sortKey) {
   const sorted = [...items];
@@ -134,9 +129,9 @@ function MediaLibrary() {
     ).then(
       (newItem) => {
         setMediaItems((current) => [newItem, ...current]);
-        showToast({ type: 'success', title: 'File uploaded', message: `${newItem.name} · saved to ${newItem.storageLabel}` });
+        showToast({ type: 'success', title: t('media.fileUploadedToast'), message: t('media.savedToStorage', { name: newItem.name, storage: newItem.storageLabel }) });
       },
-      (error) => showToast({ type: 'error', title: 'Could not upload that file', message: apiErrorMessage(error) })
+      (error) => showToast({ type: 'error', title: t('media.uploadError'), message: apiErrorMessage(error) })
     );
   }
 
@@ -151,11 +146,11 @@ function MediaLibrary() {
           setMediaItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
           showToast({
             type: 'success',
-            title: 'Image updated',
-            message: `${updated.name} · ${formatFileSize(sizeBytes)} (was ${formatFileSize(target.sizeKb * 1024)})`,
+            title: t('media.imageUpdatedToast'),
+            message: t('media.imageUpdatedMessage', { name: updated.name, size: formatFileSize(sizeBytes), oldSize: formatFileSize(target.sizeKb * 1024) }),
           });
         },
-        (error) => showToast({ type: 'error', title: 'Could not update that image', message: apiErrorMessage(error) })
+        (error) => showToast({ type: 'error', title: t('media.imageUpdateError'), message: apiErrorMessage(error) })
       );
       return;
     }
@@ -178,11 +173,11 @@ function MediaLibrary() {
         setMediaItems((current) => [newItem, ...current]);
         showToast({
           type: 'success',
-          title: 'File uploaded',
-          message: `${newItem.name} · ${formatFileSize(sizeBytes)} (was ${formatFileSize(originalSizeBytes)}) · saved to ${newItem.storageLabel}`,
+          title: t('media.fileUploadedToast'),
+          message: t('media.uploadedWithCompression', { name: newItem.name, size: formatFileSize(sizeBytes), originalSize: formatFileSize(originalSizeBytes), storage: newItem.storageLabel }),
         });
       },
-      (error) => showToast({ type: 'error', title: 'Could not upload that file', message: apiErrorMessage(error) })
+      (error) => showToast({ type: 'error', title: t('media.uploadError'), message: apiErrorMessage(error) })
     );
   }
 
@@ -198,14 +193,14 @@ function MediaLibrary() {
         setItemBeingRecropped(item);
         setPendingImageFile(new File([blob], item.name, { type: blob.type || 'image/png' }));
       })
-      .catch(() => showToast({ type: 'error', title: 'Could not open this image for cropping' }));
+      .catch(() => showToast({ type: 'error', title: t('media.cropOpenError') }));
   }
 
   function handleAddLink(event) {
     event.preventDefault();
     const url = linkUrl.trim();
     if (!/^https?:\/\/\S+\.\S+/i.test(url)) {
-      showToast({ type: 'error', title: 'Enter a full image link', message: 'It should start with https://' });
+      showToast({ type: 'error', title: t('media.enterFullLink'), message: t('media.enterFullLinkHint') });
       return;
     }
 
@@ -218,24 +213,24 @@ function MediaLibrary() {
           setMediaItems((current) => [newItem, ...current]);
           setLinkUrl('');
           setIsAddingLink(false);
-          showToast({ type: 'success', title: 'Image added by link', message: 'Nothing was copied — it still lives at that address.' });
+          showToast({ type: 'success', title: t('media.imageAddedToast'), message: t('media.imageAddedMessage') });
         },
         (error) => {
           setIsAddingLink(false);
-          showToast({ type: 'error', title: 'Could not add that link', message: apiErrorMessage(error) });
+          showToast({ type: 'error', title: t('media.linkAddError'), message: apiErrorMessage(error) });
         }
       );
     };
     probe.onerror = () => {
       setIsAddingLink(false);
-      showToast({ type: 'error', title: 'Could not load an image from that link' });
+      showToast({ type: 'error', title: t('media.linkLoadError') });
     };
     probe.src = url;
   }
 
   function handleCopyLink(item) {
     copyToClipboard(item.publicUrl).then((copied) =>
-      showToast(copied ? { type: 'success', title: 'Link copied' } : { type: 'error', title: 'Could not copy the link' })
+      showToast(copied ? { type: 'success', title: t('media.linkCopiedToast') } : { type: 'error', title: t('media.linkCopyError') })
     );
   }
 
@@ -248,11 +243,11 @@ function MediaLibrary() {
         setItemPendingDelete(null);
         setActiveItemId(null);
         setIsDeleting(false);
-        showToast({ type: 'success', title: 'File deleted' });
+        showToast({ type: 'success', title: t('media.fileDeletedToast') });
       },
       (error) => {
         setIsDeleting(false);
-        showToast({ type: 'error', title: 'Could not delete that file', message: apiErrorMessage(error) });
+        showToast({ type: 'error', title: t('media.fileDeleteError'), message: apiErrorMessage(error) });
       }
     );
   }
@@ -266,11 +261,11 @@ function MediaLibrary() {
         setIsFreeUpOpen(false);
         setIsDeleting(false);
         const count = result?.deleted ?? ids.length;
-        showToast({ type: 'success', title: `${count} ${count === 1 ? 'file' : 'files'} deleted`, message: `${formatFileSize(freed)} freed` });
+        showToast({ type: 'success', title: t(count === 1 ? 'media.deletedCountOne' : 'media.deletedCountOther', { count }), message: t('media.freedMessage', { size: formatFileSize(freed) }) });
       },
       (error) => {
         setIsDeleting(false);
-        showToast({ type: 'error', title: 'Could not free up space', message: apiErrorMessage(error) });
+        showToast({ type: 'error', title: t('media.freeUpError'), message: apiErrorMessage(error) });
       }
     );
   }
@@ -278,7 +273,7 @@ function MediaLibrary() {
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.mediaLibrary')} subtitle="Loading your media..." />
+        <PageHeader title={t('nav.mediaLibrary')} subtitle={t('media.loading')} />
         <SkeletonKpiRow />
       </>
     );
@@ -303,11 +298,11 @@ function MediaLibrary() {
           <>
             <button type="button" className="btn btn-outline-secondary-custom" onClick={() => setIsFreeUpOpen(true)}>
               <Icon name="Eraser" size={16} />
-              Free up space
+              {t('media.freeUpSpace')}
             </button>
             <button type="button" className="btn btn-primary" onClick={handleUploadClick}>
               <Icon name="Upload" size={16} />
-              Upload
+              {t('media.upload')}
             </button>
           </>
         }
@@ -316,11 +311,11 @@ function MediaLibrary() {
 
       <StatCardGrid
         cards={[
-          { key: 'files', label: 'Total Files', value: mediaItems.length, icon: 'Images', tone: 'primary' },
-          { key: 'images', label: 'Images', value: imageCount, icon: 'Image', tone: 'sky' },
-          { key: 'videos', label: 'Videos', value: videoCount, icon: 'Video', tone: 'purple' },
-          { key: 'used', label: 'Space Used', value: formatFileSize(usedBytes), icon: 'HardDrive', tone: 'green' },
-          { key: 'inuse', label: 'In Use (Scheduled etc.)', value: inUseCount, icon: 'Link', tone: 'amber' },
+          { key: 'files', label: t('media.statTotalFiles'), value: mediaItems.length, icon: 'Images', tone: 'primary' },
+          { key: 'images', label: t('media.statImages'), value: imageCount, icon: 'Image', tone: 'sky' },
+          { key: 'videos', label: t('media.statVideos'), value: videoCount, icon: 'Video', tone: 'purple' },
+          { key: 'used', label: t('media.statUsed'), value: formatFileSize(usedBytes), icon: 'HardDrive', tone: 'green' },
+          { key: 'inuse', label: t('media.statInUse'), value: inUseCount, icon: 'Link', tone: 'amber' },
         ]}
       />
 
@@ -331,17 +326,17 @@ function MediaLibrary() {
           <form onSubmit={handleAddLink}>
             <div className="media-add-card__head">
               <label htmlFor="mediaLinkUrl" className="media-add-card__title">
-                Add an image that is already online
+                {t('media.addOnlineImageLabel')}
               </label>
               {uploadTarget.allowed ? (
                 <span className="media-add-card__hint">
-                  New uploads are saved to <strong>{uploadTarget.label}</strong> ·{' '}
-                  <Link to="/settings/storage">Change storage</Link>
+                  {t('media.savedToPrefix')} <strong>{uploadTarget.label}</strong> ·{' '}
+                  <Link to="/settings/storage">{t('media.changeStorage')}</Link>
                 </span>
               ) : (
                 <span className="media-add-card__hint is-warning">
-                  <Icon name="AlertTriangle" size={13} /> Uploads are switched off ·{' '}
-                  <Link to="/settings/storage">Open storage settings</Link>
+                  <Icon name="AlertTriangle" size={13} /> {t('media.uploadsOff')} ·{' '}
+                  <Link to="/settings/storage">{t('media.openStorageSettings')}</Link>
                 </span>
               )}
             </div>
@@ -350,18 +345,16 @@ function MediaLibrary() {
                 id="mediaLinkUrl"
                 type="url"
                 className="form-control"
-                placeholder="https://yoursite.com/banner.jpg"
+                placeholder={t('media.linkPlaceholder')}
                 value={linkUrl}
                 onChange={(event) => setLinkUrl(event.target.value)}
               />
               <button type="submit" className="btn btn-outline-primary-custom" disabled={!linkUrl.trim() || isAddingLink}>
-                {isAddingLink ? 'Checking...' : 'Add'}
+                {isAddingLink ? t('media.checking') : t('media.add')}
               </button>
             </div>
             {uploadTarget.allowed ? (
-              <p className="form-hint mb-0 mt-2">
-                Pasting a link copies nothing — the picture stays where it is. Uploaded images are cropped, and can be compressed, in your browser first.
-              </p>
+              <p className="form-hint mb-0 mt-2">{t('media.linkHint')}</p>
             ) : (
               <p className="form-hint mb-0 mt-2">{uploadTarget.reason}</p>
             )}
@@ -379,7 +372,7 @@ function MediaLibrary() {
                 className={`tab-strip__item ${activeFolder === folder ? 'is-active' : ''}`.trim()}
                 onClick={() => setActiveFolder(folder)}
               >
-                {folder}
+                {folder === 'All Media' ? t('media.allMediaFolder') : folder}
               </button>
             ))}
           </div>
@@ -390,16 +383,16 @@ function MediaLibrary() {
               <input
                 type="search"
                 className="form-control"
-                placeholder="Search media by name..."
+                placeholder={t('media.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
               />
             </div>
             <div className="filter-bar__field media-browse__sort">
-              <select className="form-select" value={sortKey} onChange={(event) => setSortKey(event.target.value)} aria-label="Sort media">
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+              <select className="form-select" value={sortKey} onChange={(event) => setSortKey(event.target.value)} aria-label={t('media.sortAria')}>
+                {SORT_KEYS.map((key) => (
+                  <option key={key} value={key}>
+                    {t(`media.sortOptions.${key}`)}
                   </option>
                 ))}
               </select>
@@ -410,7 +403,7 @@ function MediaLibrary() {
                   type="button"
                   className={`segmented-control__item ${viewMode === 'grid' ? 'is-active' : ''}`.trim()}
                   onClick={() => setViewMode('grid')}
-                  aria-label="Grid view"
+                  aria-label={t('media.gridViewAria')}
                 >
                   <Icon name="Grid" size={16} />
                 </button>
@@ -418,7 +411,7 @@ function MediaLibrary() {
                   type="button"
                   className={`segmented-control__item ${viewMode === 'list' ? 'is-active' : ''}`.trim()}
                   onClick={() => setViewMode('list')}
-                  aria-label="List view"
+                  aria-label={t('media.listViewAria')}
                 >
                   <Icon name="List" size={16} />
                 </button>
@@ -431,9 +424,9 @@ function MediaLibrary() {
       {filteredItems.length === 0 ? (
         <EmptyState
           icon="Images"
-          title="No media found"
-          description="Upload images and videos to reuse across your posts."
-          actionLabel="Upload File"
+          title={t('media.emptyTitle')}
+          description={t('media.emptyText')}
+          actionLabel={t('media.uploadFile')}
           onAction={handleUploadClick}
         />
       ) : isMobile || viewMode === 'grid' ? (
@@ -467,12 +460,12 @@ function MediaLibrary() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Stored in</th>
-                    <th>Size</th>
-                    <th>Folder</th>
-                    <th>Uploaded by</th>
-                    <th>Date</th>
+                    <th>{t('media.colName')}</th>
+                    <th>{t('media.colStoredIn')}</th>
+                    <th>{t('media.colSize')}</th>
+                    <th>{t('media.colFolder')}</th>
+                    <th>{t('media.colUploadedBy')}</th>
+                    <th>{t('media.colDate')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -502,17 +495,17 @@ function MediaLibrary() {
           activeItem ? (
             <>
               <button type="button" className="btn btn-outline-secondary-custom" onClick={() => handleCopyLink(activeItem)}>
-                <Icon name="Link" size={16} /> Copy link
+                <Icon name="Link" size={16} /> {t('media.copyLink')}
               </button>
               <button type="button" className="btn btn-outline-secondary-custom text-danger" onClick={() => setItemPendingDelete(activeItem)}>
-                <Icon name="Trash2" size={16} /> Delete
+                <Icon name="Trash2" size={16} /> {t('common.delete')}
               </button>
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={() => navigate('/posts/create', { state: { preselectedMedia: activeItem } })}
               >
-                <Icon name="PenSquare" size={16} /> Use in Post
+                <Icon name="PenSquare" size={16} /> {t('media.useInPost')}
               </button>
             </>
           ) : null
@@ -528,35 +521,33 @@ function MediaLibrary() {
               </div>
             )}
             <dl className="media-detail-list">
-              <dt>Stored in</dt>
+              <dt>{t('media.colStoredIn')}</dt>
               <dd>{activeItem.storageLabel}</dd>
-              <dt>Folder</dt>
-              <dd>{activeItem.folder}</dd>
+              <dt>{t('media.colFolder')}</dt>
+              <dd>{activeItem.folder === 'All Media' ? t('media.allMediaFolder') : activeItem.folder}</dd>
               {activeItem.width && activeItem.height ? (
                 <>
-                  <dt>Dimensions</dt>
-                  <dd>
-                    {activeItem.width} × {activeItem.height} px
-                  </dd>
+                  <dt>{t('media.dimensionsLabel')}</dt>
+                  <dd>{t('media.dimensions', { width: activeItem.width, height: activeItem.height })}</dd>
                 </>
               ) : null}
-              <dt>Size</dt>
-              <dd>{activeItem.storage === 'linked' ? 'Not stored here' : formatFileSize(activeItem.sizeKb * 1024)}</dd>
-              <dt>Uploaded by</dt>
+              <dt>{t('media.colSize')}</dt>
+              <dd>{activeItem.storage === 'linked' ? t('media.notStoredHere') : formatFileSize(activeItem.sizeKb * 1024)}</dd>
+              <dt>{t('media.colUploadedBy')}</dt>
               <dd>{activeItem.uploadedBy}</dd>
-              <dt>Uploaded on</dt>
+              <dt>{t('media.uploadedOn')}</dt>
               <dd>{formatDate(activeItem.uploadedAt)}</dd>
-              <dt>Tags</dt>
+              <dt>{t('media.tags')}</dt>
               <dd>{activeItem.tags.join(', ') || '—'}</dd>
-              <dt>Used in</dt>
+              <dt>{t('media.usedIn')}</dt>
               <dd>
                 {activeItem.usedIn.length === 0 ? (
-                  'Nowhere yet'
+                  t('media.nowhereYet')
                 ) : (
                   <ul className="media-usage-list mb-0">
                     {activeItem.usedIn.map((use) => (
                       <li key={`${use.kind}-${use.title}`}>
-                        <span className="media-usage-list__kind">{describeUse(use)}</span>
+                        <span className="media-usage-list__kind">{describeUse(use, t)}</span>
                         {use.title}
                       </li>
                     ))}
@@ -566,7 +557,7 @@ function MediaLibrary() {
               {summarizeUsage(activeItem).atRisk.length > 0 ? (
                 <>
                   <dt />
-                  <dd className="text-warning-emphasis small">Some of these still need this file — see the warning before deleting.</dd>
+                  <dd className="text-warning-emphasis small">{t('media.someStillNeedWarning')}</dd>
                 </>
               ) : null}
             </dl>

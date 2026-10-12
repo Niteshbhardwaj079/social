@@ -3,13 +3,15 @@ import Icon from '../../components/common/Icon';
 import { setTheme, setThemeColorKey } from '../../store/slices/uiSlice';
 import brand from '../../config/brand';
 import themeColors from '../../config/themeColors';
+import { useI18n } from '../../i18n/useI18n';
 
 const THEME_OPTIONS = [
-  { value: 'light', label: 'Light', icon: 'Sun' },
-  { value: 'dark', label: 'Dark', icon: 'Moon' },
+  { value: 'light', labelKey: 'settings.appearance.themeLight', icon: 'Sun' },
+  { value: 'dark', labelKey: 'settings.appearance.themeDark', icon: 'Moon' },
 ];
 
 function AppearanceSettings() {
+  const { t } = useI18n();
   const dispatch = useDispatch();
   const theme = useSelector((state) => state.ui.theme);
   const themeColorKey = useSelector((state) => state.ui.themeColorKey);
@@ -17,8 +19,8 @@ function AppearanceSettings() {
   return (
     <div className="d-flex flex-column gap-5">
       <div className="surface-card">
-        <h3 className="h5 mb-2">Theme</h3>
-        <p className="text-secondary-custom small mb-4">Choose how {brand.productName} looks on this device.</p>
+        <h3 className="h5 mb-2">{t('settings.appearance.themeTitle')}</h3>
+        <p className="text-secondary-custom small mb-4">{t('settings.appearance.themeSubtitle', { product: brand.productName })}</p>
 
         <div className="d-flex gap-3">
           {THEME_OPTIONS.map((option) => (
@@ -29,23 +31,21 @@ function AppearanceSettings() {
               onClick={() => dispatch(setTheme(option.value))}
             >
               <Icon name={option.icon} size={22} />
-              {option.label}
+              {t(option.labelKey)}
             </button>
           ))}
         </div>
       </div>
 
       <div className="surface-card">
-        <h3 className="h5 mb-2">Brand Color</h3>
-        <p className="text-secondary-custom small mb-4">
-          Pick the accent color used across buttons, links and highlights — including your own{' '}
-          {brand.website} blue.
-        </p>
+        <h3 className="h5 mb-2">{t('settings.appearance.brandColorTitle')}</h3>
+        <p className="text-secondary-custom small mb-4">{t('settings.appearance.brandColorSubtitle', { website: brand.website })}</p>
 
         <div className="brand-color-grid">
           {themeColors.map((color) => {
             const swatchValue = theme === 'dark' ? color.dark : color.light;
             const isSelected = themeColorKey === color.key;
+            const colorLabel = t(color.labelKey, { brand: brand.name });
 
             return (
               <button
@@ -53,14 +53,14 @@ function AppearanceSettings() {
                 type="button"
                 className={`brand-color-swatch ${isSelected ? 'is-selected' : ''}`.trim()}
                 onClick={() => dispatch(setThemeColorKey(color.key))}
-                aria-label={color.label}
+                aria-label={colorLabel}
                 aria-pressed={isSelected}
-                title={color.label}
+                title={colorLabel}
               >
                 <span className="brand-color-swatch__dot" style={{ '--swatch-color': swatchValue }}>
                   {isSelected ? <Icon name="Check" size={16} /> : null}
                 </span>
-                <span className="brand-color-swatch__label">{color.label}</span>
+                <span className="brand-color-swatch__label">{colorLabel}</span>
               </button>
             );
           })}

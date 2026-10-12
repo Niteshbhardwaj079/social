@@ -3,8 +3,10 @@ import StatusBadge from '../common/StatusBadge';
 import PlatformIcon from '../common/PlatformIcon';
 import Icon from '../common/Icon';
 import { formatCompactNumber, formatDate } from '../../utils/formatters';
+import { useI18n } from '../../i18n/useI18n';
 
 function CampaignCard({ campaign }) {
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   return (
@@ -32,19 +34,19 @@ function CampaignCard({ campaign }) {
       <div className="campaign-card__stats">
         <div>
           <span className="campaign-card__stat-value">{campaign.postsCount}</span>
-          <span className="campaign-card__stat-label">Posts</span>
+          <span className="campaign-card__stat-label">{t('campaigns.statPosts')}</span>
         </div>
         <div>
           <span className="campaign-card__stat-value">{formatCompactNumber(campaign.reach)}</span>
-          <span className="campaign-card__stat-label">Reach</span>
+          <span className="campaign-card__stat-label">{t('campaigns.statReach')}</span>
         </div>
         <div>
           <span className="campaign-card__stat-value">{formatCompactNumber(campaign.engagement)}</span>
-          <span className="campaign-card__stat-label">Engagement</span>
+          <span className="campaign-card__stat-label">{t('campaigns.statEngagement')}</span>
         </div>
         <div>
           <span className="campaign-card__stat-value">{formatCompactNumber(campaign.clicks)}</span>
-          <span className="campaign-card__stat-label">Clicks</span>
+          <span className="campaign-card__stat-label">{t('campaigns.statClicks')}</span>
         </div>
       </div>
     </div>

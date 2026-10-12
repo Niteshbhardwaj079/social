@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import Modal from '../common/Modal';
+import { useI18n } from '../../i18n/useI18n';
 
 /** Asks why a post is being rejected, so the author knows what to change. `post` is null while closed. */
 function RejectPostModal({ post, onClose, onSubmit, isBusy = false }) {
+  const { t } = useI18n();
   const [reason, setReason] = useState('');
   const canSubmit = reason.trim().length > 0 && !isBusy;
 
@@ -14,19 +16,19 @@ function RejectPostModal({ post, onClose, onSubmit, isBusy = false }) {
   const footer = (
     <>
       <button type="button" className="btn btn-outline-secondary-custom" onClick={handleClose} disabled={isBusy}>
-        Cancel
+        {t('common.cancel')}
       </button>
       <button type="button" className="btn btn-danger" disabled={!canSubmit} onClick={() => onSubmit(reason.trim())}>
-        {isBusy ? 'Rejecting...' : 'Reject post'}
+        {isBusy ? t('posts.rejectModal.rejecting') : t('posts.rejectModal.rejectButton')}
       </button>
     </>
   );
 
   return (
-    <Modal isOpen={Boolean(post)} onClose={handleClose} title="Reject this post?" footer={footer} size="sm">
-      <p className="text-secondary-custom">The author sees your reason and can fix the post and send it again.</p>
+    <Modal isOpen={Boolean(post)} onClose={handleClose} title={t('posts.rejectModal.title')} footer={footer} size="sm">
+      <p className="text-secondary-custom">{t('posts.rejectModal.hint')}</p>
       <label className="form-label-custom" htmlFor="rejectReason">
-        Reason
+        {t('posts.rejectModal.reasonLabel')}
       </label>
       <textarea
         id="rejectReason"
@@ -35,7 +37,7 @@ function RejectPostModal({ post, onClose, onSubmit, isBusy = false }) {
         maxLength={1000}
         value={reason}
         onChange={(event) => setReason(event.target.value)}
-        placeholder="For example: please add the client logo."
+        placeholder={t('posts.rejectModal.reasonPlaceholder')}
       />
     </Modal>
   );

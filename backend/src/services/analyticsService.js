@@ -3,6 +3,7 @@ import { query } from '../db/pool.js';
 import { logger } from '../utils/logger.js';
 import { fetchMetrics, METRICS_SUPPORTED_PLATFORMS } from '../providers/metrics.js';
 import { getPublishingContext, listAccounts } from './socialAccountService.js';
+import { forEachOrganization } from './organizationService.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const snippet = (text, max = 60) => (text.length > max ? `${text.slice(0, max).trim()}...` : text);
@@ -116,7 +117,7 @@ export async function refreshPostMetrics(refreshIntervalMin) {
 export function startMetricsRefresher() {
   if (!config.analytics.refreshIntervalMs) return () => {};
   const timer = setInterval(() => {
-    refreshPostMetrics(config.analytics.refreshIntervalMin).catch((error) => logger.error('Post metrics refresh pass failed', error));
+    forEachOrganization('Post metrics refresh', () => refreshPostMetrics(config.analytics.refreshIntervalMin)).catch((error) => logger.error('Post metrics refresh pass failed', error));
   }, config.analytics.refreshIntervalMs);
   timer.unref();
   return () => clearInterval(timer);

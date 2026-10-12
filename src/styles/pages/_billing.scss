@@ -1,0 +1,677 @@
+@use '../abstracts/variables' as v;
+@use '../abstracts/mixins' as m;
+
+// Billing (customer), Platform (owner) and the printable invoice.
+
+// ---------------------------------------------------------------- current plan + usage
+.current-plan {
+  &__head {
+    @include m.flex-between;
+    gap: v.$space-4;
+    flex-wrap: wrap;
+  }
+
+  &__eyebrow {
+    font-size: v.$font-size-sm;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__name {
+    font-size: v.$font-size-2xl;
+    margin: v.$space-1 0 v.$space-2;
+  }
+
+  &__dates {
+    margin-top: v.$space-4;
+    color: var(--color-text-secondary);
+    font-size: v.$font-size-sm;
+  }
+}
+
+.usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+  gap: v.$space-5;
+}
+
+.usage-bar {
+  &__top {
+    @include m.flex-between;
+    font-size: v.$font-size-sm;
+    margin-bottom: v.$space-2;
+  }
+
+  &__numbers {
+    color: var(--color-text-secondary);
+  }
+
+  &__track {
+    height: 0.8rem;
+    border-radius: v.$radius-pill;
+    background-color: var(--color-surface-alt);
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    border-radius: inherit;
+    background-color: var(--color-primary);
+    transition: width 0.3s ease;
+
+    &.is-full {
+      background-color: var(--color-danger);
+    }
+  }
+}
+
+.feature-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: v.$space-2;
+}
+
+.feature-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: v.$space-1;
+  padding: v.$space-1 v.$space-3;
+  border-radius: v.$radius-pill;
+  font-size: v.$font-size-sm;
+
+  &.is-on {
+    background-color: var(--color-success-soft);
+    color: var(--color-success);
+  }
+
+  &.is-off {
+    background-color: var(--color-surface-alt);
+    color: var(--color-text-muted);
+  }
+}
+
+// ---------------------------------------------------------------- plan cards
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+  gap: v.$space-4;
+}
+
+.plan-card {
+  @include m.card-surface;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: v.$space-6;
+
+  &.is-current {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px var(--color-primary);
+  }
+
+  &__badge {
+    position: absolute;
+    top: v.$space-4;
+    inset-inline-end: v.$space-4;
+    padding: 0.2rem v.$space-2;
+    border-radius: v.$radius-pill;
+    font-size: v.$font-size-xs;
+    font-weight: 600;
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-text);
+  }
+
+  &__name {
+    font-size: v.$font-size-xl;
+    margin-bottom: v.$space-1;
+  }
+
+  &__description {
+    color: var(--color-text-secondary);
+    font-size: v.$font-size-sm;
+    min-height: 3.6rem;
+  }
+
+  &__price {
+    font-size: v.$font-size-3xl;
+    font-weight: 700;
+    margin-bottom: v.$space-4;
+
+    span {
+      font-size: v.$font-size-sm;
+      font-weight: 400;
+      color: var(--color-text-muted);
+    }
+  }
+
+  &__list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 v.$space-5;
+    display: flex;
+    flex-direction: column;
+    gap: v.$space-2;
+    font-size: v.$font-size-sm;
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: v.$space-2;
+
+      svg {
+        color: var(--color-success);
+        flex-shrink: 0;
+      }
+
+      &.is-off {
+        color: var(--color-text-muted);
+
+        svg {
+          color: var(--color-text-muted);
+        }
+      }
+    }
+  }
+
+  &__action {
+    margin-top: auto;
+  }
+}
+
+// ---------------------------------------------------------------- pay modal
+.pay-modal {
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-5;
+
+  &__step-title {
+    font-weight: 600;
+    margin-bottom: v.$space-3;
+  }
+}
+
+.pay-summary {
+  border: 1px solid var(--color-border);
+  border-radius: v.$radius-md;
+  padding: v.$space-3 v.$space-4;
+  margin-bottom: v.$space-4;
+
+  &__row {
+    @include m.flex-between;
+    padding: v.$space-1 0;
+    font-size: v.$font-size-sm;
+
+    &--total {
+      border-top: 1px solid var(--color-border);
+      margin-top: v.$space-2;
+      padding-top: v.$space-2;
+      font-size: v.$font-size-md;
+      font-weight: 700;
+    }
+  }
+}
+
+.pay-details {
+  display: flex;
+  gap: v.$space-5;
+  flex-wrap: wrap;
+  align-items: flex-start;
+
+  &__qr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: v.$space-2;
+    max-width: 20rem;
+    text-align: center;
+
+    img {
+      border-radius: v.$radius-md;
+      background-color: #fff; // QR codes must stay dark-on-light to scan, even in dark mode
+      padding: v.$space-2;
+    }
+  }
+
+  &__list {
+    flex: 1 1 22rem;
+    display: flex;
+    flex-direction: column;
+    gap: v.$space-2;
+  }
+
+  &__row {
+    display: flex;
+    gap: v.$space-3;
+    font-size: v.$font-size-sm;
+  }
+
+  &__label {
+    min-width: 12rem;
+    color: var(--color-text-muted);
+  }
+
+  &__value {
+    font-weight: 600;
+    word-break: break-all;
+  }
+}
+
+// ---------------------------------------------------------------- history
+.billing-history {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-inline-start: 2px solid var(--color-border);
+
+  &__item {
+    position: relative;
+    padding: 0 0 v.$space-4 v.$space-5;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset-inline-start: -0.6rem;
+      top: 0.5rem;
+      width: 1rem;
+      height: 1rem;
+      border-radius: 50%;
+      background-color: var(--color-primary);
+    }
+  }
+
+  &__title {
+    font-weight: 600;
+  }
+
+  &__meta,
+  &__note {
+    font-size: v.$font-size-sm;
+    color: var(--color-text-secondary);
+  }
+}
+
+// ---------------------------------------------------------------- platform screens
+.plan-mix {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+
+  li {
+    @include m.flex-between;
+    padding: v.$space-2 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
+.org-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: v.$space-4;
+
+  // a long email wraps instead of running over the next column
+  > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  &__label {
+    font-size: v.$font-size-xs;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}
+
+.org-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: v.$font-size-sm;
+
+  li {
+    @include m.flex-between;
+    gap: v.$space-3;
+    padding: v.$space-2 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
+.danger-zone {
+  @include m.flex-between;
+  gap: v.$space-4;
+  flex-wrap: wrap;
+  padding: v.$space-4;
+  border: 1px solid var(--color-danger);
+  border-radius: v.$radius-md;
+  background-color: var(--color-danger-soft);
+}
+
+// Sidebar: a module the organization's plan does not include.
+.sidebar-nav-item.is-locked {
+  opacity: 0.6;
+}
+
+.sidebar-nav-item__lock {
+  margin-inline-start: auto;
+}
+
+// ---------------------------------------------------------------- invoice
+.invoice-page__actions {
+  display: flex;
+  justify-content: space-between;
+  gap: v.$space-3;
+  margin-bottom: v.$space-4;
+}
+
+.invoice-doc {
+  @include m.card-surface;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: v.$space-8;
+
+  @include m.respond-down(v.$breakpoint-sm) {
+    padding: v.$space-5;
+  }
+
+  &__header {
+    @include m.flex-between;
+    align-items: flex-start;
+    margin-bottom: v.$space-6;
+  }
+
+  &__title {
+    font-size: v.$font-size-2xl;
+    margin-bottom: v.$space-2;
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    gap: v.$space-1;
+    color: var(--color-text-secondary);
+    font-size: v.$font-size-sm;
+  }
+
+  &__paid {
+    padding: v.$space-1 v.$space-4;
+    border: 2px solid var(--color-success);
+    border-radius: v.$radius-sm;
+    color: var(--color-success);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+
+  &__parties {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+    gap: v.$space-6;
+    margin-bottom: v.$space-6;
+    font-size: v.$font-size-sm;
+  }
+
+  &__label {
+    font-size: v.$font-size-xs;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: v.$space-1;
+  }
+
+  &__party-name {
+    font-weight: 700;
+    font-size: v.$font-size-base;
+  }
+
+  &__address {
+    white-space: pre-line;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: v.$font-size-sm;
+
+    th,
+    td {
+      padding: v.$space-3 v.$space-2;
+      border-bottom: 1px solid var(--color-border);
+      text-align: start;
+    }
+
+    th {
+      color: var(--color-text-muted);
+      font-weight: 600;
+    }
+
+    tfoot td {
+      border-bottom: none;
+    }
+  }
+
+  &__total td {
+    font-size: v.$font-size-md;
+    font-weight: 700;
+    border-top: 2px solid var(--color-text-primary);
+  }
+
+  &__footer {
+    margin-top: v.$space-6;
+    display: flex;
+    flex-direction: column;
+    gap: v.$space-1;
+    font-size: v.$font-size-xs;
+    color: var(--color-text-muted);
+  }
+}
+
+// Printing an invoice: only the invoice, on white paper.
+@media print {
+  .app-sidebar,
+  .app-topbar,
+  .bottom-nav,
+  .no-print {
+    display: none !important;
+  }
+
+  .app-main,
+  .app-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .invoice-doc {
+    box-shadow: none;
+    border: none;
+    max-width: none;
+    padding: 0;
+    color: #000;
+    background: #fff;
+  }
+}
+
+// ---------------------------------------------------------------- AI Studio
+.ai-tab {
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-4;
+}
+
+.ai-platform-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: v.$space-2;
+}
+
+.ai-chip {
+  padding: v.$space-1 v.$space-3;
+  border-radius: v.$radius-pill;
+  border: 1px solid var(--color-border-strong);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: v.$font-size-sm;
+
+  &.is-on {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary-text);
+    font-weight: 600;
+  }
+}
+
+.ai-template-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: v.$space-2;
+
+  &__option {
+    display: flex;
+    align-items: center;
+    gap: v.$space-2;
+    padding: v.$space-2 v.$space-3;
+    border-radius: v.$radius-md;
+    border: 1px solid var(--color-border-strong);
+    background-color: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: v.$font-size-sm;
+
+    &.is-active {
+      border-color: var(--color-primary);
+      background-color: var(--color-primary-soft);
+      color: var(--color-primary-text);
+      font-weight: 600;
+    }
+  }
+}
+
+.ai-results {
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-3;
+}
+
+.ai-variant__text {
+  white-space: pre-wrap;
+  margin-bottom: v.$space-3;
+}
+
+.ai-media-result {
+  display: flex;
+  gap: v.$space-5;
+  flex-wrap: wrap;
+  align-items: flex-start;
+
+  &__preview {
+    width: 100%;
+    max-width: 32rem;
+    border-radius: v.$radius-md;
+    background-color: var(--color-surface-alt);
+  }
+}
+
+.ai-credits {
+  font-size: v.$font-size-sm;
+  color: var(--color-text-secondary);
+
+  &.is-empty {
+    color: var(--color-danger);
+  }
+}
+
+.ai-history__brief {
+  max-width: 36rem;
+}
+
+.platform-ai-key {
+  display: flex;
+  gap: v.$space-3;
+  align-items: center;
+  flex-wrap: wrap;
+
+  &__name {
+    min-width: 18rem;
+  }
+
+  .form-control {
+    flex: 1 1 22rem;
+  }
+}
+
+// ---------------------------------------------------------------- AI marketing agent
+.brand-kit__website {
+  flex: 1 1 24rem;
+}
+
+.brand-kit__logo-preview {
+  width: 3rem;
+  height: 3rem;
+  object-fit: contain;
+  border-radius: v.$radius-md;
+  border: 1px solid var(--color-border-strong);
+  background-color: var(--color-surface-alt);
+  padding: v.$space-1;
+}
+
+.research-report {
+  &__meta {
+    font-size: v.$font-size-sm;
+    color: var(--color-text-muted);
+    margin-bottom: v.$space-2;
+  }
+
+  &__heading {
+    font-size: v.$font-size-base;
+    font-weight: 700;
+    margin: v.$space-4 0 v.$space-2;
+  }
+
+  &__list {
+    padding-inline-start: v.$space-5;
+    margin-bottom: 0;
+
+    li + li {
+      margin-top: v.$space-1;
+    }
+  }
+}
+
+.research-ideas {
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-2;
+}
+
+.research-idea {
+  @include m.flex-between;
+  gap: v.$space-3;
+  padding: v.$space-3;
+  border: 1px solid var(--color-border);
+  border-radius: v.$radius-md;
+
+  &.is-used {
+    opacity: 0.6;
+  }
+
+  &__title {
+    font-weight: 600;
+  }
+}
+
+// ---------------------------------------------------------------- invoices: cancelled (void)
+.invoice-doc__void {
+  padding: v.$space-1 v.$space-4;
+  border: 2px solid var(--color-danger);
+  border-radius: v.$radius-sm;
+  color: var(--color-danger);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.invoice-doc__void-note {
+  margin-bottom: v.$space-5;
+  padding: v.$space-3 v.$space-4;
+  border-radius: v.$radius-md;
+  background-color: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: v.$font-size-sm;
+}

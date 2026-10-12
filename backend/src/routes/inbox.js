@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
+import { requireFeature } from '../services/planService.js';
 import { validate } from '../middleware/validate.js';
 import { forbidden } from '../utils/httpError.js';
 import { canPublishPosts, canWritePosts } from '../services/permissions.js';
 import * as inboxService from '../services/inboxService.js';
 
 const router = Router();
-router.use(authenticate);
+router.use(authenticate, requireFeature('inbox'));
 
 const idParams = z.object({ id: z.string().uuid('Not a valid conversation id') });
 

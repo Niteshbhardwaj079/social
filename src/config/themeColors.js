@@ -6,13 +6,15 @@
  * against that theme's background.
  */
 const themeColors = [
-  { key: 'indigo', label: 'Indigo', light: '#4f46e5', dark: '#6366f1' },
-  { key: 'gowebkartBlue', label: 'Gowebkart Blue', light: '#0ea5e9', dark: '#38bdf8' },
-  { key: 'emerald', label: 'Emerald', light: '#059669', dark: '#34d399' },
-  { key: 'rose', label: 'Rose', light: '#e11d48', dark: '#fb7185' },
-  { key: 'amber', label: 'Amber', light: '#d97706', dark: '#fbbf24' },
-  { key: 'violet', label: 'Violet', light: '#7c3aed', dark: '#a78bfa' },
-  { key: 'slate', label: 'Slate', light: '#334155', dark: '#94a3b8' },
+  // The default (matches the sign-in design).
+  { key: 'blue', label: 'Blue', labelKey: 'settings.appearance.colors.blue', light: '#2563eb', dark: '#3b82f6' },
+  { key: 'indigo', label: 'Indigo', labelKey: 'settings.appearance.colors.indigo', light: '#4f46e5', dark: '#6366f1' },
+  { key: 'gowebkartBlue', label: 'Gowebkart Blue', labelKey: 'settings.appearance.colors.gowebkartBlue', light: '#0ea5e9', dark: '#38bdf8' },
+  { key: 'emerald', label: 'Emerald', labelKey: 'settings.appearance.colors.emerald', light: '#059669', dark: '#34d399' },
+  { key: 'rose', label: 'Rose', labelKey: 'settings.appearance.colors.rose', light: '#e11d48', dark: '#fb7185' },
+  { key: 'amber', label: 'Amber', labelKey: 'settings.appearance.colors.amber', light: '#d97706', dark: '#fbbf24' },
+  { key: 'violet', label: 'Violet', labelKey: 'settings.appearance.colors.violet', light: '#7c3aed', dark: '#a78bfa' },
+  { key: 'slate', label: 'Slate', labelKey: 'settings.appearance.colors.slate', light: '#334155', dark: '#94a3b8' },
 ];
 
 export default themeColors;

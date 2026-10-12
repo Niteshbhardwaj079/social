@@ -17,6 +17,8 @@ import {
 import { REQUEST_STATUS } from '../../config/constants';
 import { formatDate } from '../../utils/formatters';
 import { useToast } from '../../components/common/ToastProvider';
+import { useI18n } from '../../i18n/useI18n';
+import brand from '../../config/brand';
 
 const TEST = { IDLE: 'idle', RUNNING: 'running', OK: 'ok', FAILED: 'failed' };
 
@@ -26,6 +28,7 @@ function valuesFromSaved(provider, savedProvider) {
 }
 
 function StorageSettings() {
+  const { t } = useI18n();
   const { showToast } = useToast();
   const [requestStatus, setRequestStatus] = useState(REQUEST_STATUS.LOADING);
   const [saved, setSaved] = useState(null);
@@ -96,9 +99,9 @@ function StorageSettings() {
       .then((settings) => {
         applySettings(settings);
         setTestState({ status: TEST.IDLE, kind: '', message: '' });
-        showToast({ type: 'success', title: 'Storage connected', message: `${provider.label} is ready to use.` });
+        showToast({ type: 'success', title: t('settings.storage.savedToast'), message: t('settings.storage.savedMessage', { label: provider.label }) });
       })
-      .catch((error) => showToast({ type: 'error', title: 'Could not save', message: error.message }))
+      .catch((error) => showToast({ type: 'error', title: t('settings.storage.couldNotSaveTitle'), message: error.message }))
       .finally(() => setIsSavingProvider(false));
   }
 
@@ -106,7 +109,7 @@ function StorageSettings() {
     disconnectStorage().then((settings) => {
       applySettings(settings);
       setIsDisconnectOpen(false);
-      showToast({ type: 'info', title: 'Storage disconnected', message: 'Files already uploaded were not touched.' });
+      showToast({ type: 'info', title: t('settings.storage.disconnectedToast'), message: t('settings.storage.disconnectedMessage') });
     });
   }
 
@@ -116,9 +119,9 @@ function StorageSettings() {
     saveStoragePreferences(preferences)
       .then((settings) => {
         applySettings(settings);
-        showToast({ type: 'success', title: 'Storage settings saved' });
+        showToast({ type: 'success', title: t('settings.storage.preferencesSavedToast') });
       })
-      .catch((error) => showToast({ type: 'error', title: 'Could not save', message: error.message }))
+      .catch((error) => showToast({ type: 'error', title: t('settings.storage.couldNotSaveTitle'), message: error.message }))
       .finally(() => setIsSavingPreferences(false));
   }
 
@@ -132,19 +135,18 @@ function StorageSettings() {
     <div className="d-flex flex-column gap-5">
       {/* ---------------------------------------------------------- Connect */}
       <form className="surface-card" onSubmit={handleSaveProvider} noValidate>
-        <h3 className="h5 mb-1">Storage</h3>
+        <h3 className="h5 mb-1">{t('settings.storage.title')}</h3>
         <p className="text-secondary-custom mb-4">
-          Keep uploaded images and videos in a storage you own. Each provider is your own account — you pay them directly, if at all.
-          Social never resells storage.
+          {t('settings.storage.subtitle', { product: brand.productName })}
         </p>
 
         {connected ? (
           <div className="storage-status">
             <div className="storage-status__head">
-              <span className="status-badge status-badge--connected">Connected</span>
+              <span className="status-badge status-badge--connected">{t('common.status.connected')}</span>
               <strong>{getStorageProvider(connected.providerKey)?.label}</strong>
               <button type="button" className="btn btn-outline-secondary-custom text-danger ms-auto" onClick={() => setIsDisconnectOpen(true)}>
-                Disconnect
+                {t('socialAccounts.disconnect')}
               </button>
             </div>
             <dl className="storage-status__list">
@@ -169,11 +171,11 @@ function StorageSettings() {
                 );
               })}
               <div>
-                <dt>Connected</dt>
+                <dt>{t('settings.storage.connectedDt')}</dt>
                 <dd>{formatDate(connected.connectedAt)}</dd>
               </div>
               <div>
-                <dt>Last connection test</dt>
+                <dt>{t('settings.storage.lastTestDt')}</dt>
                 <dd>
                   {formatDate(connected.lastTestedAt)} — {connected.lastTestMessage}
                 </dd>
@@ -183,15 +185,15 @@ function StorageSettings() {
         ) : (
           <div className="callout-banner callout-banner--info">
             <Icon name="Info" size={16} />
-            <span>No external storage connected yet. Uploads are saved on the app server until you connect one.</span>
+            <span>{t('settings.storage.noneConnectedBanner')}</span>
           </div>
         )}
 
-        <h4 className="h6 mt-4 mb-3">{connected ? 'Connect or change storage' : 'Connect a storage'}</h4>
+        <h4 className="h6 mt-4 mb-3">{connected ? t('settings.storage.connectOrChange') : t('settings.storage.connectNew')}</h4>
 
         <div className="mb-4">
           <label htmlFor="storageProvider" className="form-label-custom">
-            Storage provider
+            {t('settings.storage.providerLabel')}
           </label>
           <select id="storageProvider" className="form-select" value={providerKey} onChange={(event) => handleProviderChange(event.target.value)}>
             {STORAGE_PROVIDERS.map((item) => (
@@ -211,7 +213,7 @@ function StorageSettings() {
         ) : null}
 
         <details className="storage-guide" open={!isConnectedToThis}>
-          <summary>How to get these details</summary>
+          <summary>{t('settings.storage.howToGetDetails')}</summary>
           <ol className="connect-guide__steps">
             {provider.steps.map((step) => (
               <li key={step}>{step}</li>
@@ -230,7 +232,7 @@ function StorageSettings() {
             const isSecret = field.type === 'password';
             const Field = isSecret ? PasswordField : TextField;
             const hint = isSecret && isConnectedToThis
-              ? 'Stored encrypted. Never shown again once saved — leave this blank to keep the current key.'
+              ? t('settings.storage.secretHintConnected')
               : field.hint;
             return (
               <Field
@@ -246,7 +248,7 @@ function StorageSettings() {
                 {...(isSecret ? {} : { type: field.type })}
                 value={values[field.key] || ''}
                 onChange={(event) => handleFieldChange(field.key, event.target.value)}
-                placeholder={isSecret && isConnectedToThis ? 'Leave blank to keep the current key' : field.placeholder}
+                placeholder={isSecret && isConnectedToThis ? t('settings.storage.secretPlaceholderConnected') : field.placeholder}
                 autoComplete="off"
                 spellCheck={false}
                 hint={hint}
@@ -264,33 +266,33 @@ function StorageSettings() {
 
         <div className="connect-form__actions">
           <button type="button" className="btn btn-outline-secondary-custom" onClick={() => runTest('connection')} disabled={isRunning || isSavingProvider}>
-            {isRunning && testState.kind === 'connection' ? 'Testing...' : 'Test Connection'}
+            {isRunning && testState.kind === 'connection' ? t('settings.storage.testingEllipsis') : t('settings.storage.testConnection')}
           </button>
           <button type="button" className="btn btn-outline-secondary-custom" onClick={() => runTest('upload')} disabled={isRunning || isSavingProvider}>
-            {isRunning && testState.kind === 'upload' ? 'Uploading...' : 'Test Upload'}
+            {isRunning && testState.kind === 'upload' ? t('settings.storage.uploadingEllipsis') : t('settings.storage.testUpload')}
           </button>
           <button type="submit" className="btn btn-primary" disabled={isSavingProvider}>
-            {isSavingProvider ? 'Saving...' : 'Save changes'}
+            {isSavingProvider ? t('common.saving') : t('common.saveChanges')}
           </button>
         </div>
       </form>
 
       {/* ------------------------------------------------- Upload preferences */}
       <form className="surface-card" onSubmit={handleSavePreferences}>
-        <h3 className="h5 mb-1">Image Storage</h3>
-        <p className="text-secondary-custom mb-4">Choose where new image and video uploads are allowed to go.</p>
+        <h3 className="h5 mb-1">{t('settings.storage.imageStorageTitle')}</h3>
+        <p className="text-secondary-custom mb-4">{t('settings.storage.imageStorageSubtitle')}</p>
 
         <div className="storage-toggle-row">
           <div>
-            <div className="storage-toggle-row__title">Server storage</div>
-            <div className="storage-toggle-row__desc">Save new uploads on this app’s own server.</div>
+            <div className="storage-toggle-row__title">{t('settings.storage.serverStorageTitle')}</div>
+            <div className="storage-toggle-row__desc">{t('settings.storage.serverStorageDesc')}</div>
           </div>
           <div className="form-check form-switch mb-0">
             <input
               type="checkbox"
               className="form-check-input"
               role="switch"
-              aria-label="Server storage"
+              aria-label={t('settings.storage.serverStorageTitle')}
               checked={preferences.serverEnabled}
               onChange={(event) => setPreference('serverEnabled', event.target.checked)}
             />
@@ -299,11 +301,11 @@ function StorageSettings() {
 
         <div className="storage-toggle-row">
           <div>
-            <div className="storage-toggle-row__title">External storage</div>
+            <div className="storage-toggle-row__title">{t('settings.storage.externalStorageTitle')}</div>
             <div className="storage-toggle-row__desc">
               {connected
-                ? `Use your connected ${getStorageProvider(connected.providerKey)?.label} for new uploads. If both are on, new uploads go here.`
-                : 'Connect a storage provider above first — then you can turn this on.'}
+                ? t('settings.storage.externalStorageDescConnected', { label: getStorageProvider(connected.providerKey)?.label })
+                : t('settings.storage.externalStorageDescDisconnected')}
             </div>
           </div>
           <div className="form-check form-switch mb-0">
@@ -311,7 +313,7 @@ function StorageSettings() {
               type="checkbox"
               className="form-check-input"
               role="switch"
-              aria-label="External storage"
+              aria-label={t('settings.storage.externalStorageTitle')}
               checked={preferences.externalEnabled}
               disabled={!connected}
               onChange={(event) => setPreference('externalEnabled', event.target.checked)}
@@ -322,14 +324,12 @@ function StorageSettings() {
         <div className={`callout-banner callout-banner--${bothOff ? 'warning' : 'info'} mt-4`}>
           <Icon name={bothOff ? 'AlertTriangle' : 'Info'} size={16} />
           <span>
-            {bothOff
-              ? 'Both are off, so new uploads will be blocked with a clear message. Files you already uploaded stay exactly as they are.'
-              : 'Turning both off blocks new uploads with a clear message — existing files are never deleted, moved or changed either way.'}
+            {bothOff ? t('settings.storage.bothOffWarning') : t('settings.storage.oneOffInfo')}
           </span>
         </div>
 
         <label htmlFor="storageLimitValue" className="form-label-custom">
-          Media Library storage limit (optional)
+          {t('settings.storage.limitLabel')}
         </label>
         <div className="storage-limit-row">
           <input
@@ -337,13 +337,13 @@ function StorageSettings() {
             type="number"
             min="0"
             className="form-control"
-            placeholder="No limit set"
+            placeholder={t('settings.storage.limitPlaceholder')}
             value={preferences.limitValue}
             onChange={(event) => setPreference('limitValue', event.target.value)}
           />
           <select
             className="form-select"
-            aria-label="Storage limit unit"
+            aria-label={t('settings.storage.limitLabel')}
             value={preferences.limitUnit}
             onChange={(event) => setPreference('limitUnit', event.target.value)}
           >
@@ -355,16 +355,15 @@ function StorageSettings() {
           </select>
         </div>
         <div className="form-hint mb-4">
-          Whatever your real plan or bucket size is. The Media Library shows a plain “used” figure without this — set it to also see a
-          percentage and a warning as you near it.
+          {t('settings.storage.limitHint')}
         </div>
 
         <div className="d-flex gap-2">
           <button type="submit" className="btn btn-primary" disabled={!isPreferencesDirty || isSavingPreferences}>
-            {isSavingPreferences ? 'Saving...' : 'Save changes'}
+            {isSavingPreferences ? t('common.saving') : t('common.saveChanges')}
           </button>
           <button type="button" className="btn btn-outline-secondary-custom" onClick={() => setPreferences(saved.preferences)} disabled={!isPreferencesDirty}>
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
       </form>
@@ -373,9 +372,9 @@ function StorageSettings() {
         isOpen={isDisconnectOpen}
         onClose={() => setIsDisconnectOpen(false)}
         onConfirm={handleDisconnectConfirmed}
-        title="Disconnect this storage?"
-        message="New uploads will stop going there and External storage will switch off. Files already uploaded are not deleted or moved, and their links keep working as long as the storage account exists."
-        confirmLabel="Disconnect"
+        title={t('settings.storage.disconnectConfirmTitle')}
+        message={t('settings.storage.disconnectConfirmMessage')}
+        confirmLabel={t('socialAccounts.disconnect')}
         isDanger
       />
     </div>

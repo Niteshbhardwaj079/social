@@ -6,9 +6,11 @@ import { listPinterestBoards } from '../providers/others.js';
 import { recordFollowerSnapshot } from './analyticsService.js';
 import { decryptJson, encryptJson } from '../utils/crypto.js';
 import { HttpError, badRequest, conflict } from '../utils/httpError.js';
+import { assertWithinPlanLimit } from './planService.js';
 import { logger } from '../utils/logger.js';
 import { recordActivity } from './auditService.js';
 import { notifyRoles } from './notificationService.js';
+import { forEachOrganization } from './organizationService.js';
 
 const MAX_VALUE_LENGTH = 4096;
 // Everything the background pass retries — every status except 'disconnected'. A broken account is
@@ -112,6 +114,9 @@ export async function testCredentials(platform, input) {
  */
 export async function connectAccount({ platform, input, apiTier = 'free', actor, ip, userAgent }) {
   const credentials = cleanCredentials(platform, input);
+  // Re-connecting an account that is already counted is always fine; a new one must fit the plan.
+  const existing = await getRow(platform);
+  if (!existing || existing.status === 'disconnected') await assertWithinPlanLimit('socialAccounts');
   const result = await verify(platform, credentials);
   if (!result.ok) throw new HttpError(422, 'connection_failed', result.message, { kind: result.kind });
 
@@ -121,7 +126,7 @@ export async function connectAccount({ platform, input, apiTier = 'free', actor,
     `INSERT INTO social_accounts
        (platform, status, account_name, handle, external_id, followers, api_tier, credentials, last_error, last_synced_at, last_checked_at, last_success_at, connected_by)
      VALUES ($1, 'connected', $2, $3, $4, $5, $6, $7, NULL, now(), now(), now(), $8)
-     ON CONFLICT (platform) DO UPDATE SET
+     ON CONFLICT (organization_id, platform) DO UPDATE SET
        status = 'connected', account_name = EXCLUDED.account_name, handle = EXCLUDED.handle, external_id = EXCLUDED.external_id,
        followers = EXCLUDED.followers, api_tier = EXCLUDED.api_tier, credentials = EXCLUDED.credentials, last_error = NULL,
        last_synced_at = now(), last_checked_at = now(), last_success_at = now(), connected_by = EXCLUDED.connected_by, updated_at = now()
@@ -274,7 +279,7 @@ export async function recheckAll() {
 export function startSocialAccountChecker() {
   if (!config.social.checkIntervalMs) return () => {};
   const timer = setInterval(() => {
-    recheckAll().catch((error) => logger.error('Social account check pass failed', error));
+    forEachOrganization('Social account check', () => recheckAll()).catch((error) => logger.error('Social account check pass failed', error));
   }, config.social.checkIntervalMs);
   timer.unref();
   return () => clearInterval(timer);

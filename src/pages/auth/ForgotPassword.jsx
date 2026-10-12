@@ -6,10 +6,12 @@ import brand from '../../config/brand';
 import { API_ENABLED } from '../../config/runtime';
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { forgotPasswordRequest } from '../../services/api/authApi';
+import { useI18n } from '../../i18n/useI18n';
 
 const REQUEST_SIMULATION_DELAY_MS = 800;
 
 function ForgotPassword() {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -19,7 +21,7 @@ function ForgotPassword() {
     event.preventDefault();
 
     if (!email) {
-      setError('Email is required');
+      setError(t('auth.emailRequired'));
       return;
     }
 
@@ -45,13 +47,12 @@ function ForgotPassword() {
         <div className="empty-state__icon mx-auto">
           <Icon name="MailCheck" size={28} />
         </div>
-        <h2 className="mb-2">Check your inbox</h2>
+        <h2 className="mb-2">{t('auth.forgotCheckInboxTitle')}</h2>
         <p className="text-secondary-custom mb-5">
-          We sent password reset instructions to <strong>{email}</strong>. If you don&apos;t see it, check your
-          spam folder or contact {brand.supportEmail}.
+          {t('auth.forgotCheckInboxTextBefore')}<strong>{email}</strong>{t('auth.forgotCheckInboxTextAfter', { supportEmail: brand.supportEmail })}
         </p>
         <Link to="/login" className="btn btn-outline-secondary-custom w-100">
-          Back to Sign In
+          {t('auth.backToSignIn')}
         </Link>
       </div>
     );
@@ -59,17 +60,17 @@ function ForgotPassword() {
 
   return (
     <div className="fade-in">
-      <h2 className="mb-1">Forgot password?</h2>
+      <h2 className="mb-1">{t('auth.forgot')}</h2>
       <p className="text-secondary-custom mb-5">
-        Enter the email associated with your account and we&apos;ll send a link to reset your password.
+        {t('auth.forgotSubtitle')}
       </p>
 
       <form onSubmit={handleSubmit} noValidate>
         <TextField
           id="email"
-          label="Email address"
+          label={t('auth.email')}
           type="email"
-          placeholder="you@company.com"
+          placeholder={t('auth.emailPlaceholder')}
           value={email}
           error={error}
           onChange={(event) => setEmail(event.target.value)}
@@ -80,18 +81,18 @@ function ForgotPassword() {
           {isSubmitting ? (
             <>
               <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-              Sending link...
+              {t('auth.forgotSendingLink')}
             </>
           ) : (
-            'Send Reset Link'
+            t('auth.forgotSendButton')
           )}
         </button>
       </form>
 
       <p className="text-center mt-5 mb-0 small text-secondary-custom">
-        Remembered your password?{' '}
+        {t('auth.forgotRememberedPassword')}{' '}
         <Link to="/login" className="fw-semibold text-decoration-none">
-          Sign in
+          {t('auth.signIn')}
         </Link>
       </p>
     </div>

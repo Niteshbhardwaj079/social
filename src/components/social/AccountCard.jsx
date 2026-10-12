@@ -9,8 +9,10 @@ import { getNetworkForPlatform } from '../../config/adPlatforms';
 import { isNetworkConnected } from '../../services/api/adsApi';
 import { ACCOUNT_STATUS, ACCOUNT_STATUS_NEEDS_ATTENTION } from '../../config/constants';
 import { formatCompactNumber, formatRelativeTime } from '../../utils/formatters';
+import { useI18n } from '../../i18n/useI18n';
 
 function AccountCard({ account, onConnect, onDisconnect, onSync }) {
+  const { t } = useI18n();
   const platform = getPlatformByKey(account.platform);
   const isConnected = account.status === ACCOUNT_STATUS.CONNECTED;
   const adNetwork = getNetworkForPlatform(account.platform);
@@ -30,8 +32,8 @@ function AccountCard({ account, onConnect, onDisconnect, onSync }) {
             <button
               type="button"
               className="btn btn-icon-sm bg-transparent border-0"
-              aria-label="Account options"
-              data-tooltip="More options"
+              aria-label={t('socialAccounts.accountOptionsAria')}
+              data-tooltip={t('users.moreOptions')}
             >
               <Icon name="MoreVertical" size={16} />
             </button>
@@ -40,7 +42,7 @@ function AccountCard({ account, onConnect, onDisconnect, onSync }) {
           {({ close }) => (
             <>
               <button type="button" className="dropdown-item" onClick={close}>
-                <Icon name="Settings" size={16} /> Manage
+                <Icon name="Settings" size={16} /> {t('socialAccounts.manage')}
               </button>
               {isConnected || needsAttention ? (
                 <button
@@ -51,7 +53,7 @@ function AccountCard({ account, onConnect, onDisconnect, onSync }) {
                     close();
                   }}
                 >
-                  <Icon name="RefreshCw" size={16} /> Sync Now
+                  <Icon name="RefreshCw" size={16} /> {t('socialAccounts.syncNow')}
                 </button>
               ) : null}
               {isConnected || needsAttention ? (
@@ -63,7 +65,7 @@ function AccountCard({ account, onConnect, onDisconnect, onSync }) {
                     close();
                   }}
                 >
-                  <Icon name="Unlink" size={16} /> Disconnect
+                  <Icon name="Unlink" size={16} /> {t('socialAccounts.disconnect')}
                 </button>
               ) : null}
             </>
@@ -78,32 +80,32 @@ function AccountCard({ account, onConnect, onDisconnect, onSync }) {
             <Link
               to={adsReady ? '/ads/create' : '/ads?tab=accounts'}
               className={`api-tier-chip ${adsReady ? 'is-paid' : ''}`.trim()}
-              data-tooltip={adsReady ? `Create an ad on ${adNetwork.label}` : `Connect your ${adNetwork.label} account to run ads`}
+              data-tooltip={t(adsReady ? 'socialAccounts.createAdOn' : 'socialAccounts.connectToRunAds', { platform: adNetwork.label })}
             >
-              {adsReady ? 'Ads ready' : 'Set up ads'}
+              {adsReady ? t('socialAccounts.adsReady') : t('socialAccounts.setUpAds')}
             </Link>
           ) : null}
           {platformHasPaidTier(account.platform) ? (
-            <span className={`api-tier-chip ${account.apiTier === 'paid' ? 'is-paid' : ''}`.trim()} data-tooltip="The plan your own API key is on">
-              {account.apiTier === 'paid' ? 'Paid API' : 'Free API'}
+            <span className={`api-tier-chip ${account.apiTier === 'paid' ? 'is-paid' : ''}`.trim()} data-tooltip={t('socialAccounts.apiPlanTooltip')}>
+              {account.apiTier === 'paid' ? t('socialAccounts.paidApi') : t('socialAccounts.freeApi')}
             </span>
           ) : null}
         </div>
         {isConnected ? (
-          <span className="small text-muted-custom">{formatCompactNumber(account.followers)} followers</span>
+          <span className="small text-muted-custom">{t('socialAccounts.followersCount', { count: formatCompactNumber(account.followers) })}</span>
         ) : null}
       </div>
 
       {needsAttention && account.lastError ? <div className="small text-danger">{account.lastError}</div> : null}
 
       <div className="small text-muted-custom">
-        {account.lastSyncedAt ? `Synced ${formatRelativeTime(account.lastSyncedAt)}` : 'Never synced'}
+        {account.lastSyncedAt ? t('socialAccounts.syncedLine', { when: formatRelativeTime(account.lastSyncedAt) }) : t('socialAccounts.neverSynced')}
       </div>
 
       <div className="account-card__actions">
         {isConnected ? (
           <button type="button" className="btn btn-sm btn-outline-secondary-custom w-100">
-            Manage
+            {t('socialAccounts.manage')}
           </button>
         ) : (
           <button
@@ -111,7 +113,7 @@ function AccountCard({ account, onConnect, onDisconnect, onSync }) {
             className="btn btn-sm btn-soft-primary w-100"
             onClick={() => onConnect(account.platform)}
           >
-            {needsAttention ? 'Reconnect' : 'Connect'}
+            {needsAttention ? t('socialAccounts.reconnect') : t('socialAccounts.connect')}
           </button>
         )}
       </div>

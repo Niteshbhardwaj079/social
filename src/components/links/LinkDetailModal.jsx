@@ -5,8 +5,10 @@ import chartColors from '../../config/chartColors';
 import useChartPrimaryColor from '../../hooks/useChartPrimaryColor';
 import useUiScale from '../../hooks/useUiScale';
 import brand from '../../config/brand';
+import { useI18n } from '../../i18n/useI18n';
 
 function LinkDetailModal({ link, onClose }) {
+  const { t } = useI18n();
   const chartPrimary = useChartPrimaryColor();
   const uiScale = useUiScale();
   const axisFont = Math.round(12 * uiScale);
@@ -16,28 +18,28 @@ function LinkDetailModal({ link, onClose }) {
   }
 
   return (
-    <Modal isOpen={Boolean(link)} onClose={onClose} title="Link details" size="lg">
+    <Modal isOpen={Boolean(link)} onClose={onClose} title={t('links.linkDetailsTitle')} size="lg">
       <div className="mb-4">
         <div className="fw-semibold mb-1">{link.label}</div>
         <div className="small text-secondary-custom text-break">{link.destinationUrl}</div>
       </div>
 
       <dl className="activity-detail-list">
-        <dt>Short link</dt>
+        <dt>{t('links.shortLinkLabel')}</dt>
         <dd>
           {brand.website}/l/{link.slug}
         </dd>
-        <dt>Total clicks</dt>
+        <dt>{t('links.statTotalClicks')}</dt>
         <dd>{link.clicks.toLocaleString()}</dd>
-        <dt>Created</dt>
+        <dt>{t('links.colCreated')}</dt>
         <dd>
-          {formatDate(link.createdAt)} by {link.createdBy}
+          {t('links.createdByLine', { date: formatDate(link.createdAt), name: link.createdBy })}
         </dd>
       </dl>
 
-      <h6 className="mb-3">Clicks — last 14 days</h6>
+      <h6 className="mb-3">{t('links.clicksLast14Days')}</h6>
       {link.clickHistory.length === 0 ? (
-        <p className="small text-muted-custom mb-0">No clicks recorded yet.</p>
+        <p className="small text-muted-custom mb-0">{t('links.noClicksYet')}</p>
       ) : (
         <ResponsiveContainer width="100%" height={Math.round(220 * uiScale)}>
           <AreaChart data={link.clickHistory}>

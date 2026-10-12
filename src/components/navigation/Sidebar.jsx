@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { SIDEBAR_NAVIGATION } from '../../config/navigation';
+import { SIDEBAR_NAVIGATION, isFeatureLocked } from '../../config/navigation';
 import brand from '../../config/brand';
 import BrandLogo from '../common/BrandLogo';
 import Icon from '../common/Icon';
@@ -14,6 +14,11 @@ function Sidebar() {
   const isSidebarOpen = useSelector((state) => state.ui.isSidebarOpen);
   const isSidebarCollapsed = useSelector((state) => state.ui.isSidebarCollapsed);
   const currentUser = useSelector((state) => state.auth.currentUser);
+  const aiAccess = useSelector((state) => state.auth.aiAccess);
+  // The platform-owner section only for the platform owner; the AI section unless AI is hidden; everything else for everyone.
+  const groups = SIDEBAR_NAVIGATION.filter(
+    (group) => (!group.platformOnly || currentUser?.isPlatformAdmin) && (!group.aiOnly || aiAccess?.visible)
+  );
 
   return (
     <>
@@ -50,22 +55,27 @@ function Sidebar() {
         collapsed rail gets cut off. A native title tooltip isn't part of
         the DOM's clipping box, so it always renders correctly. */}
         <nav className="sidebar-nav">
-          {SIDEBAR_NAVIGATION.map((group, groupIndex) => (
+          {groups.map((group, groupIndex) => (
             <div key={group.sectionKey || `group-${groupIndex}`}>
               {group.sectionKey ? <div className="sidebar-section-label">{t(group.sectionKey)}</div> : null}
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  end
-                  className={({ isActive }) => `sidebar-nav-item ${isActive ? 'is-active' : ''}`.trim()}
-                  onClick={() => dispatch(closeSidebar())}
-                  title={isSidebarCollapsed ? t(item.labelKey) : undefined}
-                >
-                  <Icon name={item.icon} size={18} />
-                  <span>{t(item.labelKey)}</span>
-                </NavLink>
-              ))}
+              {group.items.map((item) => {
+                // Not in this organization's plan: still listed, with a lock, and it opens Billing → Plans.
+                const locked = isFeatureLocked(item, currentUser?.plan);
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={locked ? '/billing?tab=plans' : item.path}
+                    end
+                    className={({ isActive }) => `sidebar-nav-item ${isActive && !locked ? 'is-active' : ''} ${locked ? 'is-locked' : ''}`.trim()}
+                    onClick={() => dispatch(closeSidebar())}
+                    title={locked ? t('nav.upgradeToUnlock') : isSidebarCollapsed ? t(item.labelKey) : undefined}
+                  >
+                    <Icon name={item.icon} size={18} />
+                    <span>{t(item.labelKey)}</span>
+                    {locked ? <Icon name="Lock" size={12} className="sidebar-nav-item__lock" /> : null}
+                  </NavLink>
+                );
+              })}
             </div>
           ))}
         </nav>

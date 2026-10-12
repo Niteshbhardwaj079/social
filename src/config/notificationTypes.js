@@ -11,4 +11,6 @@ export const NOTIFICATION_TYPE_META = {
   [NOTIFICATION_TYPE.TOKEN_EXPIRED]: { icon: 'ShieldAlert', accent: 'rose' },
   [NOTIFICATION_TYPE.ACCOUNT_REVOKED]: { icon: 'ShieldOff', accent: 'rose' },
   [NOTIFICATION_TYPE.ACCOUNT_NEEDS_ATTENTION]: { icon: 'AlertTriangle', accent: 'amber' },
+  [NOTIFICATION_TYPE.BILLING_UPDATE]: { icon: 'CreditCard', accent: 'blue' },
+  [NOTIFICATION_TYPE.AI_AGENT_UPDATE]: { icon: 'Sparkles', accent: 'purple' },
 };

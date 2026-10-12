@@ -2,8 +2,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import Icon from '../components/common/Icon';
 import BrandLogo from '../components/common/BrandLogo';
 import brand from '../config/brand';
+import { useI18n } from '../i18n/useI18n';
 
 function NotFound() {
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   return (
@@ -21,17 +23,17 @@ function NotFound() {
         <Icon name="Compass" size={26} />
       </div>
 
-      <h1 className="not-found-page__title">Page not found</h1>
+      <h1 className="not-found-page__title">{t('misc.notFoundTitle')}</h1>
       <p className="not-found-page__description">
-        The page you are looking for doesn&apos;t exist in {brand.productName}, or may have been moved.
+        {t('misc.notFoundText', { product: brand.productName })}
       </p>
 
       <div className="not-found-page__actions">
         <Link to="/dashboard" className="btn btn-primary">
-          Back to Dashboard
+          {t('misc.backToDashboard')}
         </Link>
         <button type="button" className="btn btn-outline-secondary-custom" onClick={() => navigate(-1)}>
-          Go back
+          {t('misc.goBack')}
         </button>
       </div>
 

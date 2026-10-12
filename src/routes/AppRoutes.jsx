@@ -55,6 +55,19 @@ const StorageSettings = lazy(() => import('../pages/settings/StorageSettings'));
 const EmailSettings = lazy(() => import('../pages/settings/EmailSettings'));
 const IntegrationSettings = lazy(() => import('../pages/settings/IntegrationSettings'));
 const LanguageSettings = lazy(() => import('../pages/settings/LanguageSettings'));
+const AiSettings = lazy(() => import('../pages/settings/AiSettings'));
+
+const AiStudio = lazy(() => import('../pages/ai/AiStudio'));
+const PlatformAi = lazy(() => import('../pages/platform/PlatformAi'));
+const Billing = lazy(() => import('../pages/billing/Billing'));
+const InvoicePage = lazy(() => import('../pages/billing/InvoicePage'));
+const PlatformLayout = lazy(() => import('../pages/platform/PlatformLayout'));
+const PlatformOverview = lazy(() => import('../pages/platform/PlatformOverview'));
+const PlatformOrganizations = lazy(() => import('../pages/platform/PlatformOrganizations'));
+const PlatformPayments = lazy(() => import('../pages/platform/PlatformPayments'));
+const PlatformInvoices = lazy(() => import('../pages/platform/PlatformInvoices'));
+const PlatformPlans = lazy(() => import('../pages/platform/PlatformPlans'));
+const PlatformSettings = lazy(() => import('../pages/platform/PlatformSettings'));
 
 const MorePage = lazy(() => import('../pages/more/More'));
 const NotFound = lazy(() => import('../pages/NotFound'));
@@ -67,6 +80,7 @@ function AppRoutes() {
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/signup" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/accept-invite" element={<AcceptInvite />} />
@@ -122,7 +136,24 @@ function AppRoutes() {
               <Route path="email" element={<EmailSettings />} />
               <Route path="integrations" element={<IntegrationSettings />} />
               <Route path="language" element={<LanguageSettings />} />
+              <Route path="ai" element={<AiSettings />} />
             </Route>
+
+            {/* SaaS: the organization's own plan & invoices, and the platform owner's area */}
+            <Route path="/ai" element={<AiStudio />} />
+            <Route path="/billing" element={<Billing />} />
+            <Route path="/billing/invoices/:invoiceId" element={<InvoicePage />} />
+            <Route path="/platform" element={<PlatformLayout />}>
+              <Route index element={<Navigate to="/platform/overview" replace />} />
+              <Route path="overview" element={<PlatformOverview />} />
+              <Route path="organizations" element={<PlatformOrganizations />} />
+              <Route path="payments" element={<PlatformPayments />} />
+              <Route path="invoices" element={<PlatformInvoices />} />
+              <Route path="plans" element={<PlatformPlans />} />
+              <Route path="ai" element={<PlatformAi />} />
+              <Route path="settings" element={<PlatformSettings />} />
+            </Route>
+            <Route path="/platform/invoices/:invoiceId" element={<InvoicePage scope="platform" />} />
 
             <Route path="/more" element={<MorePage />} />
           </Route>

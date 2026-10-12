@@ -7,6 +7,7 @@ import { canEditAccounts } from './permissions.js';
 import { forbidden, notFound } from '../utils/httpError.js';
 import { recordActivity } from './auditService.js';
 import { logger } from '../utils/logger.js';
+import { forEachOrganization } from './organizationService.js';
 
 /**
  * Phase 8: Automated Rules. Deliberately pause/resume ONLY — never touches an ad's budget, keeping the
@@ -222,7 +223,7 @@ export async function evaluateAdRules() {
 export function startAdRulesEvaluator() {
   if (!config.ads.refreshIntervalMs) return () => {};
   const timer = setInterval(() => {
-    evaluateAdRules().catch((error) => logger.error('Automated ad rules pass failed', error));
+    forEachOrganization('Automated ad rules', () => evaluateAdRules()).catch((error) => logger.error('Automated ad rules pass failed', error));
   }, config.ads.refreshIntervalMs);
   timer.unref();
   return () => clearInterval(timer);

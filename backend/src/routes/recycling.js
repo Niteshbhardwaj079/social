@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
+import { requireFeature } from '../services/planService.js';
 import { validate } from '../middleware/validate.js';
 import * as recyclingService from '../services/recyclingService.js';
 
 const router = Router();
-router.use(authenticate);
+router.use(authenticate, requireFeature('recycling'));
 
 const idParams = z.object({ id: z.string().uuid('Not a valid recycling entry id') });
 const intervalDays = z.union([z.literal(14), z.literal(30), z.literal(60), z.literal(90)]);

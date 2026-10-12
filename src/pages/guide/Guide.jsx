@@ -5,24 +5,27 @@ import Icon from '../../components/common/Icon';
 import guideChapters from '../../config/guideChapters';
 import brand from '../../config/brand';
 import { useI18n } from '../../i18n/useI18n';
+import { localizeChapter, useGuideText } from '../../i18n/guideText';
 
 function Guide() {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
+  const guideText = useGuideText();
+  const chapters = useMemo(() => guideChapters.map((chapter) => localizeChapter(chapter, guideText)), [guideText]);
 
   const requestedChapterId = searchParams.get('chapter');
   const activeChapter =
-    guideChapters.find((chapter) => chapter.id === requestedChapterId) || guideChapters[0];
+    chapters.find((chapter) => chapter.id === requestedChapterId) || chapters[0];
 
   const filteredChapters = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return guideChapters;
-    return guideChapters.filter(
+    if (!term) return chapters;
+    return chapters.filter(
       (chapter) =>
         chapter.title.toLowerCase().includes(term) || chapter.description.toLowerCase().includes(term)
     );
-  }, [searchTerm]);
+  }, [searchTerm, chapters]);
 
   function handleSelectChapter(chapterId) {
     setSearchParams({ chapter: chapterId });
@@ -40,7 +43,7 @@ function Guide() {
         <input
           type="search"
           className="form-control"
-          placeholder='Search the guide — try "schedule", "roles", "campaign"...'
+          placeholder={t('guide.searchPlaceholder')}
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
         />
@@ -49,7 +52,7 @@ function Guide() {
       <div className="guide-layout">
         <div className="panel-card guide-chapter-list">
           {filteredChapters.length === 0 ? (
-            <div className="p-4 text-center text-muted-custom small">No chapters match your search.</div>
+            <div className="p-4 text-center text-muted-custom small">{t('guide.noChaptersFound')}</div>
           ) : (
             filteredChapters.map((chapter) => (
               <button
@@ -68,7 +71,7 @@ function Guide() {
         <div className="panel-card guide-content">
           <div className="guide-content__meta">
             <Icon name="SlidersHorizontal" size={16} />
-            {activeChapter.order} / {guideChapters.length} · {activeChapter.readTime}
+            {activeChapter.order} / {chapters.length} · {activeChapter.readTime}
           </div>
           <h3 className="guide-content__title">{activeChapter.title}</h3>
           <p className="guide-content__description">{activeChapter.description}</p>

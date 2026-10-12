@@ -14,18 +14,18 @@ import { PLATFORM_KEYS } from './platforms';
  * Keep this in step with what the real provider modules (Phase 3) can fetch.
  */
 export const PROFILE_FIELD_META = {
-  handle: { label: 'Username', icon: 'AtSign' },
-  userId: { label: 'Platform ID', icon: 'Fingerprint' },
-  followers: { label: 'Followers', icon: 'Users', isStat: true },
-  following: { label: 'Following', icon: 'UserPlus', isStat: true },
-  posts: { label: 'Posts', icon: 'FileText', isStat: true },
-  verified: { label: 'Verified', icon: 'BadgeCheck' },
-  followsYou: { label: 'Follows you', icon: 'UserCheck' },
-  youFollow: { label: 'You follow them', icon: 'UserPlus' },
-  joinedAt: { label: 'On platform since', icon: 'CalendarDays' },
-  location: { label: 'Location', icon: 'MapPin' },
-  bio: { label: 'Bio', icon: 'FileText', isLong: true },
-  profileUrl: { label: 'Profile', icon: 'ExternalLink' },
+  handle: { label: 'Username', labelKey: 'handle', icon: 'AtSign' },
+  userId: { label: 'Platform ID', labelKey: 'userId', icon: 'Fingerprint' },
+  followers: { label: 'Followers', labelKey: 'followers', icon: 'Users', isStat: true },
+  following: { label: 'Following', labelKey: 'following', icon: 'UserPlus', isStat: true },
+  posts: { label: 'Posts', labelKey: 'posts', icon: 'FileText', isStat: true },
+  verified: { label: 'Verified', labelKey: 'verified', icon: 'BadgeCheck' },
+  followsYou: { label: 'Follows you', labelKey: 'followsYou', icon: 'UserCheck' },
+  youFollow: { label: 'You follow them', labelKey: 'youFollow', icon: 'UserPlus' },
+  joinedAt: { label: 'On platform since', labelKey: 'joinedAt', icon: 'CalendarDays' },
+  location: { label: 'Location', labelKey: 'location', icon: 'MapPin' },
+  bio: { label: 'Bio', labelKey: 'bio', icon: 'FileText', isLong: true },
+  profileUrl: { label: 'Profile', labelKey: 'profileUrl', icon: 'ExternalLink' },
 };
 
 const PLATFORM_PROFILE_ACCESS = {
@@ -33,6 +33,7 @@ const PLATFORM_PROFILE_ACCESS = {
     free: ['userId'],
     paid: [],
     note: 'Facebook only shares a private ID and the name with Pages — no follower counts.',
+    noteKey: 'facebook',
   },
   [PLATFORM_KEYS.INSTAGRAM]: {
     free: ['handle', 'userId', 'followers', 'verified', 'followsYou', 'youFollow'],
@@ -42,12 +43,15 @@ const PLATFORM_PROFILE_ACCESS = {
     free: ['handle', 'userId'],
     paid: ['followers', 'following', 'posts', 'verified', 'joinedAt', 'location', 'bio', 'profileUrl'],
     paidPlanName: 'a paid X API plan (Basic or higher)',
+    paidPlanNameKey: 'x',
     note: 'X’s free API tier cannot look up other people’s profiles.',
+    noteKey: 'x',
   },
   [PLATFORM_KEYS.LINKEDIN]: {
     free: ['userId'],
     paid: [],
     note: 'LinkedIn does not share profile details of people who message you.',
+    noteKey: 'linkedin',
   },
   [PLATFORM_KEYS.LINKEDIN_COMPANY]: { free: ['userId'], paid: [] },
   [PLATFORM_KEYS.GOOGLE_BUSINESS]: { free: ['userId'], paid: [] },

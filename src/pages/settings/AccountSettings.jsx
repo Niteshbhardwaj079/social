@@ -46,16 +46,16 @@ function AccountSettings() {
   function handleProfileSubmit(event) {
     event.preventDefault();
     if (!API_ENABLED) {
-      showToast({ type: 'success', title: 'Profile updated' });
+      showToast({ type: 'success', title: t('settings.account.profileUpdatedToast') });
       return;
     }
     setIsSavingProfile(true);
     updateProfileRequest({ name: profileValues.name.trim() })
       .then((user) => {
         dispatch(setCurrentUser(user));
-        showToast({ type: 'success', title: 'Profile updated' });
+        showToast({ type: 'success', title: t('settings.account.profileUpdatedToast') });
       })
-      .catch((error) => showToast({ type: 'error', title: 'Could not update your profile', message: apiErrorMessage(error) }))
+      .catch((error) => showToast({ type: 'error', title: t('settings.account.couldNotUpdateProfileTitle'), message: apiErrorMessage(error) }))
       .finally(() => setIsSavingProfile(false));
   }
 
@@ -69,37 +69,37 @@ function AccountSettings() {
     setPendingPhotoFile(null);
     if (!API_ENABLED) {
       dispatch(updateProfilePhoto(dataUrl));
-      showToast({ type: 'success', title: 'Profile photo updated', message: formatFileSize(sizeBytes) });
+      showToast({ type: 'success', title: t('settings.account.photoUpdatedToast'), message: formatFileSize(sizeBytes) });
       return;
     }
     uploadMediaItem({ name: 'avatar.png', folder: 'Avatars' }, blob)
       .then((item) => updateProfileRequest({ avatarUrl: item.publicUrl || item.url }))
       .then((user) => {
         dispatch(setCurrentUser(user));
-        showToast({ type: 'success', title: 'Profile photo updated', message: formatFileSize(sizeBytes) });
+        showToast({ type: 'success', title: t('settings.account.photoUpdatedToast'), message: formatFileSize(sizeBytes) });
       })
-      .catch((error) => showToast({ type: 'error', title: 'Could not update your photo', message: apiErrorMessage(error) }));
+      .catch((error) => showToast({ type: 'error', title: t('settings.account.couldNotUpdatePhotoTitle'), message: apiErrorMessage(error) }));
   }
 
   function handleRemovePhoto() {
     if (!API_ENABLED) {
       dispatch(updateProfilePhoto(null));
-      showToast({ type: 'info', title: 'Profile photo removed' });
+      showToast({ type: 'info', title: t('settings.account.photoRemovedToast') });
       return;
     }
     updateProfileRequest({ avatarUrl: null })
       .then((user) => {
         dispatch(setCurrentUser(user));
-        showToast({ type: 'info', title: 'Profile photo removed' });
+        showToast({ type: 'info', title: t('settings.account.photoRemovedToast') });
       })
-      .catch((error) => showToast({ type: 'error', title: 'Could not remove your photo', message: apiErrorMessage(error) }));
+      .catch((error) => showToast({ type: 'error', title: t('settings.account.couldNotRemovePhotoTitle'), message: apiErrorMessage(error) }));
   }
 
   function handlePasswordSubmit(event) {
     event.preventDefault();
     if (!API_ENABLED) {
       setPasswordValues({ currentPassword: '', newPassword: '' });
-      showToast({ type: 'success', title: 'Password updated' });
+      showToast({ type: 'success', title: t('settings.account.passwordUpdatedToast') });
       return;
     }
     setIsSavingPassword(true);
@@ -107,26 +107,26 @@ function AccountSettings() {
       .then(({ user }) => {
         dispatch(setCurrentUser(user));
         setPasswordValues({ currentPassword: '', newPassword: '' });
-        showToast({ type: 'success', title: 'Password updated', message: 'Every other device was signed out for safety.' });
+        showToast({ type: 'success', title: t('settings.account.passwordUpdatedToast'), message: t('settings.account.passwordUpdatedMessage') });
       })
-      .catch((error) => showToast({ type: 'error', title: 'Could not change your password', message: apiErrorMessage(error) }))
+      .catch((error) => showToast({ type: 'error', title: t('settings.account.couldNotChangePasswordTitle'), message: apiErrorMessage(error) }))
       .finally(() => setIsSavingPassword(false));
   }
 
   return (
     <div className="d-flex flex-column gap-5">
       <form className="surface-card" onSubmit={handleProfileSubmit}>
-        <h3 className="h5 mb-4">Profile</h3>
+        <h3 className="h5 mb-4">{t('settings.account.profileTitle')}</h3>
         <div className="d-flex align-items-center gap-3 mb-4">
           <Avatar name={currentUser?.name} imageUrl={currentUser?.avatarUrl} size="lg" />
           <div>
             <div className="d-flex gap-2 flex-wrap">
               <button type="button" className="btn btn-sm btn-outline-secondary-custom" onClick={() => photoInputRef.current?.click()}>
-                Change Photo
+                {t('settings.account.changePhoto')}
               </button>
               {currentUser?.avatarUrl ? (
                 <button type="button" className="btn btn-sm btn-outline-secondary-custom text-danger" onClick={handleRemovePhoto}>
-                  Remove
+                  {t('common.remove')}
                 </button>
               ) : null}
             </div>
@@ -138,44 +138,44 @@ function AccountSettings() {
         <div className="form-grid-2">
         <TextField
           id="accountName"
-          label="Full name"
+          label={t('settings.account.fullNameLabel')}
           value={profileValues.name}
           onChange={(event) => setProfileValues((current) => ({ ...current, name: event.target.value }))}
         />
         <TextField
           id="accountEmail"
-          label="Email address"
+          label={t('settings.account.emailAddressLabel')}
           type="email"
           value={profileValues.email}
           onChange={(event) => setProfileValues((current) => ({ ...current, email: event.target.value }))}
           disabled={API_ENABLED}
-          hint={API_ENABLED ? 'Contact an admin to change your sign-in email.' : undefined}
+          hint={API_ENABLED ? t('settings.account.emailHint') : undefined}
         />
         </div>
 
         <button type="submit" className="btn btn-primary" disabled={isSavingProfile}>
-          {isSavingProfile ? 'Saving...' : 'Save Profile'}
+          {isSavingProfile ? t('common.saving') : t('settings.account.saveProfile')}
         </button>
       </form>
 
       <form className="surface-card" onSubmit={handlePasswordSubmit}>
-        <h3 className="h5 mb-4">Change Password</h3>
+        <h3 className="h5 mb-4">{t('settings.account.changePasswordTitle')}</h3>
         <div className="form-grid-2">
         <PasswordField
           id="currentPassword"
-          label="Current password"
+          label={t('settings.account.currentPasswordLabel')}
           value={passwordValues.currentPassword}
           onChange={(event) => setPasswordValues((current) => ({ ...current, currentPassword: event.target.value }))}
         />
         <PasswordField
           id="newPassword"
-          label="New password"
+          label={t('settings.account.newPasswordLabel')}
           value={passwordValues.newPassword}
           onChange={(event) => setPasswordValues((current) => ({ ...current, newPassword: event.target.value }))}
         />
         </div>
         <button type="submit" className="btn btn-primary" disabled={isSavingPassword}>
-          {isSavingPassword ? 'Updating...' : 'Update Password'}
+          {isSavingPassword ? t('settings.account.updatingEllipsis') : t('settings.account.updatePassword')}
         </button>
       </form>
 

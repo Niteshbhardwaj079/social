@@ -1,16 +1,4 @@
-import {
-  POST_STATUS_LABELS,
-  APPROVAL_STATUS_LABELS,
-  CAMPAIGN_STATUS_LABELS,
-  ACCOUNT_STATUS_LABELS,
-} from '../../config/constants';
-
-const STATUS_LABEL_MAPS = {
-  ...POST_STATUS_LABELS,
-  ...APPROVAL_STATUS_LABELS,
-  ...CAMPAIGN_STATUS_LABELS,
-  ...ACCOUNT_STATUS_LABELS,
-};
+import { useI18n } from '../../i18n/useI18n';
 
 const STATUS_MODIFIER_MAP = {
   draft: 'draft',
@@ -37,8 +25,9 @@ const STATUS_MODIFIER_MAP = {
 };
 
 function StatusBadge({ status, label }) {
+  const { t } = useI18n();
   const modifier = STATUS_MODIFIER_MAP[status] || 'draft';
-  const text = label || STATUS_LABEL_MAPS[status] || status;
+  const text = label || t(`common.status.${status}`);
 
   return <span className={`status-badge status-badge--${modifier}`}>{text}</span>;
 }

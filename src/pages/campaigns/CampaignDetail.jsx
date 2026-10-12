@@ -17,11 +17,13 @@ import { useToast } from '../../components/common/ToastProvider';
 import { API_ENABLED } from '../../config/runtime';
 import { REQUEST_STATUS } from '../../config/constants';
 import { formatCompactNumber, formatDate } from '../../utils/formatters';
+import { useI18n } from '../../i18n/useI18n';
 
 // Same roles the server lets create/change/delete a campaign.
 const MANAGER_ROLES = ['superAdmin', 'admin', 'editor'];
 
 function CampaignDetail() {
+  const { t } = useI18n();
   const { campaignId } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -59,9 +61,9 @@ function CampaignDetail() {
       (updated) => {
         setCampaign(updated);
         setIsEditOpen(false);
-        showToast({ type: 'success', title: 'Campaign updated' });
+        showToast({ type: 'success', title: t('campaigns.detail.updatedToast') });
       },
-      (error) => showToast({ type: 'error', title: 'Could not update the campaign', message: apiErrorMessage(error) })
+      (error) => showToast({ type: 'error', title: t('campaigns.detail.updateErrorTitle'), message: apiErrorMessage(error) })
     );
   }
 
@@ -69,13 +71,13 @@ function CampaignDetail() {
     setIsDeleting(true);
     deleteCampaign(campaignId).then(
       () => {
-        showToast({ type: 'success', title: 'Campaign deleted' });
+        showToast({ type: 'success', title: t('campaigns.detail.deletedToast') });
         navigate('/campaigns');
       },
       (error) => {
         setIsDeleting(false);
         setIsDeleteOpen(false);
-        showToast({ type: 'error', title: 'Could not delete the campaign', message: apiErrorMessage(error) });
+        showToast({ type: 'error', title: t('campaigns.detail.deleteErrorTitle'), message: apiErrorMessage(error) });
       }
     );
   }
@@ -83,7 +85,7 @@ function CampaignDetail() {
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title="Campaign" subtitle="Loading campaign details..." />
+        <PageHeader title={t('composer.campaign')} subtitle={t('campaigns.detail.loading')} />
         <div className="skeleton-card" />
       </>
     );
@@ -92,10 +94,10 @@ function CampaignDetail() {
   if (requestStatus === REQUEST_STATUS.FAILED || !campaign) {
     return (
       <>
-        <PageHeader title="Campaign" />
+        <PageHeader title={t('composer.campaign')} />
         <ErrorState
-          title="Campaign not found"
-          description="This campaign may have been deleted, or the link is incorrect."
+          title={t('campaigns.detail.notFoundTitle')}
+          description={t('campaigns.detail.notFoundText')}
           onRetry={() => navigate('/campaigns')}
         />
       </>
@@ -105,12 +107,12 @@ function CampaignDetail() {
   return (
     <div className="fade-in">
       <Link to="/campaigns" className="d-inline-flex align-items-center gap-1 small text-secondary-custom mb-3 text-decoration-none">
-        <Icon name="ChevronLeft" size={14} /> Back to Campaigns
+        <Icon name="ChevronLeft" size={14} /> {t('campaigns.detail.backToCampaigns')}
       </Link>
 
       <PageHeader
         title={campaign.name}
-        subtitle={`${formatDate(campaign.startDate)} – ${formatDate(campaign.endDate)} · Owned by ${campaign.owner}`}
+        subtitle={`${formatDate(campaign.startDate)} – ${formatDate(campaign.endDate)} · ${t('campaigns.detail.ownedBy', { owner: campaign.owner })}`}
         guideChapterId="campaigns"
         actions={
           <>
@@ -118,10 +120,10 @@ function CampaignDetail() {
             {canManage ? (
               <>
                 <button type="button" className="btn btn-outline-secondary-custom" onClick={() => setIsEditOpen(true)}>
-                  <Icon name="Pencil" size={16} /> Edit
+                  <Icon name="Pencil" size={16} /> {t('common.edit')}
                 </button>
                 <button type="button" className="btn btn-outline-secondary-custom text-danger" onClick={() => setIsDeleteOpen(true)}>
-                  <Icon name="Trash2" size={16} /> Delete
+                  <Icon name="Trash2" size={16} /> {t('common.delete')}
                 </button>
               </>
             ) : null}
@@ -137,40 +139,40 @@ function CampaignDetail() {
 
       <div className="campaign-detail-stats">
         <div className="kpi-card">
-          <span className="kpi-card__label">Posts</span>
+          <span className="kpi-card__label">{t('campaigns.statPosts')}</span>
           <span className="kpi-card__value">{campaign.postsCount}</span>
         </div>
         <div className="kpi-card">
-          <span className="kpi-card__label">Reach</span>
+          <span className="kpi-card__label">{t('campaigns.statReach')}</span>
           <span className="kpi-card__value">{formatCompactNumber(campaign.reach)}</span>
         </div>
         <div className="kpi-card">
-          <span className="kpi-card__label">Engagement</span>
+          <span className="kpi-card__label">{t('campaigns.statEngagement')}</span>
           <span className="kpi-card__value">{formatCompactNumber(campaign.engagement)}</span>
         </div>
       </div>
 
       <div className="two-col-grid mb-5">
         <div className="kpi-card">
-          <span className="kpi-card__label">Published</span>
+          <span className="kpi-card__label">{t('campaigns.detail.published')}</span>
           <span className="kpi-card__value">{campaign.publishedCount}</span>
         </div>
         <div className="kpi-card">
-          <span className="kpi-card__label">Scheduled</span>
+          <span className="kpi-card__label">{t('common.status.scheduled')}</span>
           <span className="kpi-card__value">{campaign.scheduledCount}</span>
         </div>
       </div>
 
       <div className="panel-card">
         <div className="panel-card__header">
-          <h3 className="panel-card__title">Campaign Posts</h3>
+          <h3 className="panel-card__title">{t('campaigns.detail.campaignPosts')}</h3>
           <button type="button" className="btn btn-sm btn-primary" onClick={() => navigate('/posts/create', { state: { campaignId: campaign.id } })}>
-            <Icon name="Plus" size={14} /> Add Post
+            <Icon name="Plus" size={14} /> {t('campaigns.detail.addPost')}
           </button>
         </div>
         <div className="panel-card__body panel-card__body--flush">
           {campaignPosts.length === 0 ? (
-            <EmptyState icon="FileText" title="No posts yet" description="Posts added to this campaign will appear here." />
+            <EmptyState icon="FileText" title={t('campaigns.detail.noPostsYet')} description={t('campaigns.detail.noPostsText')} />
           ) : (
             <div className="d-flex flex-column p-2 gap-1">
               {campaignPosts.map((post) => (
@@ -187,9 +189,9 @@ function CampaignDetail() {
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
         onConfirm={handleDeleteConfirmed}
-        title="Delete this campaign?"
-        message={`"${campaign.name}" will be removed. Its posts stay exactly as they are — they just won't be grouped under this campaign any more.`}
-        confirmLabel={isDeleting ? 'Deleting...' : 'Delete'}
+        title={t('campaigns.detail.deleteConfirmTitle')}
+        message={t('campaigns.detail.deleteConfirmMessage', { name: campaign.name })}
+        confirmLabel={isDeleting ? t('campaigns.detail.deleting') : t('common.delete')}
         isDanger
       />
     </div>

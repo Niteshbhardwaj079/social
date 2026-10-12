@@ -13,6 +13,9 @@ export async function runMigrations() {
   const client = await pool.connect();
   try {
     await client.query('SELECT pg_advisory_lock($1)', [ADVISORY_LOCK_KEY]);
+    // Migrations work on every organization's rows, so they run "as system" (see pool.js / migration 028).
+    // pool.js re-applies the right context the next time this connection is used for normal work.
+    await client.query("SELECT set_config('app.bypass', 'on', false)");
     await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
       name text PRIMARY KEY,
       applied_at timestamptz NOT NULL DEFAULT now()

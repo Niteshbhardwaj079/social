@@ -26,7 +26,8 @@ function Login() {
   const [twoFactorCode, setTwoFactorCode] = useState('');
   // With a real server, sign-up exists only until the workspace owner has been created.
   const setupRequired = useSelector((state) => state.auth.setupRequired);
-  const showSignUp = !API_ENABLED || setupRequired;
+  const signupEnabled = useSelector((state) => state.auth.signupEnabled);
+  const showSignUp = !API_ENABLED || setupRequired || signupEnabled;
 
   function handleChange(field, value) {
     setFormValues((current) => ({ ...current, [field]: value }));
@@ -163,6 +164,7 @@ function Login() {
         <TextField
           id="email"
           label={t('auth.email')}
+          requiredMark
           type="email"
           placeholder={t('auth.emailPlaceholder')}
           value={formValues.email}
@@ -174,6 +176,7 @@ function Login() {
         <PasswordField
           id="password"
           label={t('auth.password')}
+          requiredMark
           placeholder={t('auth.passwordPlaceholder')}
           value={formValues.password}
           error={formErrors.password}
@@ -208,7 +211,7 @@ function Login() {
       {showSignUp ? (
               <p className="text-center mt-5 mb-0 small text-secondary-custom">
           {t('auth.noAccount')}{' '}
-          <Link to="/register" className="fw-semibold text-decoration-none">
+          <Link to="/signup" className="fw-semibold text-decoration-none">
             {t('auth.createOne')}
           </Link>
         </p>

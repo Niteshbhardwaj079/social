@@ -19,8 +19,10 @@ import { MEDIA_TYPE, POST_STATUS } from '../../config/constants';
 import { estimateResults } from '../../utils/adMetrics';
 import { formatCompactNumber, formatCurrency } from '../../utils/formatters';
 import { useToast } from '../../components/common/ToastProvider';
+import { useI18n } from '../../i18n/useI18n';
 
-const STEPS = ['Objective', 'Where', 'Ad', 'Audience', 'Budget', 'Review'];
+// The label of each step is adCreate.steps.<key>.
+const STEPS = ['objective', 'where', 'ad', 'audience', 'budget', 'review'];
 const DAY_MS = 24 * 60 * 60 * 1000;
 const toIso = (date) => date.toISOString().slice(0, 10);
 const fromIso = (value) => new Date(`${value}T00:00:00`);
@@ -62,6 +64,7 @@ function toggleInList(list, value) {
 }
 
 function CreateAd() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [step, setStep] = useState(0);
@@ -99,30 +102,26 @@ function CreateAd() {
   // What is missing on each step — shown when the person tries to continue.
   const problems = useMemo(() => {
     const list = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [] };
-    if (!form.adAccountId) list[1].push('Choose an ad account to run on.');
+    if (!form.adAccountId) list[1].push(t('adCreate.problems.account'));
     else if (form.platforms.length === 0) {
       const anyConnected = network?.platforms.some(isPlacementConnected);
-      list[1].push(
-        anyConnected
-          ? 'Pick at least one platform to show the ad on.'
-          : 'None of this account’s platforms is connected in Social Accounts yet — connect one first (see below).'
-      );
+      list[1].push(anyConnected ? t('adCreate.problems.platform') : t('adCreate.problems.noneConnected'));
     }
     if (!form.isBoost) {
-      if (!form.text.trim()) list[2].push('Write the ad text.');
-      if (!form.headline.trim()) list[2].push('Add a headline.');
-      if (!/^https?:\/\/\S+\.\S+/i.test(form.destinationUrl.trim())) list[2].push('Enter the full link people should go to (starting with https://).');
+      if (!form.text.trim()) list[2].push(t('adCreate.problems.text'));
+      if (!form.headline.trim()) list[2].push(t('adCreate.problems.headline'));
+      if (!/^https?:\/\/\S+\.\S+/i.test(form.destinationUrl.trim())) list[2].push(t('adCreate.problems.link'));
       const incompleteVariation = form.variations.some(
         (variation) => !variation.text.trim() || !variation.headline.trim() || !/^https?:\/\/\S+\.\S+/i.test(variation.destinationUrl.trim())
       );
-      if (incompleteVariation) list[2].push('Fill in the text, headline and link for every variation, or remove the incomplete one.');
+      if (incompleteVariation) list[2].push(t('adCreate.problems.variation'));
     }
-    if (form.locations.length === 0) list[3].push('Pick at least one location.');
-    if (form.ageMin > form.ageMax) list[3].push('The minimum age must not be above the maximum age.');
-    if (!(Number(form.budget) >= 100)) list[4].push('The budget must be at least ₹100.');
-    if (fromIso(form.endDate) < fromIso(form.startDate)) list[4].push('The end date must be on or after the start date.');
+    if (form.locations.length === 0) list[3].push(t('adCreate.problems.location'));
+    if (form.ageMin > form.ageMax) list[3].push(t('adCreate.problems.age'));
+    if (!(Number(form.budget) >= 100)) list[4].push(t('adCreate.problems.budget'));
+    if (fromIso(form.endDate) < fromIso(form.startDate)) list[4].push(t('adCreate.problems.dates'));
     return list;
-  }, [form]);
+  }, [form, network, t]);
 
   function goNext() {
     if (problems[step].length > 0) {
@@ -147,7 +146,7 @@ function CreateAd() {
     }
     setIsLaunching(true);
     const shared = {
-      name: form.name.trim() || form.headline.trim() || (form.isBoost ? 'Boosted post' : 'Untitled ad'),
+      name: form.name.trim() || form.headline.trim() || (form.isBoost ? t('adCreate.boostedPost') : t('adCreate.untitledAd')),
       objective: form.objective,
       adAccountId: form.adAccountId,
       platforms: form.platforms,
@@ -179,18 +178,18 @@ function CreateAd() {
         const count = isBulk ? result.length : 1;
         showToast({
           type: 'success',
-          title: asDraft ? 'Saved as draft' : 'Ad submitted',
+          title: asDraft ? t('ai.draft.savedTitle') : t('adCreate.submitted'),
           message: isBulk
-            ? `${count} ad variations ${asDraft ? 'saved' : 'submitted — the platform will review them, usually within 24 hours'}.`
+            ? t(asDraft ? 'adCreate.bulkSaved' : 'adCreate.bulkSubmitted', { count })
             : asDraft
               ? result.name
-              : 'The platform will review it, usually within 24 hours.',
+              : t('adCreate.reviewSoon'),
         });
         navigate(isBulk ? '/ads' : `/ads/${result.id}`);
       })
       .catch((error) => {
         setIsLaunching(false);
-        showToast({ type: 'error', title: apiErrorMessage(error, 'The ad could not be launched.') });
+        showToast({ type: 'error', title: apiErrorMessage(error, t('adCreate.launchFailed')) });
       });
   }
 
@@ -254,15 +253,15 @@ function CreateAd() {
 
   return (
     <div className="fade-in">
-      <Breadcrumb items={[{ label: 'Ads', to: '/ads' }, { label: 'Create ad' }]} />
-      <PageHeader title="Create an ad" subtitle="Six quick steps. You pay the ad platform directly — Social never touches your ad budget." guideChapterId="ads" />
+      <Breadcrumb items={[{ label: t('nav.ads'), to: '/ads' }, { label: t('adCreate.breadcrumb') }]} />
+      <PageHeader title={t('adCreate.title')} subtitle={t('adCreate.subtitle')} guideChapterId="ads" />
 
-      <ol className="ad-stepper" aria-label="Steps">
-        {STEPS.map((label, index) => (
-          <li key={label} className={`ad-stepper__item ${index === step ? 'is-active' : ''} ${index < step ? 'is-done' : ''}`.trim()}>
+      <ol className="ad-stepper" aria-label={t('adCreate.stepsLabel')}>
+        {STEPS.map((key, index) => (
+          <li key={key} className={`ad-stepper__item ${index === step ? 'is-active' : ''} ${index < step ? 'is-done' : ''}`.trim()}>
             <button type="button" onClick={() => index <= step && setStep(index)} disabled={index > step}>
               <span className="ad-stepper__number">{index < step ? <Icon name="Check" size={14} /> : index + 1}</span>
-              <span className="ad-stepper__label">{label}</span>
+              <span className="ad-stepper__label">{t(`adCreate.steps.${key}`)}</span>
             </button>
           </li>
         ))}
@@ -280,15 +279,15 @@ function CreateAd() {
 
             {step === 0 ? (
               <>
-                <h3 className="h5 mb-1">What do you want from this ad?</h3>
-                <p className="text-secondary-custom mb-4">Pick the main goal. It decides how the platform shows your ad.</p>
+                <h3 className="h5 mb-1">{t('adCreate.goalTitle')}</h3>
+                <p className="text-secondary-custom mb-4">{t('adCreate.goalText')}</p>
                 <div className="ad-choice-grid">
                   {AD_OBJECTIVES.map((objective) => (
                     <button key={objective.key} type="button" className={`ad-choice ${form.objective === objective.key ? 'is-selected' : ''}`.trim()} onClick={() => update({ objective: objective.key })}>
                       <span className="ad-choice__icon"><Icon name={objective.icon} size={20} /></span>
                       <span>
-                        <strong>{objective.label}</strong>
-                        <span className="ad-choice__text">{objective.description}</span>
+                        <strong>{t(`ads.objectives.${objective.labelKey}`)}</strong>
+                        <span className="ad-choice__text">{t(`adCreate.objectiveText.${objective.key}`)}</span>
                       </span>
                     </button>
                   ))}
@@ -298,14 +297,14 @@ function CreateAd() {
 
             {step === 1 ? (
               <>
-                <h3 className="h5 mb-1">Where should it run?</h3>
-                <p className="text-secondary-custom mb-4">Pick one of your real ad accounts, discovered from your Facebook connection.</p>
+                <h3 className="h5 mb-1">{t('adCreate.whereTitle')}</h3>
+                <p className="text-secondary-custom mb-4">{t('adCreate.whereText')}</p>
                 {accounts.length === 0 ? (
                   <Link to="/ads?tab=accounts" className="ad-choice is-locked">
                     <NetworkIcons network={{ platforms: ['facebook', 'instagram'], subtitle: 'Facebook & Instagram' }} size={40} />
                     <span>
-                      <strong>No ad accounts found</strong>
-                      <span className="ad-choice__text">Set up Ad accounts first</span>
+                      <strong>{t('adCreate.noAccounts')}</strong>
+                      <span className="ad-choice__text">{t('adCreate.setUpAccounts')}</span>
                     </span>
                   </Link>
                 ) : (
@@ -333,7 +332,7 @@ function CreateAd() {
                 )}
                 {network ? (
                   <div className="mt-4">
-                    <span className="form-label-custom d-block">Show the ad on</span>
+                    <span className="form-label-custom d-block">{t('adCreate.showOn')}</span>
                     <div className="ad-chip-row">
                       {network.platforms.map((platformKey) => {
                         const ready = isPlacementConnected(platformKey);
@@ -344,11 +343,11 @@ function CreateAd() {
                             disabled={!ready}
                             className={`ad-chip ${form.platforms.includes(platformKey) ? 'is-selected' : ''}`.trim()}
                             onClick={() => update({ platforms: toggleInList(form.platforms, platformKey) })}
-                            title={ready ? undefined : 'Connect this account in Social Accounts first'}
+                            title={ready ? undefined : t('adCreate.connectFirst')}
                           >
                             <PlatformIcon platformKey={platformKey} size={20} />
                             {getPlatformByKey(platformKey)?.label}
-                            {ready ? null : <span className="ad-chip__note">not connected</span>}
+                            {ready ? null : <span className="ad-chip__note">{t('adCreate.notConnected')}</span>}
                           </button>
                         );
                       })}
@@ -357,16 +356,16 @@ function CreateAd() {
                       <div className="callout-banner callout-banner--warning mt-3 mb-0">
                         <Icon name="AlertTriangle" size={16} />
                         <span>
-                          An ad appears <em>as</em> your social profile, so each platform must be connected in Social Accounts first:{' '}
+                          {t('adCreate.mustConnect')}{' '}
                           {network.platforms
                             .filter((platformKey) => !isPlacementConnected(platformKey))
                             .map((platformKey, index) => (
                               <span key={platformKey}>
                                 {index > 0 ? ', ' : ''}
-                                <Link to={`/social-accounts/connect/${platformKey}`}>Connect {getPlatformByKey(platformKey)?.label}</Link>
+                                <Link to={`/social-accounts/connect/${platformKey}`}>{t('adCreate.connectPlatform', { platform: getPlatformByKey(platformKey)?.label })}</Link>
                               </span>
                             ))}
-                          . Facebook and Instagram are connected separately, so you can advertise on just the one you have.
+                          . {t('adCreate.connectedSeparately')}
                         </span>
                       </div>
                     ) : null}
@@ -377,13 +376,13 @@ function CreateAd() {
 
             {step === 2 ? (
               <>
-                <h3 className="h5 mb-1">Build the ad</h3>
-                <p className="text-secondary-custom mb-4">Start from a post you already made, or write it fresh.</p>
+                <h3 className="h5 mb-1">{t('adCreate.buildTitle')}</h3>
+                <p className="text-secondary-custom mb-4">{t('adCreate.buildText')}</p>
                 {posts.length > 0 ? (
                   <div className="mb-4">
-                    <label htmlFor="adPost" className="form-label-custom">Use an existing post (optional)</label>
+                    <label htmlFor="adPost" className="form-label-custom">{t('adCreate.usePost')}</label>
                     <select id="adPost" className="form-select" value={form.postId} onChange={(event) => pickPost(event.target.value)}>
-                      <option value="">Write my own text</option>
+                      <option value="">{t('adCreate.ownText')}</option>
                       {posts.map((post) => (
                         <option key={post.id} value={post.id}>{post.content.slice(0, 70)}</option>
                       ))}
@@ -395,10 +394,9 @@ function CreateAd() {
                   <div className="callout-banner callout-banner--info mb-4">
                     <Icon name="Megaphone" size={16} />
                     <span>
-                      This post is already live on your connected Facebook Page — Social can <strong>boost it directly</strong>, using its real text, image and existing
-                      likes/comments, exactly like Facebook’s own “Boost Post” button. No separate headline, button or link needed.{' '}
+                      {t('adCreate.boostInfo')}{' '}
                       <button type="button" className="btn btn-link p-0 align-baseline" onClick={() => update({ isBoost: false })}>
-                        Write a separate ad instead
+                        {t('adCreate.writeSeparate')}
                       </button>
                     </span>
                   </div>
@@ -406,7 +404,7 @@ function CreateAd() {
 
                 {form.isBoost ? (
                   <div className="surface-card mb-2">
-                    <div className="form-label-custom mb-2">What you’re boosting</div>
+                    <div className="form-label-custom mb-2">{t('adCreate.boosting')}</div>
                     <p className="mb-0 text-break">{form.text}</p>
                   </div>
                 ) : (
@@ -415,46 +413,53 @@ function CreateAd() {
                       <div className="callout-banner callout-banner--info mb-4">
                         <Icon name="Info" size={16} />
                         <span>
-                          Starting from this post’s text and image — edit anything below, or{' '}
+                          {t('adCreate.startingFromPost')}{' '}
                           <button type="button" className="btn btn-link p-0 align-baseline" onClick={() => update({ isBoost: true, variations: [] })}>
-                            boost the real post instead
-                          </button>{' '}
-                          if it’s already live on Facebook.
+                            {t('adCreate.boostInstead')}
+                          </button>
                         </span>
                       </div>
                     ) : null}
                     {templates.length > 0 ? (
                       <div className="mb-4">
-                        <label htmlFor="adTemplate" className="form-label-custom">Start from a saved template (optional)</label>
+                        <label htmlFor="adTemplate" className="form-label-custom">{t('adCreate.useTemplate')}</label>
                         <select id="adTemplate" className="form-select" value="" onChange={(event) => pickTemplate(event.target.value)}>
-                          <option value="">Write my own text</option>
+                          <option value="">{t('adCreate.ownText')}</option>
                           {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                         </select>
                       </div>
                     ) : null}
                     <div className="mb-4">
-                      <label htmlFor="adText" className="form-label-custom">Ad text</label>
-                      <textarea id="adText" className="form-control" rows={4} maxLength={500} value={form.text} onChange={(event) => update({ text: event.target.value })} placeholder="What do you want people to know?" />
+                      <label htmlFor="adText" className="form-label-custom">{t('adCreate.adText')}</label>
+                      <textarea id="adText" className="form-control" rows={4} maxLength={500} value={form.text} onChange={(event) => update({ text: event.target.value })} placeholder={t('adCreate.adTextPlaceholder')} />
                       <div className="form-hint">{form.text.length} / 500</div>
                     </div>
                     <div className="form-grid-2">
-                      <TextField id="adHeadline" label="Headline" value={form.headline} onChange={(event) => update({ headline: event.target.value })} maxLength={80} placeholder="Short and clear" />
+                      <TextField id="adHeadline" label={t('adCreate.headline')} value={form.headline} onChange={(event) => update({ headline: event.target.value })} maxLength={80} placeholder={t('adCreate.headlinePlaceholder')} />
                       <div className="mb-4">
-                        <label htmlFor="adCta" className="form-label-custom">Button</label>
+                        <label htmlFor="adCta" className="form-label-custom">{t('adCreate.button')}</label>
                         <select id="adCta" className="form-select" value={form.cta} onChange={(event) => update({ cta: event.target.value })}>
                           {AD_CTAS.map((cta) => <option key={cta} value={cta}>{cta}</option>)}
                         </select>
                       </div>
                     </div>
-                    <TextField id="adUrl" label="Where should the button go?" type="url" value={form.destinationUrl} onChange={(event) => update({ destinationUrl: event.target.value })} placeholder="https://yoursite.com/offer" hint="Tip: paste a short link from the Link Shortener to see how many clicks come from this ad." />
+                    <TextField
+                      id="adUrl"
+                      label={t('adCreate.buttonLink')}
+                      type="url"
+                      value={form.destinationUrl}
+                      onChange={(event) => update({ destinationUrl: event.target.value })}
+                      placeholder="https://yoursite.com/offer"
+                      hint={t('adCreate.buttonLinkHint')}
+                    />
                     <button type="button" className="btn btn-link p-0 mb-4" onClick={() => setUtmTarget('primary')}>
-                      Add campaign tracking (UTM)
+                      {t('adCreate.addUtm')}
                     </button>
                     <div className="mb-2">
-                      <span className="form-label-custom d-block">Image (from your Media Library)</span>
+                      <span className="form-label-custom d-block">{t('adCreate.imageFromLibrary')}</span>
                       <div className="ad-image-grid">
                         <button type="button" className={`ad-image-option ${form.mediaId === '' ? 'is-selected' : ''}`.trim()} onClick={() => update({ mediaId: '' })}>
-                          <Icon name="ImageOff" size={20} /> None
+                          <Icon name="ImageOff" size={20} /> {t('adCreate.none')}
                         </button>
                         {images.slice(0, 8).map((image) => (
                           <button key={image.id} type="button" className={`ad-image-option ${form.mediaId === image.id ? 'is-selected' : ''}`.trim()} onClick={() => update({ mediaId: image.id })} title={image.name}>
@@ -468,42 +473,57 @@ function CreateAd() {
                     {form.variations.map((variation, index) => (
                       <div key={index} className="surface-card mt-4 mb-0">
                         <div className="d-flex align-items-center justify-content-between mb-3">
-                          <div className="form-label-custom mb-0">Variation {index + 2}</div>
+                          <div className="form-label-custom mb-0">{t('adCreate.variation', { number: index + 2 })}</div>
                           <button type="button" className="btn btn-sm btn-outline-secondary-custom" onClick={() => removeVariation(index)}>
-                            <Icon name="X" size={14} /> Remove
+                            <Icon name="X" size={14} /> {t('common.remove')}
                           </button>
                         </div>
                         {templates.length > 0 ? (
                           <div className="mb-4">
-                            <label htmlFor={`variationTemplate-${index}`} className="form-label-custom">Start from a saved template (optional)</label>
+                            <label htmlFor={`variationTemplate-${index}`} className="form-label-custom">{t('adCreate.useTemplate')}</label>
                             <select id={`variationTemplate-${index}`} className="form-select" value="" onChange={(event) => pickVariationTemplate(index, event.target.value)}>
-                              <option value="">Write my own text</option>
+                              <option value="">{t('adCreate.ownText')}</option>
                               {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                             </select>
                           </div>
                         ) : null}
                         <div className="mb-4">
-                          <label htmlFor={`variationText-${index}`} className="form-label-custom">Ad text</label>
-                          <textarea id={`variationText-${index}`} className="form-control" rows={3} maxLength={500} value={variation.text} onChange={(event) => updateVariation(index, { text: event.target.value })} placeholder="What do you want people to know?" />
+                          <label htmlFor={`variationText-${index}`} className="form-label-custom">{t('adCreate.adText')}</label>
+                          <textarea
+                            id={`variationText-${index}`}
+                            className="form-control"
+                            rows={3}
+                            maxLength={500}
+                            value={variation.text}
+                            onChange={(event) => updateVariation(index, { text: event.target.value })}
+                            placeholder={t('adCreate.adTextPlaceholder')}
+                          />
                         </div>
                         <div className="form-grid-2">
-                          <TextField id={`variationHeadline-${index}`} label="Headline" value={variation.headline} onChange={(event) => updateVariation(index, { headline: event.target.value })} maxLength={80} placeholder="Short and clear" />
+                          <TextField
+                            id={`variationHeadline-${index}`}
+                            label={t('adCreate.headline')}
+                            value={variation.headline}
+                            onChange={(event) => updateVariation(index, { headline: event.target.value })}
+                            maxLength={80}
+                            placeholder={t('adCreate.headlinePlaceholder')}
+                          />
                           <div className="mb-4">
-                            <label htmlFor={`variationCta-${index}`} className="form-label-custom">Button</label>
+                            <label htmlFor={`variationCta-${index}`} className="form-label-custom">{t('adCreate.button')}</label>
                             <select id={`variationCta-${index}`} className="form-select" value={variation.cta} onChange={(event) => updateVariation(index, { cta: event.target.value })}>
                               {AD_CTAS.map((cta) => <option key={cta} value={cta}>{cta}</option>)}
                             </select>
                           </div>
                         </div>
-                        <TextField id={`variationUrl-${index}`} label="Where should the button go?" type="url" value={variation.destinationUrl} onChange={(event) => updateVariation(index, { destinationUrl: event.target.value })} placeholder="https://yoursite.com/offer" />
+                        <TextField id={`variationUrl-${index}`} label={t('adCreate.buttonLink')} type="url" value={variation.destinationUrl} onChange={(event) => updateVariation(index, { destinationUrl: event.target.value })} placeholder="https://yoursite.com/offer" />
                         <button type="button" className="btn btn-link p-0 mb-4" onClick={() => setUtmTarget(index)}>
-                          Add campaign tracking (UTM)
+                          {t('adCreate.addUtm')}
                         </button>
                         <div className="mb-0">
-                          <span className="form-label-custom d-block">Image</span>
+                          <span className="form-label-custom d-block">{t('adCreate.image')}</span>
                           <div className="ad-image-grid">
                             <button type="button" className={`ad-image-option ${variation.mediaId === '' ? 'is-selected' : ''}`.trim()} onClick={() => updateVariation(index, { mediaId: '' })}>
-                              <Icon name="ImageOff" size={20} /> None
+                              <Icon name="ImageOff" size={20} /> {t('adCreate.none')}
                             </button>
                             {images.slice(0, 8).map((image) => (
                               <button key={image.id} type="button" className={`ad-image-option ${variation.mediaId === image.id ? 'is-selected' : ''}`.trim()} onClick={() => updateVariation(index, { mediaId: image.id })} title={image.name}>
@@ -519,13 +539,11 @@ function CreateAd() {
                     <div className="mt-4">
                       {form.variations.length + 1 < MAX_AD_VARIATIONS ? (
                         <button type="button" className="btn btn-outline-secondary-custom" onClick={addVariation}>
-                          <Icon name="Plus" size={16} /> Add another variation
+                          <Icon name="Plus" size={16} /> {t('adCreate.addVariation')}
                         </button>
                       ) : null}
                       {form.variations.length > 0 ? (
-                        <p className="form-hint mt-2 mb-0">
-                          Creating {form.variations.length + 1} ad variations, testing different headlines/images — all sharing this same audience, budget and schedule (up to {MAX_AD_VARIATIONS} at a time).
-                        </p>
+                        <p className="form-hint mt-2 mb-0">{t('adCreate.variationsHint', { count: form.variations.length + 1, max: MAX_AD_VARIATIONS })}</p>
                       ) : null}
                     </div>
                   </>
@@ -535,9 +553,9 @@ function CreateAd() {
 
             {step === 3 ? (
               <>
-                <h3 className="h5 mb-1">Who should see it?</h3>
-                <p className="text-secondary-custom mb-4">Leave interests empty to show it to a broad audience.</p>
-                <span className="form-label-custom d-block">Locations</span>
+                <h3 className="h5 mb-1">{t('adCreate.audienceTitle')}</h3>
+                <p className="text-secondary-custom mb-4">{t('adCreate.audienceText')}</p>
+                <span className="form-label-custom d-block">{t('adCreate.locations')}</span>
                 <div className="ad-chip-row mb-4">
                   {AD_LOCATIONS.map((location) => (
                     <button key={location} type="button" className={`ad-chip ${form.locations.includes(location) ? 'is-selected' : ''}`.trim()} onClick={() => update({ locations: toggleInList(form.locations, location) })}>{location}</button>
@@ -545,25 +563,27 @@ function CreateAd() {
                 </div>
                 <div className="form-grid-2">
                   <div className="mb-4">
-                    <label htmlFor="adAgeMin" className="form-label-custom">Age from</label>
+                    <label htmlFor="adAgeMin" className="form-label-custom">{t('adCreate.ageFrom')}</label>
                     <select id="adAgeMin" className="form-select" value={form.ageMin} onChange={(event) => update({ ageMin: Number(event.target.value) })}>
                       {Array.from({ length: 48 }, (_, index) => 18 + index).map((age) => <option key={age} value={age}>{age}</option>)}
                     </select>
                   </div>
                   <div className="mb-4">
-                    <label htmlFor="adAgeMax" className="form-label-custom">Age to</label>
+                    <label htmlFor="adAgeMax" className="form-label-custom">{t('adCreate.ageTo')}</label>
                     <select id="adAgeMax" className="form-select" value={form.ageMax} onChange={(event) => update({ ageMax: Number(event.target.value) })}>
                       {Array.from({ length: 48 }, (_, index) => 18 + index).map((age) => <option key={age} value={age}>{age}{age === 65 ? '+' : ''}</option>)}
                     </select>
                   </div>
                 </div>
-                <span className="form-label-custom d-block">Gender</span>
+                <span className="form-label-custom d-block">{t('adCreate.gender')}</span>
                 <div className="ad-chip-row mb-4">
-                  {[['all', 'All'], ['women', 'Women'], ['men', 'Men']].map(([value, label]) => (
-                    <button key={value} type="button" className={`ad-chip ${form.gender === value ? 'is-selected' : ''}`.trim()} onClick={() => update({ gender: value })}>{label}</button>
+                  {['all', 'women', 'men'].map((value) => (
+                    <button key={value} type="button" className={`ad-chip ${form.gender === value ? 'is-selected' : ''}`.trim()} onClick={() => update({ gender: value })}>
+                      {t(`adCreate.genders.${value}`)}
+                    </button>
                   ))}
                 </div>
-                <span className="form-label-custom d-block">Interests</span>
+                <span className="form-label-custom d-block">{t('adCreate.interests')}</span>
                 <div className="ad-chip-row">
                   {AD_INTERESTS.map((interest) => (
                     <button key={interest} type="button" className={`ad-chip ${form.interests.includes(interest) ? 'is-selected' : ''}`.trim()} onClick={() => update({ interests: toggleInList(form.interests, interest) })}>{interest}</button>
@@ -574,63 +594,95 @@ function CreateAd() {
 
             {step === 4 ? (
               <>
-                <h3 className="h5 mb-1">Budget and schedule</h3>
-                <p className="text-secondary-custom mb-4">This is the most you will spend. The platform bills you directly and never goes over it.</p>
-                <span className="form-label-custom d-block">Budget type</span>
+                <h3 className="h5 mb-1">{t('adCreate.budgetTitle')}</h3>
+                <p className="text-secondary-custom mb-4">{t('adCreate.budgetText')}</p>
+                <span className="form-label-custom d-block">{t('adCreate.budgetType')}</span>
                 <div className="ad-chip-row mb-4">
-                  {[['daily', 'Daily budget'], ['lifetime', 'Lifetime budget']].map(([value, label]) => (
-                    <button key={value} type="button" className={`ad-chip ${form.budgetType === value ? 'is-selected' : ''}`.trim()} onClick={() => update({ budgetType: value })}>{label}</button>
+                  {['daily', 'lifetime'].map((value) => (
+                    <button key={value} type="button" className={`ad-chip ${form.budgetType === value ? 'is-selected' : ''}`.trim()} onClick={() => update({ budgetType: value })}>
+                      {t(`adCreate.budgetTypes.${value}`)}
+                    </button>
                   ))}
                 </div>
                 <div className="form-grid-2">
-                  <TextField id="adBudget" label={form.budgetType === 'daily' ? 'Amount per day (₹)' : 'Total amount (₹)'} type="number" min="100" value={form.budget} onChange={(event) => update({ budget: event.target.value })} />
+                  <TextField
+                    id="adBudget"
+                    label={form.budgetType === 'daily' ? t('adCreate.amountPerDay') : t('adCreate.totalAmount')}
+                    type="number"
+                    min="100"
+                    value={form.budget}
+                    onChange={(event) => update({ budget: event.target.value })}
+                  />
                   <div className="mb-4">
-                    <span className="form-label-custom d-block">Total for {days} {days === 1 ? 'day' : 'days'}</span>
+                    <span className="form-label-custom d-block">{t('adCreate.totalForDays', { days })}</span>
                     <div className="ad-total">{formatCurrency(totalBudget)}</div>
                   </div>
                 </div>
                 <div className="form-grid-2">
-                  <DatePickerField id="adStart" label="Start date" selected={fromIso(form.startDate)} onChange={(date) => date && update({ startDate: toIso(date), endDate: fromIso(form.endDate) < date ? toIso(date) : form.endDate })} />
-                  <DatePickerField id="adEnd" label="End date" selected={fromIso(form.endDate)} minDate={fromIso(form.startDate)} onChange={(date) => date && update({ endDate: toIso(date) })} />
+                  <DatePickerField id="adStart" label={t('adCreate.startDate')} selected={fromIso(form.startDate)} onChange={(date) => date && update({ startDate: toIso(date), endDate: fromIso(form.endDate) < date ? toIso(date) : form.endDate })} />
+                  <DatePickerField id="adEnd" label={t('adCreate.endDate')} selected={fromIso(form.endDate)} minDate={fromIso(form.startDate)} onChange={(date) => date && update({ endDate: toIso(date) })} />
                 </div>
               </>
             ) : null}
 
             {step === 5 ? (
               <>
-                <h3 className="h5 mb-1">Review and launch</h3>
-                <p className="text-secondary-custom mb-4">Check everything, then launch. The platform reviews new ads before they run.</p>
-                <TextField id="adName" label="Ad name (only you see this)" value={form.name} onChange={(event) => update({ name: event.target.value })} placeholder={form.headline || 'e.g. Diwali offer'} />
+                <h3 className="h5 mb-1">{t('adCreate.reviewTitle')}</h3>
+                <p className="text-secondary-custom mb-4">{t('adCreate.reviewText')}</p>
+                <TextField
+                  id="adName"
+                  label={t('adCreate.adName')}
+                  value={form.name}
+                  onChange={(event) => update({ name: event.target.value })}
+                  placeholder={form.headline || t('adCreate.adNamePlaceholder')}
+                />
                 <dl className="ad-review">
-                  <dt>Goal</dt><dd>{AD_OBJECTIVES.find((item) => item.key === form.objective)?.label}</dd>
-                  <dt>Runs on</dt><dd>{selectedAccount?.name} ({network?.label}) — {form.platforms.map((key) => getPlatformByKey(key)?.label).join(', ')}</dd>
-                  <dt>Audience</dt><dd>{form.locations.join(', ')} · {form.ageMin}–{form.ageMax} · {form.gender === 'all' ? 'All genders' : form.gender}{form.interests.length ? ` · ${form.interests.join(', ')}` : ''}</dd>
-                  <dt>Budget</dt><dd>{formatCurrency(form.budget)} {form.budgetType === 'daily' ? 'per day' : 'lifetime'} ({formatCurrency(totalBudget)} over {days} {days === 1 ? 'day' : 'days'})</dd>
-                  <dt>Schedule</dt><dd>{form.startDate} to {form.endDate}</dd>
+                  <dt>{t('adCreate.review.goal')}</dt>
+                  <dd>{t(`ads.objectives.${AD_OBJECTIVES.find((item) => item.key === form.objective)?.labelKey}`)}</dd>
+                  <dt>{t('adCreate.review.runsOn')}</dt>
+                  <dd>
+                    {selectedAccount?.name} ({network?.label}) — {form.platforms.map((key) => getPlatformByKey(key)?.label).join(', ')}
+                  </dd>
+                  <dt>{t('adCreate.review.audience')}</dt>
+                  <dd>
+                    {form.locations.join(', ')} · {form.ageMin}–{form.ageMax} · {form.gender === 'all' ? t('adCreate.allGenders') : t(`adCreate.genders.${form.gender}`)}
+                    {form.interests.length ? ` · ${form.interests.join(', ')}` : ''}
+                  </dd>
+                  <dt>{t('adCreate.review.budget')}</dt>
+                  <dd>
+                    {t(form.budgetType === 'daily' ? 'adCreate.budgetPerDay' : 'adCreate.budgetLifetime', { amount: formatCurrency(form.budget) })}{' '}
+                    ({t('adCreate.budgetOver', { total: formatCurrency(totalBudget), days })})
+                  </dd>
+                  <dt>{t('adCreate.review.schedule')}</dt>
+                  <dd>{t('adCreate.scheduleRange', { start: form.startDate, end: form.endDate })}</dd>
                   {form.isBoost ? (
                     <>
-                      <dt>Creative</dt><dd>Boosting your existing Facebook post directly — its real text, image and engagement.</dd>
+                      <dt>{t('adCreate.review.creative')}</dt>
+                      <dd>{t('adCreate.boostingCreative')}</dd>
                     </>
                   ) : form.variations.length > 0 ? (
                     <>
-                      <dt>Creative</dt>
+                      <dt>{t('adCreate.review.creative')}</dt>
                       <dd>
-                        {form.variations.length + 1} variations, one ad each, sharing this audience/budget/schedule:
+                        {t('adCreate.variationsSummary', { count: form.variations.length + 1 })}
                         <ul className="mb-0 ps-3">
-                          <li>{form.headline || '(untitled)'}</li>
-                          {form.variations.map((variation, index) => <li key={index}>{variation.headline || '(untitled)'}</li>)}
+                          <li>{form.headline || `(${t('adCreate.untitled')})`}</li>
+                          {form.variations.map((variation, index) => (
+                            <li key={index}>{variation.headline || `(${t('adCreate.untitled')})`}</li>
+                          ))}
                         </ul>
                       </dd>
                     </>
                   ) : (
                     <>
-                      <dt>Button link</dt><dd className="text-break">{form.destinationUrl}</dd>
+                      <dt>{t('adCreate.review.buttonLink')}</dt>
+                      <dd className="text-break">{form.destinationUrl}</dd>
                     </>
                   )}
                 </dl>
                 <div className="callout-banner callout-banner--info mb-0">
                   <Icon name="Wallet" size={16} />
-                  <span>{network?.label} bills up to <strong>{formatCurrency(totalBudget)}</strong> to the payment method on your ad account. Social does not charge anything for running ads.</span>
+                  <span>{t('adCreate.billing', { network: network?.label ?? '', total: formatCurrency(totalBudget) })}</span>
                 </div>
               </>
             ) : null}
@@ -638,15 +690,19 @@ function CreateAd() {
 
           <div className="ad-create-footer">
             <button type="button" className="btn btn-outline-secondary-custom" onClick={goBack} disabled={step === 0 || isLaunching}>
-              <Icon name="ChevronLeft" size={16} /> Back
+              <Icon name="ChevronLeft" size={16} /> {t('billing.invoicePage.back')}
             </button>
             <div className="d-flex gap-2 flex-wrap justify-content-end">
-              <button type="button" className="btn btn-outline-secondary-custom" onClick={() => launch(true)} disabled={isLaunching}>Save as draft</button>
+              <button type="button" className="btn btn-outline-secondary-custom" onClick={() => launch(true)} disabled={isLaunching}>
+                {t('adCreate.saveDraft')}
+              </button>
               {step < STEPS.length - 1 ? (
-                <button type="button" className="btn btn-primary" onClick={goNext}>Next <Icon name="ChevronRight" size={16} /></button>
+                <button type="button" className="btn btn-primary" onClick={goNext}>
+                  {t('adCreate.next')} <Icon name="ChevronRight" size={16} />
+                </button>
               ) : (
                 <button type="button" className="btn btn-primary" onClick={() => launch(false)} disabled={isLaunching}>
-                  <Icon name="Rocket" size={16} /> {isLaunching ? 'Launching...' : 'Launch ad'}
+                  <Icon name="Rocket" size={16} /> {isLaunching ? t('adCreate.launching') : t('adCreate.launch')}
                 </button>
               )}
             </div>
@@ -655,19 +711,19 @@ function CreateAd() {
 
         <aside className="ad-create-side">
           <div className="panel-card">
-            <div className="panel-card__header"><h3 className="panel-card__title">Preview</h3></div>
+            <div className="panel-card__header"><h3 className="panel-card__title">{t('adCreate.preview')}</h3></div>
             <div className="panel-card__body">
               <AdPreview creative={{ headline: form.headline, text: form.text, cta: form.cta, destinationUrl: form.destinationUrl }} platformKey={form.platforms[0]} imageUrl={selectedImage?.url} />
             </div>
           </div>
           <div className="panel-card">
-            <div className="panel-card__header"><h3 className="panel-card__title">Estimated results</h3></div>
+            <div className="panel-card__header"><h3 className="panel-card__title">{t('adCreate.estimate')}</h3></div>
             <div className="panel-card__body">
               <div className="ad-estimate">
-                <div><span>Impressions</span><strong>{formatCompactNumber(estimate.impressionsLow)} – {formatCompactNumber(estimate.impressionsHigh)}</strong></div>
-                <div><span>Clicks</span><strong>{formatCompactNumber(estimate.clicksLow)} – {formatCompactNumber(estimate.clicksHigh)}</strong></div>
+                <div><span>{t('ads.ruleMetrics.impressions')}</span><strong>{formatCompactNumber(estimate.impressionsLow)} – {formatCompactNumber(estimate.impressionsHigh)}</strong></div>
+                <div><span>{t('ads.ruleMetrics.clicks')}</span><strong>{formatCompactNumber(estimate.clicksLow)} – {formatCompactNumber(estimate.clicksHigh)}</strong></div>
               </div>
-              <p className="form-hint mb-0 mt-3">Only a rough guide from your budget. Real results depend on the platform, your audience and your ad.</p>
+              <p className="form-hint mb-0 mt-3">{t('adCreate.estimateHint')}</p>
             </div>
           </div>
         </aside>

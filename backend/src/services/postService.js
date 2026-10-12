@@ -4,6 +4,7 @@ import { PLATFORM_KEYS, PUBLISHERS, platformLabel } from '../providers/index.js'
 import { ProviderError } from '../providers/errors.js';
 import { REQUIRES_VIDEO, textProblems } from '../providers/limits.js';
 import { HttpError, badRequest, conflict, forbidden, notFound } from '../utils/httpError.js';
+import { assertWithinPlanLimit } from './planService.js';
 import { logger } from '../utils/logger.js';
 import { recordActivity } from './auditService.js';
 import { campaignExists } from './campaignService.js';
@@ -11,6 +12,7 @@ import { mediaForIds } from './mediaService.js';
 import { notifyRoles, notifyUser } from './notificationService.js';
 import { canDeletePost, canEditPost, canPublishPosts } from './permissions.js';
 import { connectedPlatforms, getPublishingContext, redact } from './socialAccountService.js';
+import { forEachOrganization } from './organizationService.js';
 
 const POST_SELECT = 'SELECT p.*, u.name AS creator_name FROM posts p LEFT JOIN users u ON u.id = p.created_by';
 const STALE_AFTER = '10 minutes'; // a post "being published" for longer than this was interrupted
@@ -168,6 +170,7 @@ async function writePost({ existing, actor, values, ip, userAgent }) {
 
 export async function createPost({ actor, input, ip, userAgent }) {
   assertMayUseStatus(actor, input.status);
+  await assertWithinPlanLimit('postsPerMonth');
   const media = await mediaForIds(input.mediaIds);
   if (input.campaignId && !(await campaignExists(input.campaignId))) throw badRequest('That campaign no longer exists.');
   const values = {
@@ -454,7 +457,7 @@ export async function runSchedulerPass() {
 /** Returns a function that stops it. Switched off with SCHEDULER_INTERVAL_SEC=0. */
 export function startScheduler() {
   if (!config.scheduler.intervalMs) return () => {};
-  const pass = () => runSchedulerPass().catch((error) => logger.error('Scheduler pass failed', error));
+  const pass = () => forEachOrganization('Scheduler', () => runSchedulerPass()).catch((error) => logger.error('Scheduler pass failed', error));
   const first = setTimeout(pass, 3000);
   const timer = setInterval(pass, config.scheduler.intervalMs);
   first.unref();

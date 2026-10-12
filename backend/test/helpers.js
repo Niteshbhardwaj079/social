@@ -1,94 +1,45 @@
 import { createApp } from '../src/app.js';
 import { prepareDatabase } from '../src/bootstrap.js';
-import { pool, query } from '../src/db/pool.js';
-import { ensureEmailRows } from '../src/services/systemEmailService.js';
+import { pool, query, setFallbackContextForTests } from '../src/db/pool.js';
 import { invalidateProviderCache } from '../src/services/emailSettingsService.js';
 
 export const PASSWORD = 'Sup3r-secret-pass';
 
-/** Empties every table and puts the built-in rows back, so each test file starts from a clean slate. */
-export async function resetDatabase() {
-  await query(
-    'TRUNCATE users, auth_tokens, settings, system_emails, system_email_translations, email_outbox, activity_logs, social_accounts, posts, post_targets, media_items, notifications, campaigns, recycling_entries, account_metrics_history, inbox_conversations, inbox_replies, ad_accounts, ad_campaigns, ad_sets, ad_creatives, ads, ad_daily_stats, ad_creative_templates, ad_rules, ad_rule_runs, short_links, short_link_clicks RESTART IDENTITY CASCADE'
-  );
-  // `roles` is seed/config data, like storage_settings below — a test may create custom roles or
-  // edit the 5 built-in ones, so remove anything extra and put the built-in 5 back exactly as
-  // migration 024 seeded them (keep this block's values in sync with that migration).
-  await query("DELETE FROM roles WHERE id NOT IN ('superAdmin', 'admin', 'editor', 'contributor', 'analyst')");
-  const ROLE_COLUMNS =
-    'id, name, description, icon, accent, rank, is_protected, ' +
-    'users_view, users_create, users_edit, users_delete, roles_view, roles_create, roles_edit, roles_delete, ' +
-    'posts_view, posts_write, posts_publish, posts_delete, ' +
-    'social_accounts_view, social_accounts_connect, social_accounts_edit, social_accounts_delete, ' +
-    'ads_view, ads_create, ads_edit, ads_delete, campaigns_view, campaigns_create, campaigns_edit, campaigns_delete, reports_view, ' +
-    'media_view, media_create, media_edit, media_delete, templates_view, templates_create, templates_edit, templates_delete, ' +
-    'activity_logs_view, activity_logs_delete, settings_view, settings_edit';
-  const T = true;
-  const F = false;
-  const ROLE_SEEDS = [
-    // id, name, description, icon, accent, rank, is_protected, then the 37 permission flags in ROLE_COLUMNS order.
-    // Every *_view flag mirrors migration 027's `DEFAULT true` backfill: every existing built-in role
-    // keeps exactly the (previously ungated) view access it already had, regardless of its other flags.
-    ['superAdmin', 'Super Admin', 'Full access to every module. Cannot be renamed, edited or deleted.', 'ShieldCheck', 'rose', 4, T, ...Array(37).fill(T)],
-    ['admin', 'Admin', 'Manage users, content and settings.', 'Settings2', 'purple', 3, F, ...Array(37).fill(T)],
-    [
-      'editor', 'Editor', 'Create, edit and publish content across all connected accounts.', 'PenSquare', 'blue', 2, F,
-      F, F, F, F, // users
-      T, F, F, F, // roles: view only
-      T, T, T, T, // posts: view/write/publish/delete
-      T, F, F, F, // social accounts: view only
-      T, T, T, T, T, T, T, T, // ads, campaigns (view + create/edit/delete each)
-      T, // reportsView
-      T, T, T, T, T, T, T, T, // media, templates (view + create/edit/delete each)
-      F, F, F, F, // activity logs, settings
-    ],
-    [
-      'contributor', 'Contributor', 'Draft and submit content for approval; cannot publish directly.', 'Users', 'teal', 1, F,
-      F, F, F, F,
-      T, F, F, F, // roles: view only
-      T, T, F, F, // posts: view + write only, not publish/delete (still deletes own via the ownership carve-out)
-      T, F, F, F, // social accounts: view only
-      T, F, F, F, T, F, F, F, // ads, campaigns: view only
-      T,
-      T, T, T, T, T, F, F, F, // media yes, templates view-only
-      F, F, F, F,
-    ],
-    [
-      'analyst', 'Analyst', 'Read-only access to analytics and reporting.', 'BarChart3', 'slate', 1, F,
-      F, F, F, F,
-      T, F, F, F, // roles: view only
-      T, F, F, F, // posts: view only
-      T, F, F, F, // social accounts: view only
-      T, F, F, F, T, F, F, F, // ads, campaigns: view only
-      T,
-      T, F, F, F, T, F, F, F, // media, templates: view only
-      F, F, F, F,
-    ],
-  ];
-  const placeholders = (row, offset) => row.map((_, i) => `$${offset + i + 1}`).join(', ');
-  for (const row of ROLE_SEEDS) {
-    await query(
-      `INSERT INTO roles (${ROLE_COLUMNS}) VALUES (${placeholders(row, 0)})
-       ON CONFLICT (id) DO UPDATE SET ${ROLE_COLUMNS.split(', ')
-         .slice(1)
-         .map((column) => `${column} = excluded.${column}`)
-         .join(', ')}`,
-      row
-    );
+/**
+ * Runs one statement as the database owner (not the restricted app role), e.g. TRUNCATE ... RESTART
+ * IDENTITY, which only a sequence's owner may do. The connection is marked so pool.js re-applies
+ * the app role and organization the next time it is used.
+ */
+async function asDatabaseOwner(sql) {
+  const client = await pool.connect();
+  try {
+    await client.query('RESET ROLE');
+    await client.query(sql);
+  } finally {
+    client.roleName = undefined;
+    client.tenantKey = undefined;
+    client.release();
   }
-  // storage_settings and email_settings always have exactly one row (id=true); TRUNCATE would
-  // remove it, so reset them in place instead.
-  await query(
-    `UPDATE storage_settings SET server_enabled = true, external_enabled = false, limit_value = NULL, limit_unit = 'GB',
-        provider_key = NULL, provider_values = '{}', secret_hints = '{}', credentials = NULL,
-        connected_at = NULL, last_tested_at = NULL, last_test_message = NULL WHERE id = true`
+}
+
+/**
+ * Empties every table so each test file starts from a clean slate. Organizations (and with them
+ * every tenant row, roles and settings included) are re-created by the next sign-up.
+ */
+export async function resetDatabase() {
+  setFallbackContextForTests({ organizationId: null, system: true });
+  await asDatabaseOwner(
+    'TRUNCATE organizations, users, auth_tokens, settings, system_emails, system_email_translations, email_outbox, activity_logs, social_accounts, posts, post_targets, media_items, notifications, campaigns, recycling_entries, account_metrics_history, inbox_conversations, inbox_replies, ad_accounts, ad_campaigns, ad_sets, ad_creatives, ads, ad_daily_stats, ad_creative_templates, ad_rules, ad_rule_runs, short_links, short_link_clicks, roles, storage_settings, email_settings, subscriptions, payments, invoices, subscription_events, ai_provider_keys, ai_settings, ai_generations, ai_autopilots, platform_ai_keys, ai_brand_kits, ai_research_reports, ai_content_plans RESTART IDENTITY CASCADE'
   );
-  await query(
-    `UPDATE email_settings SET provider_key = NULL, provider_values = '{}', secret_hints = '{}', credentials = NULL,
-        connected_at = NULL, last_tested_at = NULL, last_test_message = NULL WHERE id = true`
-  );
+  // Feature tests start every new organization on Enterprise (no limits), so a plan limit never gets in
+  // the way of what they actually test. billing.test.js switches this back to check the limits themselves.
+  await query(`UPDATE platform_settings SET value = '{"trialPlanId": "enterprise", "trialDays": 3650}' WHERE id = true`);
   invalidateProviderCache();
-  await ensureEmailRows();
+}
+
+/** From now on, queries and service calls made directly by a test run inside this organization. */
+export function useOrganization(organizationId) {
+  setFallbackContextForTests({ organizationId, system: false });
 }
 
 export async function startServer() {
@@ -181,5 +132,7 @@ export async function setupOwner(baseUrl, overrides = {}) {
   const body = { name: 'Nitesh Owner', email: 'owner@example.com', password: PASSWORD, companyName: 'Acme', ...overrides };
   const response = await client.post('/auth/register', body);
   client.accessToken = response.body.accessToken;
+  // Tests that read/write the database directly now work inside this new organization.
+  if (response.body?.user?.organization?.id) useOrganization(response.body.user.organization.id);
   return { client, user: response.body.user, response };
 }

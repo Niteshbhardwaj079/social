@@ -8,19 +8,18 @@ import EmptyState from '../../components/common/EmptyState';
 import ErrorState from '../../components/common/ErrorState';
 import { getPosts } from '../../services/api/postsApi';
 import { CALENDAR_VIEW, REQUEST_STATUS } from '../../config/constants';
-import { getMonthGrid, getWeekDays, isSameDay, isSameMonth, WEEKDAY_LABELS } from '../../utils/calendarUtils';
-import { formatDate, formatDateTime } from '../../utils/formatters';
+import { getMonthGrid, getWeekDays, isSameDay, isSameMonth } from '../../utils/calendarUtils';
+import { formatDate, formatDateTime, formatMonthYear, formatWeekdayShort } from '../../utils/formatters';
 import useMediaQuery from '../../hooks/useMediaQuery';
 import { useI18n } from '../../i18n/useI18n';
 
-const VIEW_LABELS = {
-  [CALENDAR_VIEW.MONTH]: 'Month',
-  [CALENDAR_VIEW.WEEK]: 'Week',
-  [CALENDAR_VIEW.AGENDA]: 'Agenda',
-};
-
 function Calendar() {
   const { t } = useI18n();
+  const VIEW_LABELS = {
+    [CALENDAR_VIEW.MONTH]: t('posts.calendar.viewMonth'),
+    [CALENDAR_VIEW.WEEK]: t('posts.calendar.viewWeek'),
+    [CALENDAR_VIEW.AGENDA]: t('posts.calendar.viewAgenda'),
+  };
   const navigate = useNavigate();
   const isMobile = useMediaQuery('(max-width: 767px)');
 
@@ -71,7 +70,7 @@ function Calendar() {
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.calendar')} subtitle="Loading your scheduled content..." />
+        <PageHeader title={t('nav.calendar')} subtitle={t('posts.calendar.loading')} />
         <div className="skeleton-card" />
       </>
     );
@@ -99,7 +98,7 @@ function Calendar() {
         actions={
           <button type="button" className="btn btn-primary" onClick={() => navigate('/posts/create')}>
             <Icon name="PenSquare" size={16} />
-            Create Post
+            {t('nav.createPost')}
           </button>
         }
       />
@@ -110,26 +109,24 @@ function Calendar() {
             type="button"
             className="btn btn-icon-sm btn-outline-secondary-custom"
             onClick={() => shiftReferenceDate(-1)}
-            aria-label="Previous"
-            data-tooltip="Previous"
+            aria-label={t('posts.calendar.previous')}
+            data-tooltip={t('posts.calendar.previous')}
           >
             <Icon name="ChevronLeft" size={16} />
           </button>
           <button type="button" className="btn btn-sm btn-outline-secondary-custom" onClick={() => setReferenceDate(new Date())}>
-            Today
+            {t('posts.calendar.today')}
           </button>
           <button
             type="button"
             className="btn btn-icon-sm btn-outline-secondary-custom"
             onClick={() => shiftReferenceDate(1)}
-            aria-label="Next"
-            data-tooltip="Next"
+            aria-label={t('posts.calendar.next')}
+            data-tooltip={t('posts.calendar.next')}
           >
             <Icon name="ChevronRight" size={16} />
           </button>
-          <span className="fw-semibold ms-2">
-            {referenceDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-          </span>
+          <span className="fw-semibold ms-2">{formatMonthYear(referenceDate)}</span>
         </div>
 
         <div className="segmented-control">
@@ -149,9 +146,9 @@ function Calendar() {
       {view === CALENDAR_VIEW.MONTH ? (
         <div className="calendar-month">
           <div className="calendar-month__weekdays">
-            {WEEKDAY_LABELS.map((label) => (
-              <div key={label} className="calendar-month__weekday">
-                {label}
+            {monthWeeks[0].map((day) => (
+              <div key={day.toISOString()} className="calendar-month__weekday">
+                {formatWeekdayShort(day)}
               </div>
             ))}
           </div>
@@ -172,7 +169,7 @@ function Calendar() {
                           <span className="table-cell-truncate">{post.content}</span>
                         </button>
                       ))}
-                      {dayPosts.length > 2 ? <span className="calendar-month__more">+{dayPosts.length - 2} more</span> : null}
+                      {dayPosts.length > 2 ? <span className="calendar-month__more">{t('posts.calendar.moreCount', { count: dayPosts.length - 2 })}</span> : null}
                     </div>
                   </div>
                 );
@@ -189,12 +186,12 @@ function Calendar() {
             return (
               <div key={day.toISOString()} className={`calendar-week__day ${isSameDay(day, today) ? 'is-today' : ''}`.trim()}>
                 <div className="calendar-week__day-header">
-                  <span>{day.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                  <span>{formatWeekdayShort(day)}</span>
                   <span className="calendar-month__day-number">{day.getDate()}</span>
                 </div>
                 <div className="calendar-week__day-posts">
                   {dayPosts.length === 0 ? (
-                    <span className="small text-muted-custom">No posts</span>
+                    <span className="small text-muted-custom">{t('posts.calendar.noPosts')}</span>
                   ) : (
                     dayPosts.map((post) => (
                       <button key={post.id} type="button" className="calendar-month__post-chip" onClick={() => navigate(`/posts/${post.id}/edit`)}>
@@ -216,9 +213,9 @@ function Calendar() {
             {posts.length === 0 ? (
               <EmptyState
                 icon="CalendarDays"
-                title="Nothing scheduled"
-                description="Create a post and schedule it to see it here."
-                actionLabel="Create Post"
+                title={t('posts.calendar.emptyTitle')}
+                description={t('posts.calendar.emptyText')}
+                actionLabel={t('nav.createPost')}
                 onAction={() => navigate('/posts/create')}
               />
             ) : (

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import Icon from './Icon';
+import { useI18n } from '../../i18n/useI18n';
 
 const ToastContext = createContext(null);
 
@@ -12,6 +13,7 @@ const TOAST_ICON_BY_TYPE = {
 const TOAST_AUTO_DISMISS_MS = 4500;
 
 export function ToastProvider({ children }) {
+  const { t } = useI18n();
   const [toasts, setToasts] = useState([]);
 
   const dismissToast = useCallback((id) => {
@@ -46,7 +48,7 @@ export function ToastProvider({ children }) {
               type="button"
               className="toast-item__close"
               onClick={() => dismissToast(toast.id)}
-              aria-label="Dismiss notification"
+              aria-label={t('common.close')}
             >
               <Icon name="X" size={16} />
             </button>

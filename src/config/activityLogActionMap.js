@@ -1,119 +1,182 @@
 /**
  * Translates the backend's raw activity_logs rows (dot-namespaced action strings like `post.published`,
  * a raw `meta` jsonb blob) into the flat shape the Activity Logs page renders (actionType/section/target/
- * details). One entry per real action string that `recordActivity()` is ever called with across the API —
- * see `backend/src/services/*.js` for the source of truth. An action not listed here (only possible if the
- * backend adds a new one and this map is not updated to match) falls back to something generic rather than
- * crashing the page.
+ * detailsKey+detailsVars). One entry per real action string that `recordActivity()` is ever called with
+ * across the API — see `backend/src/services/*.js` for the source of truth. An action not listed here (only
+ * possible if the backend adds a new one and this map is not updated to match) falls back to something
+ * generic rather than crashing the page.
+ *
+ * `details()` used to return a pre-built English sentence; it now returns a translation key (resolved via
+ * t() at render time, since this module runs outside React and has no access to the active language) plus
+ * the interpolation vars for that key. Where the original had an English fallback word for missing data
+ * (e.g. "a file", "a user"), that's now a separate key picked here rather than a hardcoded default.
  */
 const map = {
-  'workspace.created': { actionType: 'created', section: 'Users', target: () => 'Workspace', details: () => 'Created the workspace and became the first Super Admin' },
-  'auth.login': { actionType: 'login', section: 'Users', target: () => '', details: () => 'Signed in' },
-  'auth.login_failed': { actionType: 'login_failed', section: 'Users', target: () => '', details: () => 'Failed sign-in attempt' },
-  'auth.password_reset_requested': { actionType: 'updated', section: 'Users', target: () => '', details: () => 'Requested a password reset link' },
-  'auth.password_reset': { actionType: 'updated', section: 'Users', target: () => '', details: () => 'Reset their password using the emailed link' },
-  'auth.invite_accepted': { actionType: 'created', section: 'Users', target: () => '', details: () => 'Accepted their invitation and set a password' },
-  'auth.password_changed': { actionType: 'updated', section: 'Users', target: () => '', details: () => 'Changed their password' },
-  'auth.2fa_enabled': { actionType: 'enabled', section: 'Users', target: () => '', details: () => 'Turned on two-factor authentication' },
-  'auth.2fa_disabled': { actionType: 'disabled', section: 'Users', target: () => '', details: () => 'Turned off two-factor authentication' },
-  'auth.2fa_backup_codes_regenerated': { actionType: 'updated', section: 'Users', target: () => '', details: () => 'Regenerated their two-factor backup codes' },
-  'auth.2fa_failed': { actionType: 'login_failed', section: 'Users', target: () => '', details: () => 'Failed two-factor authentication code' },
-  'user.invited': { actionType: 'created', section: 'Users', target: (e) => e.meta?.email || '', details: (e) => `Invited ${e.meta?.email || 'a user'}${e.meta?.role ? ` as ${e.meta.role}` : ''}` },
-  'user.updated': { actionType: 'updated', section: 'Users', target: () => '', details: (e) => `Updated: ${Object.keys(e.meta || {}).join(', ') || 'profile'}` },
-  'user.deleted': { actionType: 'deleted', section: 'Users', target: () => '', details: () => 'Removed a user account' },
-  'role.created': { actionType: 'created', section: 'Roles', target: (e) => e.meta?.name || '', details: (e) => `Created the role "${e.meta?.name || ''}"` },
-  'role.updated': { actionType: 'updated', section: 'Roles', target: (e) => e.meta?.name || '', details: (e) => `Updated the role "${e.meta?.name || ''}"` },
-  'role.deleted': { actionType: 'deleted', section: 'Roles', target: (e) => e.meta?.name || '', details: (e) => `Deleted the role "${e.meta?.name || ''}"` },
+  'workspace.created': { actionType: 'created', section: 'Users', target: () => 'Workspace', detailsKey: () => 'activityLogs.details.wsCreated' },
+  'auth.login': { actionType: 'login', section: 'Users', target: () => '', detailsKey: () => 'activityLogs.actions.login' },
+  'auth.login_failed': { actionType: 'login_failed', section: 'Users', target: () => '', detailsKey: () => 'activityLogs.details.loginFailedAttempt' },
+  'auth.password_reset_requested': { actionType: 'updated', section: 'Users', target: () => '', detailsKey: () => 'activityLogs.details.passwordResetRequested' },
+  'auth.password_reset': { actionType: 'updated', section: 'Users', target: () => '', detailsKey: () => 'activityLogs.details.passwordReset' },
+  'auth.invite_accepted': { actionType: 'created', section: 'Users', target: () => '', detailsKey: () => 'activityLogs.details.inviteAccepted' },
+  'auth.password_changed': { actionType: 'updated', section: 'Users', target: () => '', detailsKey: () => 'activityLogs.details.passwordChanged' },
+  'auth.2fa_enabled': { actionType: 'enabled', section: 'Users', target: () => '', detailsKey: () => 'activityLogs.details.twoFaEnabled' },
+  'auth.2fa_disabled': { actionType: 'disabled', section: 'Users', target: () => '', detailsKey: () => 'activityLogs.details.twoFaDisabled' },
+  'auth.2fa_backup_codes_regenerated': { actionType: 'updated', section: 'Users', target: () => '', detailsKey: () => 'activityLogs.details.twoFaBackupRegenerated' },
+  'auth.2fa_failed': { actionType: 'login_failed', section: 'Users', target: () => '', detailsKey: () => 'activityLogs.details.twoFaFailed' },
+  'user.invited': {
+    actionType: 'created',
+    section: 'Users',
+    target: (e) => e.meta?.email || '',
+    detailsKey: (e) => (e.meta?.email ? (e.meta?.role ? 'activityLogs.details.userInvitedWithRole' : 'activityLogs.details.userInvitedEmail') : 'activityLogs.details.userInvitedGeneric'),
+    detailsVars: (e) => ({ email: e.meta?.email, role: e.meta?.role }),
+  },
+  'user.updated': {
+    actionType: 'updated',
+    section: 'Users',
+    target: () => '',
+    detailsKey: (e) => (Object.keys(e.meta || {}).length ? 'activityLogs.details.userUpdatedFields' : 'activityLogs.details.userUpdatedGeneric'),
+    detailsVars: (e) => ({ fields: Object.keys(e.meta || {}).join(', ') }),
+  },
+  'user.deleted': { actionType: 'deleted', section: 'Users', target: () => '', detailsKey: () => 'activityLogs.details.userDeleted' },
+  'role.created': { actionType: 'created', section: 'Roles', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.roleCreated', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'role.updated': { actionType: 'updated', section: 'Roles', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.roleUpdated', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'role.deleted': { actionType: 'deleted', section: 'Roles', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.roleDeleted', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
 
-  'email.template_saved': { actionType: 'updated', section: 'System Emails', target: (e) => e.meta?.language || '', details: (e) => `Saved the ${e.meta?.language || ''} translation` },
-  'email.template_reset': { actionType: 'updated', section: 'System Emails', target: (e) => e.meta?.language || '', details: (e) => `Reset the ${e.meta?.language || ''} translation to default` },
-  'email.enabled': { actionType: 'enabled', section: 'System Emails', target: () => '', details: () => 'Turned this email on' },
-  'email.disabled': { actionType: 'disabled', section: 'System Emails', target: () => '', details: () => 'Turned this email off' },
-  'email.image_uploaded': { actionType: 'created', section: 'System Emails', target: () => '', details: () => 'Uploaded an image for this email' },
-  'email.image_removed': { actionType: 'deleted', section: 'System Emails', target: () => '', details: () => 'Removed an image from this email' },
+  'email.template_saved': { actionType: 'updated', section: 'System Emails', target: (e) => e.meta?.language || '', detailsKey: () => 'activityLogs.details.emailTemplateSaved', detailsVars: (e) => ({ language: e.meta?.language || '' }) },
+  'email.template_reset': { actionType: 'updated', section: 'System Emails', target: (e) => e.meta?.language || '', detailsKey: () => 'activityLogs.details.emailTemplateReset', detailsVars: (e) => ({ language: e.meta?.language || '' }) },
+  'email.enabled': { actionType: 'enabled', section: 'System Emails', target: () => '', detailsKey: () => 'activityLogs.details.emailEnabled' },
+  'email.disabled': { actionType: 'disabled', section: 'System Emails', target: () => '', detailsKey: () => 'activityLogs.details.emailDisabled' },
+  'email.image_uploaded': { actionType: 'created', section: 'System Emails', target: () => '', detailsKey: () => 'activityLogs.details.emailImageUploaded' },
+  'email.image_removed': { actionType: 'deleted', section: 'System Emails', target: () => '', detailsKey: () => 'activityLogs.details.emailImageRemoved' },
 
-  'settings.languages_updated': { actionType: 'updated', section: 'Settings', target: () => 'Languages', details: () => 'Updated enabled languages' },
-  'settings.workspace_updated': { actionType: 'updated', section: 'Settings', target: () => 'Workspace', details: () => 'Updated workspace details' },
+  'settings.languages_updated': { actionType: 'updated', section: 'Settings', target: () => 'Languages', detailsKey: () => 'activityLogs.details.settingsLanguagesUpdated' },
+  'settings.workspace_updated': { actionType: 'updated', section: 'Settings', target: () => 'Workspace', detailsKey: () => 'activityLogs.details.settingsWorkspaceUpdated' },
 
-  'media.uploaded': { actionType: 'created', section: 'Media Library', target: (e) => e.meta?.name || '', details: (e) => `Uploaded ${e.meta?.name || 'a file'}` },
-  'media.linked': { actionType: 'created', section: 'Media Library', target: (e) => e.meta?.name || '', details: (e) => `Linked ${e.meta?.name || 'an external image'}` },
-  'media.replaced': { actionType: 'updated', section: 'Media Library', target: (e) => e.meta?.name || '', details: (e) => `Replaced ${e.meta?.name || 'a file'}` },
-  'media.deleted': { actionType: 'deleted', section: 'Media Library', target: (e) => e.meta?.name || '', details: (e) => `Deleted ${e.meta?.name || 'a file'}` },
+  'media.uploaded': { actionType: 'created', section: 'Media Library', target: (e) => e.meta?.name || '', detailsKey: (e) => (e.meta?.name ? 'activityLogs.details.mediaUploadedNamed' : 'activityLogs.details.mediaUploadedGeneric'), detailsVars: (e) => ({ name: e.meta?.name }) },
+  'media.linked': { actionType: 'created', section: 'Media Library', target: (e) => e.meta?.name || '', detailsKey: (e) => (e.meta?.name ? 'activityLogs.details.mediaLinkedNamed' : 'activityLogs.details.mediaLinkedGeneric'), detailsVars: (e) => ({ name: e.meta?.name }) },
+  'media.replaced': { actionType: 'updated', section: 'Media Library', target: (e) => e.meta?.name || '', detailsKey: (e) => (e.meta?.name ? 'activityLogs.details.mediaReplacedNamed' : 'activityLogs.details.mediaReplacedGeneric'), detailsVars: (e) => ({ name: e.meta?.name }) },
+  'media.deleted': { actionType: 'deleted', section: 'Media Library', target: (e) => e.meta?.name || '', detailsKey: (e) => (e.meta?.name ? 'activityLogs.details.mediaDeletedNamed' : 'activityLogs.details.mediaDeletedGeneric'), detailsVars: (e) => ({ name: e.meta?.name }) },
 
-  'campaign.created': { actionType: 'created', section: 'Campaigns', target: (e) => e.meta?.name || '', details: (e) => `Created campaign "${e.meta?.name || ''}"` },
-  'campaign.updated': { actionType: 'updated', section: 'Campaigns', target: (e) => e.meta?.name || '', details: (e) => `Updated campaign "${e.meta?.name || ''}"` },
-  'campaign.deleted': { actionType: 'deleted', section: 'Campaigns', target: (e) => e.meta?.name || '', details: (e) => `Deleted campaign "${e.meta?.name || ''}"` },
+  'campaign.created': { actionType: 'created', section: 'Campaigns', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.campaignCreated', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'campaign.updated': { actionType: 'updated', section: 'Campaigns', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.campaignUpdated', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'campaign.deleted': { actionType: 'deleted', section: 'Campaigns', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.campaignDeleted', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
 
-  'ads.accounts_synced': { actionType: 'synced', section: 'Ads', target: () => 'Ad accounts', details: (e) => `Synced ad accounts — found ${e.meta?.found ?? 0}` },
-  'ads.launched': { actionType: 'launched', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Launched ad "${e.meta?.name || ''}"` },
-  'ads.boosted_post': { actionType: 'launched', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Boosted an existing post as "${e.meta?.name || ''}"` },
-  'ads.saved_draft': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Saved ad draft "${e.meta?.name || ''}"` },
-  'ads.bulk_launched': { actionType: 'launched', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Launched ${e.meta?.count ?? ''} ad variations for "${e.meta?.name || ''}"` },
-  'ads.bulk_saved_draft': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Saved ${e.meta?.count ?? ''} ad variations as drafts for "${e.meta?.name || ''}"` },
-  'ads.paused': { actionType: 'paused', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Paused "${e.meta?.name || ''}"` },
-  'ads.resumed': { actionType: 'resumed', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Resumed "${e.meta?.name || ''}"` },
-  'ads.deleted': { actionType: 'deleted', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Deleted "${e.meta?.name || ''}"` },
-  'ads.template_saved': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Saved creative template "${e.meta?.name || ''}"` },
-  'ads.template_updated': { actionType: 'updated', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Updated creative template "${e.meta?.name || ''}"` },
-  'ads.template_deleted': { actionType: 'deleted', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Deleted creative template "${e.meta?.name || ''}"` },
-  'ads.rule_created': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Created automated rule "${e.meta?.name || ''}"` },
-  'ads.rule_updated': { actionType: 'updated', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Updated automated rule "${e.meta?.name || ''}"${e.meta?.isActive === false ? ' (turned off)' : ''}` },
-  'ads.rule_deleted': { actionType: 'deleted', section: 'Ads', target: (e) => e.meta?.name || '', details: (e) => `Deleted automated rule "${e.meta?.name || ''}"` },
+  'ads.accounts_synced': { actionType: 'synced', section: 'Ads', target: () => 'Ad accounts', detailsKey: () => 'activityLogs.details.adsAccountsSynced', detailsVars: (e) => ({ found: e.meta?.found ?? 0 }) },
+  'ads.launched': { actionType: 'launched', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsLaunched', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'ads.boosted_post': { actionType: 'launched', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsBoostedPost', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'ads.saved_draft': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsSavedDraft', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'ads.bulk_launched': { actionType: 'launched', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsBulkLaunched', detailsVars: (e) => ({ count: e.meta?.count ?? '', name: e.meta?.name || '' }) },
+  'ads.bulk_saved_draft': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsBulkSavedDraft', detailsVars: (e) => ({ count: e.meta?.count ?? '', name: e.meta?.name || '' }) },
+  'ads.paused': { actionType: 'paused', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsPaused', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'ads.resumed': { actionType: 'resumed', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsResumed', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'ads.deleted': { actionType: 'deleted', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsDeleted', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'ads.template_saved': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsTemplateSaved', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'ads.template_updated': { actionType: 'updated', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsTemplateUpdated', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'ads.template_deleted': { actionType: 'deleted', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsTemplateDeleted', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'ads.rule_created': { actionType: 'created', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsRuleCreated', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
+  'ads.rule_updated': {
+    actionType: 'updated',
+    section: 'Ads',
+    target: (e) => e.meta?.name || '',
+    detailsKey: (e) => (e.meta?.isActive === false ? 'activityLogs.details.adsRuleUpdatedOff' : 'activityLogs.details.adsRuleUpdated'),
+    detailsVars: (e) => ({ name: e.meta?.name || '' }),
+  },
+  'ads.rule_deleted': { actionType: 'deleted', section: 'Ads', target: (e) => e.meta?.name || '', detailsKey: () => 'activityLogs.details.adsRuleDeleted', detailsVars: (e) => ({ name: e.meta?.name || '' }) },
   'ads.rule_fired': {
     actionType: 'automated',
     section: 'Ads',
     target: (e) => e.meta?.ruleName || '',
-    details: (e) => `Rule "${e.meta?.ruleName || ''}" ${e.meta?.ruleAction === 'pause' ? 'paused' : 'resumed'} an ad (${e.meta?.metric} ${e.meta?.comparator === 'gt' ? '>' : '<'} ${e.meta?.threshold})`,
+    detailsKey: (e) => (e.meta?.ruleAction === 'pause' ? 'activityLogs.details.adsRuleFiredPause' : 'activityLogs.details.adsRuleFiredResume'),
+    detailsVars: (e) => ({
+      ruleName: e.meta?.ruleName || '',
+      metric: e.meta?.metric,
+      comparator: e.meta?.comparator === 'gt' ? '>' : '<',
+      threshold: e.meta?.threshold,
+    }),
   },
 
-  'storage.connected': { actionType: 'connected', section: 'Storage', target: (e) => e.entityId || '', details: (e) => `Connected ${e.entityId || 'a storage provider'}` },
-  'storage.disconnected': { actionType: 'disconnected', section: 'Storage', target: () => '', details: () => 'Disconnected the storage provider' },
-  'storage.preferences_updated': { actionType: 'updated', section: 'Storage', target: () => '', details: () => 'Updated storage preferences' },
+  'storage.connected': { actionType: 'connected', section: 'Storage', target: (e) => e.entityId || '', detailsKey: (e) => (e.entityId ? 'activityLogs.details.storageConnectedNamed' : 'activityLogs.details.storageConnectedGeneric'), detailsVars: (e) => ({ provider: e.entityId }) },
+  'storage.disconnected': { actionType: 'disconnected', section: 'Storage', target: () => '', detailsKey: () => 'activityLogs.details.storageDisconnected' },
+  'storage.preferences_updated': { actionType: 'updated', section: 'Storage', target: () => '', detailsKey: () => 'activityLogs.details.storagePreferencesUpdated' },
 
-  'post.created': { actionType: 'created', section: 'Posts', target: (e) => e.meta?.snippet || '', details: (e) => `Created a post: "${e.meta?.snippet || ''}"` },
-  'post.updated': { actionType: 'updated', section: 'Posts', target: (e) => e.meta?.snippet || '', details: (e) => `Updated a post: "${e.meta?.snippet || ''}"` },
-  'post.deleted': { actionType: 'deleted', section: 'Posts', target: (e) => e.meta?.snippet || '', details: (e) => `Deleted a post: "${e.meta?.snippet || ''}"` },
-  'post.approved': { actionType: 'approved', section: 'Approvals', target: (e) => e.meta?.snippet || '', details: (e) => `Approved: "${e.meta?.snippet || ''}"` },
-  'post.rejected': { actionType: 'rejected', section: 'Approvals', target: (e) => e.meta?.snippet || '', details: (e) => `Rejected: "${e.meta?.snippet || ''}"${e.meta?.reason ? ` — ${e.meta.reason}` : ''}` },
-  'post.published': { actionType: 'published', section: 'Posts', target: (e) => e.meta?.snippet || '', details: (e) => `Published: "${e.meta?.snippet || ''}"` },
-  'post.failed': { actionType: 'failed', section: 'Posts', target: (e) => e.meta?.snippet || '', details: (e) => `Failed to publish: "${e.meta?.snippet || ''}"` },
-  'post.retried': { actionType: 'retried', section: 'Posts', target: (e) => e.meta?.snippet || '', details: (e) => `Retried: "${e.meta?.snippet || ''}"` },
+  'post.created': { actionType: 'created', section: 'Posts', target: (e) => e.meta?.snippet || '', detailsKey: () => 'activityLogs.details.postCreated', detailsVars: (e) => ({ snippet: e.meta?.snippet || '' }) },
+  'post.updated': { actionType: 'updated', section: 'Posts', target: (e) => e.meta?.snippet || '', detailsKey: () => 'activityLogs.details.postUpdated', detailsVars: (e) => ({ snippet: e.meta?.snippet || '' }) },
+  'post.deleted': { actionType: 'deleted', section: 'Posts', target: (e) => e.meta?.snippet || '', detailsKey: () => 'activityLogs.details.postDeleted', detailsVars: (e) => ({ snippet: e.meta?.snippet || '' }) },
+  'post.approved': { actionType: 'approved', section: 'Approvals', target: (e) => e.meta?.snippet || '', detailsKey: () => 'activityLogs.details.postApproved', detailsVars: (e) => ({ snippet: e.meta?.snippet || '' }) },
+  'post.rejected': {
+    actionType: 'rejected',
+    section: 'Approvals',
+    target: (e) => e.meta?.snippet || '',
+    detailsKey: (e) => (e.meta?.reason ? 'activityLogs.details.postRejectedWithReason' : 'activityLogs.details.postRejected'),
+    detailsVars: (e) => ({ snippet: e.meta?.snippet || '', reason: e.meta?.reason }),
+  },
+  'post.published': { actionType: 'published', section: 'Posts', target: (e) => e.meta?.snippet || '', detailsKey: () => 'activityLogs.details.postPublished', detailsVars: (e) => ({ snippet: e.meta?.snippet || '' }) },
+  'post.failed': { actionType: 'failed', section: 'Posts', target: (e) => e.meta?.snippet || '', detailsKey: () => 'activityLogs.details.postFailed', detailsVars: (e) => ({ snippet: e.meta?.snippet || '' }) },
+  'post.retried': { actionType: 'retried', section: 'Posts', target: (e) => e.meta?.snippet || '', detailsKey: () => 'activityLogs.details.postRetried', detailsVars: (e) => ({ snippet: e.meta?.snippet || '' }) },
 
-  'recycling.added': { actionType: 'created', section: 'Content Recycling', target: (e) => e.meta?.snippet || '', details: (e) => `Added to recycling: "${e.meta?.snippet || ''}"` },
+  'recycling.added': { actionType: 'created', section: 'Content Recycling', target: (e) => e.meta?.snippet || '', detailsKey: () => 'activityLogs.details.recyclingAdded', detailsVars: (e) => ({ snippet: e.meta?.snippet || '' }) },
   'recycling.updated': {
     actionType: 'updated',
     section: 'Content Recycling',
     target: () => '',
-    details: (e) => (e.meta?.bulk ? `Updated ${e.meta.count} recycling ${e.meta.count === 1 ? 'entry' : 'entries'}` : 'Updated a recycling entry'),
+    detailsKey: (e) => (e.meta?.bulk ? (e.meta.count === 1 ? 'activityLogs.details.recyclingUpdatedBulkOne' : 'activityLogs.details.recyclingUpdatedBulkOther') : 'activityLogs.details.recyclingUpdatedSingle'),
+    detailsVars: (e) => ({ count: e.meta?.count }),
   },
   'recycling.removed': {
     actionType: 'deleted',
     section: 'Content Recycling',
     target: () => '',
-    details: (e) => (e.meta?.bulk ? `Removed ${e.meta.count} recycling ${e.meta.count === 1 ? 'entry' : 'entries'}` : 'Removed a recycling entry'),
+    detailsKey: (e) => (e.meta?.bulk ? (e.meta.count === 1 ? 'activityLogs.details.recyclingRemovedBulkOne' : 'activityLogs.details.recyclingRemovedBulkOther') : 'activityLogs.details.recyclingRemovedSingle'),
+    detailsVars: (e) => ({ count: e.meta?.count }),
   },
-  'recycling.reposted': { actionType: 'published', section: 'Content Recycling', target: () => '', details: () => 'Automatically reposted a recycled post' },
+  'recycling.reposted': { actionType: 'published', section: 'Content Recycling', target: () => '', detailsKey: () => 'activityLogs.details.recyclingReposted' },
 
-  'social.connected': { actionType: 'connected', section: 'Social Accounts', target: (e) => e.entityId || '', details: (e) => `Connected ${e.entityId}${e.meta?.accountName ? ` (${e.meta.accountName})` : ''}` },
-  'social.disconnected': { actionType: 'disconnected', section: 'Social Accounts', target: (e) => e.entityId || '', details: (e) => `Disconnected ${e.entityId}` },
-  'social.token_expired': { actionType: 'needs_attention', section: 'Social Accounts', target: (e) => e.entityId || '', details: () => 'Token expired — needs reconnecting' },
-  'social.revoked': { actionType: 'needs_attention', section: 'Social Accounts', target: (e) => e.entityId || '', details: () => 'Access was revoked — needs reconnecting' },
-  'social.auth_error': { actionType: 'needs_attention', section: 'Social Accounts', target: (e) => e.entityId || '', details: (e) => e.meta?.message || 'The platform refused the saved credentials' },
-  'social.error': { actionType: 'needs_attention', section: 'Social Accounts', target: (e) => e.entityId || '', details: (e) => e.meta?.message || 'This account needs attention' },
+  'social.connected': {
+    actionType: 'connected',
+    section: 'Social Accounts',
+    target: (e) => e.entityId || '',
+    detailsKey: (e) => (e.meta?.accountName ? 'activityLogs.details.socialConnectedNamed' : 'activityLogs.details.socialConnectedGeneric'),
+    detailsVars: (e) => ({ entityId: e.entityId, accountName: e.meta?.accountName }),
+  },
+  'social.disconnected': { actionType: 'disconnected', section: 'Social Accounts', target: (e) => e.entityId || '', detailsKey: () => 'activityLogs.details.socialDisconnected', detailsVars: (e) => ({ entityId: e.entityId }) },
+  'social.token_expired': { actionType: 'needs_attention', section: 'Social Accounts', target: (e) => e.entityId || '', detailsKey: () => 'activityLogs.details.socialTokenExpired' },
+  'social.revoked': { actionType: 'needs_attention', section: 'Social Accounts', target: (e) => e.entityId || '', detailsKey: () => 'activityLogs.details.socialRevoked' },
+  'social.auth_error': {
+    actionType: 'needs_attention',
+    section: 'Social Accounts',
+    target: (e) => e.entityId || '',
+    detailsKey: () => 'activityLogs.details.socialAuthErrorGeneric',
+    rawDetails: (e) => e.meta?.message || null,
+  },
+  'social.error': {
+    actionType: 'needs_attention',
+    section: 'Social Accounts',
+    target: (e) => e.entityId || '',
+    detailsKey: () => 'activityLogs.details.socialErrorGeneric',
+    rawDetails: (e) => e.meta?.message || null,
+  },
 };
 
-const fallback = { actionType: 'updated', section: 'Settings', target: () => '', details: (e) => e.action };
+const fallback = { actionType: 'updated', section: 'Settings', target: () => '', rawDetails: (e) => e.action };
 
-/** Maps one raw backend activity_logs row into the flat shape ActivityLogs.jsx expects. */
+/**
+ * Maps one raw backend activity_logs row into the flat shape ActivityLogs.jsx expects. `details` carries a
+ * raw, already-final string only for the handful of entries whose text comes straight from the backend/platform
+ * (an API error message, an unmapped raw action string) and can't be a translation key; otherwise it's null and
+ * the page resolves `detailsKey`/`detailsVars` via t() at render time.
+ */
 export function mapActivityLogEntry(entry) {
   const rule = map[entry.action] || fallback;
+  const rawDetails = rule.rawDetails ? rule.rawDetails(entry) : null;
   return {
     id: String(entry.id),
-    user: entry.actor?.name || 'System',
+    user: entry.actor?.name || '',
     actionType: rule.actionType,
     section: rule.section,
     target: rule.target(entry),
-    details: rule.details(entry),
+    details: rawDetails,
+    detailsKey: rawDetails ? null : rule.detailsKey ? rule.detailsKey(entry) : null,
+    detailsVars: rule.detailsVars ? rule.detailsVars(entry) : undefined,
     time: entry.createdAt,
     device: entry.device || '',
     ip: entry.ip || '',

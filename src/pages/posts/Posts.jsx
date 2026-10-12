@@ -19,26 +19,18 @@ import { getPosts, deletePost, deletePosts, updatePostsStatus, retryPost, approv
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { API_ENABLED } from '../../config/runtime';
 import { getPlatformByKey } from '../../config/platforms';
-import { POST_STATUS, POST_STATUS_LABELS, REQUEST_STATUS } from '../../config/constants';
+import { POST_STATUS, REQUEST_STATUS } from '../../config/constants';
 import { formatDateTime } from '../../utils/formatters';
 import { useToast } from '../../components/common/ToastProvider';
 import useMediaQuery from '../../hooks/useMediaQuery';
 import { useI18n } from '../../i18n/useI18n';
 
-// "Publishing" only exists when a server is really sending posts.
-const STATUS_FILTERS = [
-  { value: 'all', label: 'All' },
-  ...Object.values(POST_STATUS)
-    .filter((status) => API_ENABLED || status !== POST_STATUS.PUBLISHING)
-    .map((status) => ({ value: status, label: POST_STATUS_LABELS[status] })),
-];
-
 // Who may approve, reject and retry (the server checks this too).
 const REVIEWER_ROLES = ['superAdmin', 'admin', 'editor'];
 
 /** The one thing worth telling the reader about a post that did not go out: what went wrong. */
-function problemText(post) {
-  if (post.status === POST_STATUS.REJECTED && post.rejectionReason) return `Rejected: ${post.rejectionReason}`;
+function problemText(post, t) {
+  if (post.status === POST_STATUS.REJECTED && post.rejectionReason) return t('posts.rejectedPrefix', { reason: post.rejectionReason });
   if (post.status !== POST_STATUS.FAILED) return '';
   const failed = post.targets?.find((target) => target.status === 'failed');
   return failed ? `${getPlatformByKey(failed.platform)?.label || failed.platform}: ${failed.error}` : '';
@@ -62,6 +54,14 @@ function Posts() {
   const selection = useRowSelection();
   const role = useSelector((state) => state.auth.currentUser?.role);
   const canReview = API_ENABLED && REVIEWER_ROLES.includes(role);
+
+  // "Publishing" only exists when a server is really sending posts.
+  const statusFilters = [
+    { value: 'all', label: t('table.all') },
+    ...Object.values(POST_STATUS)
+      .filter((status) => API_ENABLED || status !== POST_STATUS.PUBLISHING)
+      .map((status) => ({ value: status, label: t(`common.status.${status}`) })),
+  ];
 
   function loadPosts() {
     setRequestStatus(REQUEST_STATUS.LOADING);
@@ -105,13 +105,13 @@ function Posts() {
 
   // Clicking a card filters the list to that status; clicking it again clears the filter.
   const statCards = [
-    { key: 'all', label: 'Total Posts', value: posts.length, icon: 'FileText', tone: 'primary', filter: 'all' },
-    { key: POST_STATUS.DRAFT, label: 'Draft', value: statusCounts[POST_STATUS.DRAFT] || 0, icon: 'PenLine', tone: 'slate', filter: POST_STATUS.DRAFT },
-    { key: POST_STATUS.SCHEDULED, label: 'Scheduled', value: statusCounts[POST_STATUS.SCHEDULED] || 0, icon: 'CalendarClock', tone: 'sky', filter: POST_STATUS.SCHEDULED },
-    { key: POST_STATUS.PUBLISHED, label: 'Published', value: statusCounts[POST_STATUS.PUBLISHED] || 0, icon: 'CheckCircle2', tone: 'green', filter: POST_STATUS.PUBLISHED },
-    { key: POST_STATUS.PENDING_APPROVAL, label: 'Pending Approval', value: statusCounts[POST_STATUS.PENDING_APPROVAL] || 0, icon: 'Hourglass', tone: 'amber', filter: POST_STATUS.PENDING_APPROVAL },
-    { key: POST_STATUS.FAILED, label: 'Failed', value: statusCounts[POST_STATUS.FAILED] || 0, icon: 'AlertOctagon', tone: 'red', filter: POST_STATUS.FAILED },
-    { key: POST_STATUS.REJECTED, label: 'Rejected', value: statusCounts[POST_STATUS.REJECTED] || 0, icon: 'XCircle', tone: 'purple', filter: POST_STATUS.REJECTED },
+    { key: 'all', label: t('posts.totalPosts'), value: posts.length, icon: 'FileText', tone: 'primary', filter: 'all' },
+    { key: POST_STATUS.DRAFT, label: t('common.status.draft'), value: statusCounts[POST_STATUS.DRAFT] || 0, icon: 'PenLine', tone: 'slate', filter: POST_STATUS.DRAFT },
+    { key: POST_STATUS.SCHEDULED, label: t('common.status.scheduled'), value: statusCounts[POST_STATUS.SCHEDULED] || 0, icon: 'CalendarClock', tone: 'sky', filter: POST_STATUS.SCHEDULED },
+    { key: POST_STATUS.PUBLISHED, label: t('common.status.published'), value: statusCounts[POST_STATUS.PUBLISHED] || 0, icon: 'CheckCircle2', tone: 'green', filter: POST_STATUS.PUBLISHED },
+    { key: POST_STATUS.PENDING_APPROVAL, label: t('common.status.pendingApproval'), value: statusCounts[POST_STATUS.PENDING_APPROVAL] || 0, icon: 'Hourglass', tone: 'amber', filter: POST_STATUS.PENDING_APPROVAL },
+    { key: POST_STATUS.FAILED, label: t('common.status.failed'), value: statusCounts[POST_STATUS.FAILED] || 0, icon: 'AlertOctagon', tone: 'red', filter: POST_STATUS.FAILED },
+    { key: POST_STATUS.REJECTED, label: t('common.status.rejected'), value: statusCounts[POST_STATUS.REJECTED] || 0, icon: 'XCircle', tone: 'purple', filter: POST_STATUS.REJECTED },
   ].map(({ filter, ...card }) => ({
     ...card,
     isActive: statusFilter === filter,
@@ -123,8 +123,8 @@ function Posts() {
   }
 
   // The server may skip posts this person cannot change; a reload shows what really happened.
-  function noun(count) {
-    return `${count} ${count === 1 ? 'post' : 'posts'}`;
+  function countText(count, oneKey, otherKey) {
+    return t(count === 1 ? oneKey : otherKey, { count });
   }
 
   function handleBulkDeleteConfirmed() {
@@ -135,8 +135,8 @@ function Posts() {
         setIsBulkDeleteOpen(false);
         showToast({
           type: skipped ? 'info' : 'success',
-          title: `${noun(deleted)} deleted`,
-          message: skipped ? `${noun(skipped)} could not be deleted (not yours, or being published).` : undefined,
+          title: countText(deleted, 'posts.deletedCountOne', 'posts.deletedCountOther'),
+          message: skipped ? countText(skipped, 'posts.skippedDeleteOne', 'posts.skippedDeleteOther') : undefined,
         });
         refreshPosts();
       })
@@ -149,7 +149,7 @@ function Posts() {
   function handleBulkMoveToDraft() {
     const ids = [...selection.selectedIds].filter((id) => posts.find((post) => post.id === id)?.status !== POST_STATUS.PUBLISHED);
     if (ids.length === 0) {
-      showToast({ type: 'info', title: 'Nothing to move', message: 'Published posts stay published.' });
+      showToast({ type: 'info', title: t('posts.nothingToMove'), message: t('posts.nothingToMoveText') });
       return;
     }
     updatePostsStatus(ids, POST_STATUS.DRAFT)
@@ -157,8 +157,8 @@ function Posts() {
         selection.clear();
         showToast({
           type: skipped ? 'info' : 'success',
-          title: `${noun(updated)} moved to draft`,
-          message: skipped ? `${noun(skipped)} could not be moved.` : undefined,
+          title: countText(updated, 'posts.movedCountOne', 'posts.movedCountOther'),
+          message: skipped ? countText(skipped, 'posts.skippedMoveOne', 'posts.skippedMoveOther') : undefined,
         });
         refreshPosts();
       })
@@ -171,7 +171,7 @@ function Posts() {
       .then(() => {
         setPosts((current) => current.filter((post) => post.id !== postPendingDelete.id));
         setPostPendingDelete(null);
-        showToast({ type: 'success', title: 'Post deleted' });
+        showToast({ type: 'success', title: t('posts.postDeleted') });
       })
       .catch((error) => {
         setPostPendingDelete(null);
@@ -186,7 +186,7 @@ function Posts() {
       .then((updated) => {
         setPosts((current) => current.map((item) => (item.id === updated.id ? updated : item)));
         const failed = updated.targets?.find((target) => target.status === 'failed');
-        if (failed) showToast({ type: 'error', title: 'Not everything was published', message: problemText(updated) });
+        if (failed) showToast({ type: 'error', title: t('posts.notEverythingPublished'), message: problemText(updated, t) });
         else showToast({ type: 'success', title: successTitle });
       })
       .catch(showError)
@@ -195,7 +195,7 @@ function Posts() {
 
   function handleRejectSubmit(reason) {
     const post = postPendingReject;
-    runPostAction(post, () => rejectPost(post.id, reason), 'Post rejected').then(() => setPostPendingReject(null));
+    runPostAction(post, () => rejectPost(post.id, reason), t('posts.postRejectedToast')).then(() => setPostPendingReject(null));
   }
 
   // Buttons for a post waiting on a decision, or one that failed. Empty for everybody else.
@@ -203,12 +203,12 @@ function Posts() {
     if (!canReview) return [];
     if (post.status === POST_STATUS.PENDING_APPROVAL) {
       return [
-        { key: 'approve', label: 'Approve', icon: 'CheckCircle2', run: () => runPostAction(post, () => approvePost(post.id), 'Post approved') },
-        { key: 'reject', label: 'Reject', icon: 'XCircle', run: () => setPostPendingReject(post) },
+        { key: 'approve', label: t('posts.approve'), icon: 'CheckCircle2', run: () => runPostAction(post, () => approvePost(post.id), t('posts.postApprovedToast')) },
+        { key: 'reject', label: t('posts.reject'), icon: 'XCircle', run: () => setPostPendingReject(post) },
       ];
     }
     if (post.status === POST_STATUS.FAILED) {
-      return [{ key: 'retry', label: 'Retry failed platforms', icon: 'RotateCw', run: () => runPostAction(post, () => retryPost(post.id), 'Post published') }];
+      return [{ key: 'retry', label: t('posts.retryFailedPlatforms'), icon: 'RotateCw', run: () => runPostAction(post, () => retryPost(post.id), t('posts.postPublishedToast')) }];
     }
     return [];
   }
@@ -216,7 +216,7 @@ function Posts() {
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.posts')} subtitle="Loading your posts..." />
+        <PageHeader title={t('nav.posts')} subtitle={t('posts.loading')} />
         <SkeletonTable rows={6} columns={5} />
       </>
     );
@@ -240,7 +240,7 @@ function Posts() {
         actions={
           <button type="button" className="btn btn-primary" onClick={() => navigate('/posts/create')}>
             <Icon name="PenSquare" size={16} />
-            Create Post
+            {t('nav.createPost')}
           </button>
         }
       />
@@ -250,7 +250,7 @@ function Posts() {
       <div className="panel-card">
         <div className="panel-card__header flex-wrap gap-3">
           <div className="tab-strip flex-grow-1">
-            {STATUS_FILTERS.map((filter) => (
+            {statusFilters.map((filter) => (
               <button
                 key={filter.value}
                 type="button"
@@ -266,7 +266,7 @@ function Posts() {
             <input
               type="search"
               className="form-control"
-              placeholder="Search posts..."
+              placeholder={t('posts.searchPlaceholder')}
               value={searchTerm}
               onChange={(event) => {
                 setSearchTerm(event.target.value);
@@ -279,10 +279,10 @@ function Posts() {
         {filteredPosts.length > 0 ? <TableToolbar pagination={pagination} /> : null}
         <BulkActionBar selection={selection} show={filteredPosts.length > 0}>
           <button type="button" className="btn btn-sm btn-outline-secondary-custom" onClick={handleBulkMoveToDraft}>
-            <Icon name="PenLine" size={14} /> Move to draft
+            <Icon name="PenLine" size={14} /> {t('posts.moveToDraft')}
           </button>
           <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setIsBulkDeleteOpen(true)}>
-            <Icon name="Trash2" size={14} /> Delete
+            <Icon name="Trash2" size={14} /> {t('common.delete')}
           </button>
         </BulkActionBar>
 
@@ -290,9 +290,9 @@ function Posts() {
           {filteredPosts.length === 0 ? (
             <EmptyState
               icon="FileText"
-              title="No posts found"
-              description="Try adjusting your filters, or create a new post."
-              actionLabel="Create Post"
+              title={t('posts.emptyTitle')}
+              description={t('posts.emptyText')}
+              actionLabel={t('nav.createPost')}
               onAction={() => navigate('/posts/create')}
             />
           ) : isMobile ? (
@@ -300,7 +300,7 @@ function Posts() {
               {pagination.pageItems.map((post) => (
                 <div key={post.id} className="surface-card post-mobile-card">
                   <div className="post-mobile-card__top" onClick={() => navigate(`/posts/${post.id}/edit`)} role="button" tabIndex={0}>
-                    <RowCheckbox id={post.id} selection={selection} label={`Select post: ${post.content.slice(0, 30)}`} />
+                    <RowCheckbox id={post.id} selection={selection} label={t('posts.selectPost', { content: post.content.slice(0, 30) })} />
                     <div className="d-flex gap-1 flex-grow-1">
                       {post.platforms.map((platformKey) => (
                         <PlatformIcon key={platformKey} platformKey={platformKey} size={22} />
@@ -311,18 +311,18 @@ function Posts() {
                   <p className="post-mobile-card__content" onClick={() => navigate(`/posts/${post.id}/edit`)}>
                     {post.content}
                   </p>
-                  {problemText(post) ? <p className="small text-danger mb-2">{problemText(post)}</p> : null}
+                  {problemText(post, t) ? <p className="small text-danger mb-2">{problemText(post, t)}</p> : null}
                   <div className="post-mobile-card__footer">
                     <span className="post-mobile-card__meta">
-                      {post.scheduledAt ? formatDateTime(post.scheduledAt) : 'Not scheduled'} · {post.createdBy}
+                      {post.scheduledAt ? formatDateTime(post.scheduledAt) : t('posts.notScheduled')} · {post.createdBy}
                     </span>
                     <DropdownMenu
                       trigger={
                         <button
                           type="button"
                           className="btn btn-icon-sm btn-outline-secondary-custom"
-                          aria-label="Post options"
-                          data-tooltip="More options"
+                          aria-label={t('posts.postOptions')}
+                          data-tooltip={t('users.moreOptions')}
                         >
                           <Icon name="MoreVertical" size={16} />
                         </button>
@@ -338,7 +338,7 @@ function Posts() {
                               close();
                             }}
                           >
-                            <Icon name="Edit3" size={16} /> Edit
+                            <Icon name="Edit3" size={16} /> {t('common.edit')}
                           </button>
                           {reviewActions(post).map((action) => (
                             <button
@@ -362,7 +362,7 @@ function Posts() {
                               close();
                             }}
                           >
-                            <Icon name="Trash2" size={16} /> Delete
+                            <Icon name="Trash2" size={16} /> {t('common.delete')}
                           </button>
                         </>
                       )}
@@ -379,11 +379,11 @@ function Posts() {
                     <th className="table-checkbox-col">
                       <SelectAllCheckbox ids={pageIds} selection={selection} />
                     </th>
-                    <th>Content</th>
-                    <th>Platforms</th>
-                    <th>Status</th>
-                    <th>Scheduled</th>
-                    <th>Author</th>
+                    <th>{t('posts.colContent')}</th>
+                    <th>{t('posts.colPlatforms')}</th>
+                    <th>{t('posts.colStatus')}</th>
+                    <th>{t('posts.colScheduled')}</th>
+                    <th>{t('posts.colAuthor')}</th>
                     <th />
                   </tr>
                 </thead>
@@ -391,7 +391,7 @@ function Posts() {
                   {pagination.pageItems.map((post) => (
                     <tr key={post.id} className={selection.isSelected(post.id) ? 'is-selected' : ''}>
                       <td className="table-checkbox-col">
-                        <RowCheckbox id={post.id} selection={selection} label={`Select post: ${post.content.slice(0, 30)}`} />
+                        <RowCheckbox id={post.id} selection={selection} label={t('posts.selectPost', { content: post.content.slice(0, 30) })} />
                       </td>
                       <td>
                         <span className="table-row-title d-block table-cell-truncate">{post.content}</span>
@@ -405,7 +405,7 @@ function Posts() {
                       </td>
                       <td>
                         <StatusBadge status={post.status} />
-                        {problemText(post) ? <div className="small text-danger table-cell-truncate mt-1" title={problemText(post)}>{problemText(post)}</div> : null}
+                        {problemText(post, t) ? <div className="small text-danger table-cell-truncate mt-1" title={problemText(post, t)}>{problemText(post, t)}</div> : null}
                       </td>
                       <td>{post.scheduledAt ? formatDateTime(post.scheduledAt) : '—'}</td>
                       <td>{post.createdBy}</td>
@@ -428,8 +428,8 @@ function Posts() {
                             type="button"
                             className="btn btn-icon-sm btn-outline-secondary-custom"
                             onClick={() => navigate(`/posts/${post.id}/edit`)}
-                            aria-label="Edit post"
-                            data-tooltip="Edit"
+                            aria-label={t('posts.editPostAria')}
+                            data-tooltip={t('common.edit')}
                           >
                             <Icon name="Edit3" size={14} />
                           </button>
@@ -437,8 +437,8 @@ function Posts() {
                             type="button"
                             className="btn btn-icon-sm btn-outline-secondary-custom"
                             onClick={() => setPostPendingDelete(post)}
-                            aria-label="Delete post"
-                            data-tooltip="Delete"
+                            aria-label={t('posts.deletePostAria')}
+                            data-tooltip={t('common.delete')}
                           >
                             <Icon name="Trash2" size={14} />
                           </button>
@@ -465,9 +465,9 @@ function Posts() {
         isOpen={isBulkDeleteOpen}
         onClose={() => setIsBulkDeleteOpen(false)}
         onConfirm={handleBulkDeleteConfirmed}
-        title={`Delete ${selection.count} ${selection.count === 1 ? 'post' : 'posts'}?`}
-        message="This action cannot be undone. The selected posts will be permanently removed."
-        confirmLabel="Delete"
+        title={t(selection.count === 1 ? 'posts.bulkDeleteTitleOne' : 'posts.bulkDeleteTitleOther', { count: selection.count })}
+        message={t('posts.bulkDeleteMessage')}
+        confirmLabel={t('common.delete')}
         isDanger
       />
 
@@ -475,9 +475,9 @@ function Posts() {
         isOpen={Boolean(postPendingDelete)}
         onClose={() => setPostPendingDelete(null)}
         onConfirm={handleDeleteConfirmed}
-        title="Delete this post?"
-        message="This action cannot be undone. The post will be permanently removed."
-        confirmLabel="Delete"
+        title={t('posts.deleteTitle')}
+        message={t('posts.deleteMessage')}
+        confirmLabel={t('common.delete')}
         isDanger
       />
     </div>

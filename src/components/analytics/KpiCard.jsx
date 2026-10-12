@@ -1,7 +1,9 @@
 import Icon from '../common/Icon';
 import { formatCompactNumber } from '../../utils/formatters';
+import { useI18n } from '../../i18n/useI18n';
 
 function KpiCard({ label, value, suffix = '', delta, isPositive, icon, accent = 'primary' }) {
+  const { t } = useI18n();
   const formattedValue = typeof value === 'number' ? formatCompactNumber(value) : value;
   const iconClassName = accent === 'primary' ? 'kpi-card__icon' : `kpi-card__icon kpi-card__icon--${accent}`;
 
@@ -20,7 +22,7 @@ function KpiCard({ label, value, suffix = '', delta, isPositive, icon, accent = 
       {typeof delta === 'number' ? (
         <span className={`kpi-card__delta ${isPositive ? 'is-positive' : 'is-negative'}`}>
           <Icon name={isPositive ? 'ArrowUp' : 'ArrowDown'} size={12} />
-          {Math.abs(delta)}% vs last period
+          {t('common.vsLastPeriod', { percent: Math.abs(delta) })}
         </span>
       ) : null}
     </div>

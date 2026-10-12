@@ -7,7 +7,10 @@ import App from './App';
 import { I18nProvider } from './i18n/I18nProvider';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import AppCrash from './components/common/AppCrash';
+import { registerServiceWorker } from './utils/registerServiceWorker';
 import './styles/main.scss';
+
+registerServiceWorker();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

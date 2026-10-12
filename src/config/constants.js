@@ -120,6 +120,8 @@ export const NOTIFICATION_TYPE = {
   TOKEN_EXPIRED: 'tokenExpired',
   ACCOUNT_REVOKED: 'accountRevoked',
   ACCOUNT_NEEDS_ATTENTION: 'accountNeedsAttention',
+  BILLING_UPDATE: 'billingUpdate',
+  AI_AGENT_UPDATE: 'aiAgentUpdate',
 };
 
 export const DATE_RANGE_PRESETS = {
@@ -127,13 +129,6 @@ export const DATE_RANGE_PRESETS = {
   LAST_30_DAYS: '30d',
   LAST_90_DAYS: '90d',
   CUSTOM: 'custom',
-};
-
-export const DATE_RANGE_PRESET_LABELS = {
-  [DATE_RANGE_PRESETS.LAST_7_DAYS]: '7 Days',
-  [DATE_RANGE_PRESETS.LAST_30_DAYS]: '30 Days',
-  [DATE_RANGE_PRESETS.LAST_90_DAYS]: '90 Days',
-  [DATE_RANGE_PRESETS.CUSTOM]: 'Custom',
 };
 
 export const CALENDAR_VIEW = {

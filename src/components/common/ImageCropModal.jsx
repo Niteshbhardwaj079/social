@@ -3,6 +3,7 @@ import Modal from './Modal';
 import Icon from './Icon';
 import { formatFileSize } from '../../utils/formatters';
 import { getUiScale } from '../../utils/uiScale';
+import { useI18n } from '../../i18n/useI18n';
 
 const MAX_PREVIEW_WIDTH = 480;
 const MAX_PREVIEW_HEIGHT = 400;
@@ -20,6 +21,7 @@ function clamp(value, min, max) {
 // earlier in this project, anything with its own drag/resize math stays in
 // our own code, where we can see exactly what it does.
 function ImageCropModal({ isOpen, file, onClose, onComplete, aspectRatio = null }) {
+  const { t } = useI18n();
   const [imageEl, setImageEl] = useState(null);
   const [previewWidth, setPreviewWidth] = useState(MAX_PREVIEW_WIDTH);
   const [previewHeight, setPreviewHeight] = useState(0);
@@ -120,8 +122,8 @@ function ImageCropModal({ isOpen, file, onClose, onComplete, aspectRatio = null 
   // effect above clears imageEl — so both must be checked or `file.size` throws.
   if (!imageEl || !file) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Crop image">
-        <div className="py-5 text-center text-muted-custom">Loading image...</div>
+      <Modal isOpen={isOpen} onClose={onClose} title={t('common.imageCrop.title')}>
+        <div className="py-5 text-center text-muted-custom">{t('common.imageCrop.loadingImage')}</div>
       </Modal>
     );
   }
@@ -171,23 +173,23 @@ function ImageCropModal({ isOpen, file, onClose, onComplete, aspectRatio = null 
   const footer = (
     <>
       <button type="button" className="btn btn-outline-secondary-custom" onClick={onClose}>
-        Cancel
+        {t('common.cancel')}
       </button>
       <button type="button" className="btn btn-primary" onClick={handleApply} disabled={isProcessing}>
         {isProcessing ? (
           <>
             <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-            Processing...
+            {t('common.imageCrop.processing')}
           </>
         ) : (
-          'Use this image'
+          t('common.imageCrop.useThisImage')
         )}
       </button>
     </>
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Crop image" footer={footer} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={t('common.imageCrop.title')} footer={footer} size="lg">
       <div className="image-crop">
         <div
           className="image-crop__stage"
@@ -205,7 +207,7 @@ function ImageCropModal({ isOpen, file, onClose, onComplete, aspectRatio = null 
 
         <div className="image-crop__meta">
           <Icon name="Crop" size={14} />
-          Crop size: {naturalCropWidth} × {naturalCropHeight} px
+          {t('common.imageCrop.cropSize', { width: naturalCropWidth, height: naturalCropHeight })}
         </div>
 
         <div className="d-flex align-items-center justify-content-between mt-4">
@@ -216,9 +218,9 @@ function ImageCropModal({ isOpen, file, onClose, onComplete, aspectRatio = null 
               checked={useCompression}
               onChange={(event) => setUseCompression(event.target.checked)}
             />
-            <span className="form-label-custom mb-0">Compress before saving</span>
+            <span className="form-label-custom mb-0">{t('common.imageCrop.compressLabel')}</span>
           </label>
-          <span className="small text-muted-custom">Original: {formatFileSize(file.size)}</span>
+          <span className="small text-muted-custom">{t('common.imageCrop.original', { size: formatFileSize(file.size) })}</span>
         </div>
 
         {useCompression ? (
@@ -233,9 +235,9 @@ function ImageCropModal({ isOpen, file, onClose, onComplete, aspectRatio = null 
               onChange={(event) => setQuality(Number(event.target.value))}
             />
             <div className="d-flex justify-content-between small text-muted-custom">
-              <span>Smaller file</span>
-              <span>{Math.round(quality * 100)}% quality</span>
-              <span>Higher quality</span>
+              <span>{t('common.imageCrop.smallerFile')}</span>
+              <span>{t('common.imageCrop.qualityPercent', { percent: Math.round(quality * 100) })}</span>
+              <span>{t('common.imageCrop.higherQuality')}</span>
             </div>
           </div>
         ) : null}

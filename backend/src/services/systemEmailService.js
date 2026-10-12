@@ -17,7 +17,7 @@ const MAX_HTML_LENGTH = 200_000;
 /** Makes sure every email in the catalog has a row (switched on or off as it ships). Safe to run on every start. */
 export async function ensureEmailRows() {
   for (const email of EMAIL_CATALOG) {
-    await query('INSERT INTO system_emails (id, is_enabled) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING', [email.id, email.defaultEnabled]);
+    await query('INSERT INTO system_emails (id, is_enabled) VALUES ($1, $2) ON CONFLICT (organization_id, id) DO NOTHING', [email.id, email.defaultEnabled]);
   }
 }
 
@@ -109,7 +109,7 @@ export async function saveTranslation(id, language, { subject, html }, actorId) 
     await query(
       `INSERT INTO system_email_translations (email_id, language, subject, html, updated_by)
        VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (email_id, language) DO UPDATE
+       ON CONFLICT (organization_id, email_id, language) DO UPDATE
          SET subject = EXCLUDED.subject, html = EXCLUDED.html, updated_by = EXCLUDED.updated_by, updated_at = now()`,
       [id, language, subject, html, actorId]
     );

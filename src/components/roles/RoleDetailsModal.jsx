@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import Modal from '../common/Modal';
 import TextField from '../forms/TextField';
 import { ROLE_ACCENTS } from '../../config/rolePermissions';
+import { useI18n } from '../../i18n/useI18n';
 
 const EMPTY_FORM_VALUES = { name: '', description: '', icon: 'Shield', accent: 'slate', rank: 1, isActive: true };
 
 function RoleDetailsModal({ isOpen, onClose, onSubmit, editingRole }) {
+  const { t } = useI18n();
   const [formValues, setFormValues] = useState(EMPTY_FORM_VALUES);
 
   useEffect(() => {
@@ -31,20 +33,20 @@ function RoleDetailsModal({ isOpen, onClose, onSubmit, editingRole }) {
   const footer = (
     <>
       <button type="button" className="btn btn-outline-secondary-custom" onClick={onClose}>
-        Cancel
+        {t('common.cancel')}
       </button>
       <button type="submit" form="role-details-form" className="btn btn-primary">
-        {editingRole ? 'Save Changes' : 'Create Role'}
+        {editingRole ? t('common.saveChanges') : t('rolesPanel.createRoleTitle')}
       </button>
     </>
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={editingRole ? 'Edit Role' : 'Create Role'} footer={footer} size="sm">
+    <Modal isOpen={isOpen} onClose={onClose} title={editingRole ? t('rolesPanel.editRoleTitle') : t('rolesPanel.createRoleTitle')} footer={footer} size="sm">
       <form id="role-details-form" onSubmit={handleSubmit}>
         <TextField
           id="roleDetailsName"
-          label="Role name"
+          label={t('rolesPanel.roleName')}
           value={formValues.name}
           onChange={(event) => setFormValues((current) => ({ ...current, name: event.target.value }))}
           required
@@ -52,7 +54,7 @@ function RoleDetailsModal({ isOpen, onClose, onSubmit, editingRole }) {
         />
         <div className="mb-3">
           <label htmlFor="roleDetailsDescription" className="form-label-custom">
-            Description
+            {t('rolesPanel.description')}
           </label>
           <textarea
             id="roleDetailsDescription"
@@ -60,13 +62,13 @@ function RoleDetailsModal({ isOpen, onClose, onSubmit, editingRole }) {
             rows={2}
             value={formValues.description}
             onChange={(event) => setFormValues((current) => ({ ...current, description: event.target.value }))}
-            placeholder="What can people with this role do?"
+            placeholder={t('rolesPanel.descriptionPlaceholder')}
           />
         </div>
         <div className="row g-2 mb-3">
           <div className="col-6">
             <label htmlFor="roleDetailsIcon" className="form-label-custom">
-              Icon
+              {t('rolesPanel.icon')}
             </label>
             <input
               id="roleDetailsIcon"
@@ -74,12 +76,12 @@ function RoleDetailsModal({ isOpen, onClose, onSubmit, editingRole }) {
               className="form-control"
               value={formValues.icon}
               onChange={(event) => setFormValues((current) => ({ ...current, icon: event.target.value }))}
-              placeholder="e.g. Megaphone"
+              placeholder={t('rolesPanel.iconPlaceholder')}
             />
           </div>
           <div className="col-6">
             <label htmlFor="roleDetailsAccent" className="form-label-custom">
-              Color
+              {t('rolesPanel.color')}
             </label>
             <select
               id="roleDetailsAccent"
@@ -89,7 +91,7 @@ function RoleDetailsModal({ isOpen, onClose, onSubmit, editingRole }) {
             >
               {ROLE_ACCENTS.map((accent) => (
                 <option key={accent} value={accent}>
-                  {accent}
+                  {t(`rolesPanel.accents.${accent}`)}
                 </option>
               ))}
             </select>
@@ -97,7 +99,7 @@ function RoleDetailsModal({ isOpen, onClose, onSubmit, editingRole }) {
         </div>
         <div className="mb-3">
           <label htmlFor="roleDetailsRank" className="form-label-custom">
-            Seniority rank (1-3)
+            {t('rolesPanel.rankLabel')}
           </label>
           <input
             id="roleDetailsRank"
@@ -108,10 +110,7 @@ function RoleDetailsModal({ isOpen, onClose, onSubmit, editingRole }) {
             value={formValues.rank}
             onChange={(event) => setFormValues((current) => ({ ...current, rank: event.target.value }))}
           />
-          <p className="form-hint mb-0 mt-1">
-            Higher outranks lower for managing people — someone can only invite, edit or remove people ranked below
-            them. Rank 4 is reserved for Super Admin.
-          </p>
+          <p className="form-hint mb-0 mt-1">{t('rolesPanel.rankHint')}</p>
         </div>
         {editingRole ? (
           <div className="form-check form-switch">
@@ -123,7 +122,7 @@ function RoleDetailsModal({ isOpen, onClose, onSubmit, editingRole }) {
               onChange={(event) => setFormValues((current) => ({ ...current, isActive: event.target.checked }))}
             />
             <label htmlFor="roleDetailsIsActive" className="form-check-label">
-              Active (an archived role cannot be newly assigned; people who already have it keep working)
+              {t('rolesPanel.activeLabel')}
             </label>
           </div>
         ) : null}

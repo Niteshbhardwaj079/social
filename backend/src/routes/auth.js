@@ -9,6 +9,7 @@ import * as auth from '../services/authService.js';
 import * as twoFactor from '../services/twoFactorService.js';
 import { isValidLanguage } from '../emails/builder.js';
 import { toApiUser } from '../services/userService.js';
+import { getPlanAccess } from '../services/planService.js';
 
 export const REFRESH_COOKIE = 'social_rt';
 
@@ -53,8 +54,18 @@ const router = Router();
 router.post(
   '/register',
   authLimiter,
-  validate({ body: z.object({ name, email, password: passwordSchema, companyName: z.string().trim().max(160).optional(), language: language.optional() }) }),
-  async (req, res) => sendSession(res, await auth.registerFirstUser(req.valid.body, metaOf(req)), 201)
+  validate({
+    body: z.object({
+      name,
+      email,
+      password: passwordSchema,
+      companyName: z.string().trim().max(160).optional(),
+      // Optional for API callers; the sign-up page asks for it.
+      phone: z.string().trim().regex(/^\+?[0-9 ()-]{7,20}$/, 'Enter a valid mobile number').optional(),
+      language: language.optional(),
+    }),
+  }),
+  async (req, res) => sendSession(res, await auth.registerOrganization(req.valid.body, metaOf(req)), 201)
 );
 
 router.post(
@@ -112,7 +123,7 @@ router.post(
   async (req, res) => sendSession(res, await auth.acceptInvite(req.valid.body, metaOf(req)))
 );
 
-router.get('/me', authenticate, (req, res) => res.json({ user: toApiUser(req.user) }));
+router.get('/me', authenticate, async (req, res) => res.json({ user: { ...toApiUser(req.user), plan: await getPlanAccess() } }));
 
 router.patch(
   '/me',

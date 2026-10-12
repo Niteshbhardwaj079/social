@@ -4,7 +4,8 @@
 .app-topbar {
   position: sticky;
   top: 0;
-  height: v.$topbar-height;
+  // Taller by the notch / status-bar area on phones, so the bar's own contents keep their full height.
+  height: calc(#{v.$topbar-height} + env(safe-area-inset-top, 0px));
   padding-top: env(safe-area-inset-top, 0px);
   background-color: var(--color-surface);
   border-bottom: 1px solid var(--color-border);

@@ -1,4 +1,4 @@
-import { PLATFORM_KEYS } from './platforms';
+import { PLATFORM_KEYS } from './platforms.js';
 
 /**
  * Per-platform "how to connect" content for the Connect Account pages: the
@@ -7,6 +7,10 @@ import { PLATFORM_KEYS } from './platforms';
  * credentials (bring-your-own-key), so nothing here is a shared Social key.
  * Portals change their menus now and then — keep steps short and name the
  * thing to look for rather than an exact click path.
+ *
+ * This file is the English text. Translations live in src/i18n/guides/<code>.js
+ * (see i18n/guideText.js); after changing text here, update those too and run
+ * `npm run check:i18n`.
  */
 const field = (key, label, extra = {}) => ({ key, label, type: 'text', required: true, ...extra });
 const secret = (key, label, extra = {}) => ({ key, label, type: 'password', required: true, ...extra });

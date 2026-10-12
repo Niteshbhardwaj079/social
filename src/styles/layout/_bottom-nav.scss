@@ -55,3 +55,19 @@
     color: var(--color-text-secondary);
   }
 }
+
+// ---- The phone's "More" screen (pages/more/More.jsx): the sidebar's groups as lists ----
+
+.more-group {
+  margin-bottom: v.$space-5;
+}
+
+.more-group__title {
+  margin: 0 0 v.$space-2;
+  padding-inline: v.$space-2;
+  font-size: v.$font-size-xs;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}

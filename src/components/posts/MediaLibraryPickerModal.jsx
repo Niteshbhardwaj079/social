@@ -4,9 +4,11 @@ import Icon from '../common/Icon';
 import ErrorState from '../common/ErrorState';
 import { getMediaItems } from '../../services/api/mediaApi';
 import { MEDIA_TYPE } from '../../config/constants';
+import { useI18n } from '../../i18n/useI18n';
 
 // Reuses already-uploaded files instead of re-uploading the same image/video into every post that needs it.
 function MediaLibraryPickerModal({ isOpen, onClose, onSelect }) {
+  const { t } = useI18n();
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState('loading');
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,21 +54,23 @@ function MediaLibraryPickerModal({ isOpen, onClose, onSelect }) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Media Library"
+      title={t('nav.mediaLibrary')}
       size="lg"
       footer={
         <>
           <button type="button" className="btn btn-outline-secondary-custom" onClick={onClose}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button type="button" className="btn btn-primary" disabled={selectedIds.length === 0} onClick={handleAdd}>
-            Add {selectedIds.length > 0 ? selectedIds.length : ''} {selectedIds.length === 1 ? 'file' : 'files'}
+            {selectedIds.length > 0
+              ? t(selectedIds.length === 1 ? 'composer.mediaPicker.addButtonOne' : 'composer.mediaPicker.addButtonOther', { count: selectedIds.length })
+              : t('composer.mediaPicker.addButtonEmpty')}
           </button>
         </>
       }
     >
       {status === 'loading' ? (
-        <div className="media-picker__loading text-muted-custom">Loading your media...</div>
+        <div className="media-picker__loading text-muted-custom">{t('media.loading')}</div>
       ) : status === 'failed' ? (
         <ErrorState onRetry={() => setStatus('loading') || getMediaItems().then((loaded) => { setItems(loaded); setStatus('succeeded'); }, () => setStatus('failed'))} />
       ) : (
@@ -76,7 +80,7 @@ function MediaLibraryPickerModal({ isOpen, onClose, onSelect }) {
             <input
               type="search"
               className="form-control"
-              placeholder="Search media by name..."
+              placeholder={t('media.searchPlaceholder')}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               autoFocus
@@ -84,7 +88,7 @@ function MediaLibraryPickerModal({ isOpen, onClose, onSelect }) {
           </div>
 
           {filteredItems.length === 0 ? (
-            <p className="text-muted-custom mb-0">No media found. Upload something first.</p>
+            <p className="text-muted-custom mb-0">{t('composer.mediaPicker.noMediaFound')}</p>
           ) : (
             <div className="media-uploader-grid media-picker__grid">
               {filteredItems.map((item) => {

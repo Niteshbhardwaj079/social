@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
 import Icon from './Icon';
+import { useI18n } from '../../i18n/useI18n';
 
 // items: [{ label, to? }] — the last item is the current page and is not a link.
 function Breadcrumb({ items }) {
+  const { t } = useI18n();
   return (
-    <nav className="breadcrumb-trail" aria-label="Breadcrumb">
+    <nav className="breadcrumb-trail" aria-label={t('misc.breadcrumb')}>
       {items.map((item, index) => {
         const isLast = index === items.length - 1;
         return (

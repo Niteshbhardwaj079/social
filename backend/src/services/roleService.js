@@ -46,6 +46,8 @@ export const PERMISSION_KEYS = [
   'activityLogsDelete',
   'settingsView',
   'settingsEdit',
+  'aiUse',
+  'aiAutopilot',
 ];
 
 const COLUMN_BY_KEY = {
@@ -86,6 +88,8 @@ const COLUMN_BY_KEY = {
   activityLogsDelete: 'activity_logs_delete',
   settingsView: 'settings_view',
   settingsEdit: 'settings_edit',
+  aiUse: 'ai_use',
+  aiAutopilot: 'ai_autopilot',
 };
 
 // Rank 4 is reserved for the one protected (Super Admin) role, seeded once by the migration —

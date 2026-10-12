@@ -5,11 +5,12 @@ import TextField from '../forms/TextField';
 import { buildUtmUrl, parseUtmParams, stripUtmParams, UTM_MEDIUMS, UTM_SOURCES } from '../../utils/utm';
 import { copyToClipboard } from '../../utils/clipboard';
 import { useToast } from './ToastProvider';
+import { useI18n } from '../../i18n/useI18n';
 
 const CUSTOM = '__custom__';
 
 /** A `<select>` of presets, falling back to a free-text field when "Custom" is chosen (a UTM value is never actually restricted to the preset list — it's just a convenience). */
-function PresetField({ id, label, value, presets, onChange }) {
+function PresetField({ id, label, value, presets, onChange, t }) {
   const isCustom = value !== '' && !presets.includes(value);
   return (
     <div className="mb-4">
@@ -24,11 +25,11 @@ function PresetField({ id, label, value, presets, onChange }) {
         // away to nothing everywhere this value is actually used (buildUtmUrl, canApply).
         onChange={(event) => onChange(event.target.value === CUSTOM ? ' ' : event.target.value)}
       >
-        <option value="">Choose one</option>
+        <option value="">{t('common.utmBuilder.chooseOne')}</option>
         {presets.map((preset) => <option key={preset} value={preset}>{preset}</option>)}
-        <option value={CUSTOM}>Custom...</option>
+        <option value={CUSTOM}>{t('common.utmBuilder.customOption')}</option>
       </select>
-      {isCustom ? <input type="text" className="form-control" value={value.trim()} onChange={(event) => onChange(event.target.value)} placeholder={`Your own ${label.toLowerCase()}`} /> : null}
+      {isCustom ? <input type="text" className="form-control" value={value.trim()} onChange={(event) => onChange(event.target.value)} placeholder={t('common.utmBuilder.yourOwn', { label: label.toLowerCase() })} /> : null}
     </div>
   );
 }
@@ -40,6 +41,7 @@ function PresetField({ id, label, value, presets, onChange }) {
  * backend call, so this can open from anywhere a destination URL is authored.
  */
 function UtmBuilderModal({ isOpen, onClose, onApply, initialUrl = '' }) {
+  const { t } = useI18n();
   const { showToast } = useToast();
   const [baseUrl, setBaseUrl] = useState('');
   const [source, setSource] = useState('');
@@ -67,7 +69,7 @@ function UtmBuilderModal({ isOpen, onClose, onApply, initialUrl = '' }) {
 
   function handleCopy() {
     if (!taggedUrl) return;
-    copyToClipboard(taggedUrl).then((copied) => showToast(copied ? { type: 'success', title: 'Copied to clipboard' } : { type: 'error', title: 'Could not copy' }));
+    copyToClipboard(taggedUrl).then((copied) => showToast(copied ? { type: 'success', title: t('links.copiedToast') } : { type: 'error', title: t('links.copyErrorTitle') }));
   }
 
   function handleApply(event) {
@@ -79,32 +81,32 @@ function UtmBuilderModal({ isOpen, onClose, onApply, initialUrl = '' }) {
   const footer = (
     <>
       <button type="button" className="btn btn-outline-secondary-custom" onClick={onClose}>
-        Cancel
+        {t('common.cancel')}
       </button>
       <button type="submit" form="utm-builder-form" className="btn btn-primary" disabled={!canApply}>
-        Use This Link
+        {t('common.utmBuilder.useThisLink')}
       </button>
     </>
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Build a Campaign Link (UTM)" footer={footer} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={t('common.utmBuilder.title')} footer={footer} size="lg">
       <form id="utm-builder-form" onSubmit={handleApply}>
-        <TextField id="utmBaseUrl" label="Website URL" type="url" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://yoursite.com/offer" required />
+        <TextField id="utmBaseUrl" label={t('common.utmBuilder.websiteUrl')} type="url" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://yoursite.com/offer" required />
         <div className="form-grid-2">
-          <PresetField id="utmSource" label="Campaign Source" value={source} presets={UTM_SOURCES} onChange={setSource} />
-          <PresetField id="utmMedium" label="Campaign Medium" value={medium} presets={UTM_MEDIUMS} onChange={setMedium} />
+          <PresetField id="utmSource" label={t('common.utmBuilder.campaignSource')} value={source} presets={UTM_SOURCES} onChange={setSource} t={t} />
+          <PresetField id="utmMedium" label={t('common.utmBuilder.campaignMedium')} value={medium} presets={UTM_MEDIUMS} onChange={setMedium} t={t} />
         </div>
-        <TextField id="utmCampaign" label="Campaign Name" value={campaign} onChange={(event) => setCampaign(event.target.value)} placeholder="e.g. diwali-sale-2026" required />
+        <TextField id="utmCampaign" label={t('common.utmBuilder.campaignName')} value={campaign} onChange={(event) => setCampaign(event.target.value)} placeholder="e.g. diwali-sale-2026" required />
         <div className="form-grid-2">
-          <TextField id="utmTerm" label="Campaign Term (optional)" value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Paid search keyword" />
-          <TextField id="utmContent" label="Campaign Content (optional)" value={content} onChange={(event) => setContent(event.target.value)} placeholder="Which ad/link variant" />
+          <TextField id="utmTerm" label={t('common.utmBuilder.campaignTerm')} value={term} onChange={(event) => setTerm(event.target.value)} placeholder={t('common.utmBuilder.termPlaceholder')} />
+          <TextField id="utmContent" label={t('common.utmBuilder.campaignContent')} value={content} onChange={(event) => setContent(event.target.value)} placeholder={t('common.utmBuilder.contentPlaceholder')} />
         </div>
         <div className="mb-0">
-          <span className="form-label-custom d-block">Resulting link</span>
+          <span className="form-label-custom d-block">{t('common.utmBuilder.resultingLink')}</span>
           <div className="d-flex gap-2 align-items-start">
-            <code className="utm-preview flex-grow-1">{taggedUrl || 'Fill in the website URL, source, medium and campaign name above.'}</code>
-            <button type="button" className="btn btn-icon-sm btn-outline-secondary-custom" onClick={handleCopy} disabled={!taggedUrl} aria-label="Copy link">
+            <code className="utm-preview flex-grow-1">{taggedUrl || t('common.utmBuilder.fillInPrompt')}</code>
+            <button type="button" className="btn btn-icon-sm btn-outline-secondary-custom" onClick={handleCopy} disabled={!taggedUrl} aria-label={t('common.utmBuilder.copyLinkAria')}>
               <Icon name="Copy" size={14} />
             </button>
           </div>

@@ -43,7 +43,7 @@ function SocialAccounts() {
     disconnectAccount(accountId)
       .then((updated) => {
         replaceAccount(updated);
-        showToast({ type: 'info', title: 'Account disconnected' });
+        showToast({ type: 'info', title: t('socialAccounts.disconnectedToast') });
       })
       .catch((error) => showToast({ type: 'error', title: apiErrorMessage(error) }));
   }
@@ -55,7 +55,7 @@ function SocialAccounts() {
         const stillWorking = updated.status === ACCOUNT_STATUS.CONNECTED;
         showToast({
           type: stillWorking ? 'success' : 'error',
-          title: stillWorking ? 'Account is up to date' : 'This account needs attention',
+          title: stillWorking ? t('socialAccounts.upToDateToast') : t('socialAccounts.needsAttentionToast'),
           message: stillWorking ? undefined : updated.lastError || undefined,
         });
       })
@@ -65,7 +65,7 @@ function SocialAccounts() {
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.socialAccounts')} subtitle="Loading your connected channels..." />
+        <PageHeader title={t('nav.socialAccounts')} subtitle={t('socialAccounts.loading')} />
         <SkeletonKpiRow count={8} />
       </>
     );
@@ -91,7 +91,7 @@ function SocialAccounts() {
         actions={
           <Link to="/social-accounts/connect" className="btn btn-primary">
             <Icon name="Plus" size={16} />
-            Connect New Account
+            {t('socialAccounts.connectNewAccount')}
           </Link>
         }
       />
@@ -99,23 +99,23 @@ function SocialAccounts() {
       {accounts.length === 0 ? null : (
         <StatCardGrid
           cards={[
-            { key: 'total', label: 'Platforms', value: accounts.length, icon: 'Share2', tone: 'primary' },
-            { key: 'connected', label: 'Connected', value: connectedCount, icon: 'PlugZap', tone: 'green' },
+            { key: 'total', label: t('composer.platforms'), value: accounts.length, icon: 'Share2', tone: 'primary' },
+            { key: 'connected', label: t('common.status.connected'), value: connectedCount, icon: 'PlugZap', tone: 'green' },
             {
               key: 'attention',
-              label: 'Needs Attention',
+              label: t('socialAccounts.needsAttention'),
               value: accounts.filter((account) => ACCOUNT_STATUS_NEEDS_ATTENTION.includes(account.status)).length,
               icon: 'AlertTriangle',
               tone: 'amber',
             },
             {
               key: 'disconnected',
-              label: 'Not Connected',
+              label: t('common.status.disconnected'),
               value: accounts.filter((account) => account.status === ACCOUNT_STATUS.DISCONNECTED).length,
               icon: 'Unplug',
               tone: 'slate',
             },
-            { key: 'followers', label: 'Total Followers', value: formatCompactNumber(accounts.reduce((sum, account) => sum + (account.followers || 0), 0)), icon: 'Users', tone: 'sky' },
+            { key: 'followers', label: t('dashboard.kpiFollowers'), value: formatCompactNumber(accounts.reduce((sum, account) => sum + (account.followers || 0), 0)), icon: 'Users', tone: 'sky' },
           ]}
         />
       )}
@@ -123,9 +123,9 @@ function SocialAccounts() {
       {accounts.length === 0 ? (
         <EmptyState
           icon="Share2"
-          title="No accounts yet"
-          description="Connect your first social account to start publishing."
-          actionLabel="Connect Account"
+          title={t('socialAccounts.noAccountsTitle')}
+          description={t('socialAccounts.noAccountsText')}
+          actionLabel={t('dashboard.quickActionConnectAccount')}
           onAction={() => navigate('/social-accounts/connect')}
         />
       ) : (

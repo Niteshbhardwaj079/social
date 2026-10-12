@@ -34,6 +34,13 @@ services:
         sync: false
       - key: ENCRYPTION_KEY
         sync: false
+    # Uploaded files ("Server" media storage) and customers' payment screenshots live in backend/data. Render's
+    # normal disk is wiped on every deploy, so either connect External storage (S3 / R2, in Settings → Storage)
+    # for media, and/or attach a persistent disk (paid Render plans) by uncommenting:
+    # disk:
+    #   name: social-data
+    #   mountPath: /opt/render/project/src/backend/data
+    #   sizeGB: 5
 
   - type: web
     name: social-app

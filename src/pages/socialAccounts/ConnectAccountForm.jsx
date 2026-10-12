@@ -12,15 +12,19 @@ import { getProfileAccess, platformHasPaidTier } from '../../config/platformProf
 import { testAccountConnection, connectAccount } from '../../services/api/socialAccountsApi';
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { useToast } from '../../components/common/ToastProvider';
+import { useI18n } from '../../i18n/useI18n';
+import { localizeConnectGuide, useGuideText } from '../../i18n/guideText';
 
 const TEST_STATUS = { IDLE: 'idle', TESTING: 'testing', OK: 'ok', FAILED: 'failed' };
 
 function ConnectAccountForm() {
+  const { t } = useI18n();
   const { platformKey } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const platform = getPlatformByKey(platformKey);
-  const guide = getConnectGuide(platformKey);
+  const guideText = useGuideText();
+  const guide = localizeConnectGuide(platformKey, getConnectGuide(platformKey), guideText);
 
   const [values, setValues] = useState({});
   const [apiTier, setApiTier] = useState('free');
@@ -60,7 +64,7 @@ function ConnectAccountForm() {
     setIsSaving(true);
     connectAccount(platformKey, values, { apiTier })
       .then((account) => {
-        showToast({ type: 'success', title: 'Account connected', message: `${account.accountName} is now connected.` });
+        showToast({ type: 'success', title: t('connectForm.connectedTitle'), message: t('connectForm.connectedText', { name: account.accountName }) });
         navigate('/social-accounts');
       })
       .catch((error) => {
@@ -77,14 +81,14 @@ function ConnectAccountForm() {
     <div className="fade-in">
       <Breadcrumb
         items={[
-          { label: 'Social Accounts', to: '/social-accounts' },
-          { label: 'Connect account', to: '/social-accounts/connect' },
+          { label: t('nav.socialAccounts'), to: '/social-accounts' },
+          { label: t('connectForm.connectAccount'), to: '/social-accounts/connect' },
           { label: platform.label },
         ]}
       />
       <PageHeader
         title={platform.label}
-        subtitle="Fill these in, test the connection, then save."
+        subtitle={t('connectForm.subtitle')}
         guideChapterId="social-accounts"
       />
 
@@ -147,14 +151,14 @@ function ConnectAccountForm() {
 
         {platformHasPaidTier(platformKey) ? (
           <fieldset className="api-plan-picker">
-            <legend className="form-label-custom">Which plan is this API key on?</legend>
+            <legend className="form-label-custom">{t('connectForm.whichPlan')}</legend>
             <div className="api-plan-picker__options">
               {[
-                { value: 'free', title: 'Free plan', text: 'Posting and the basics. Fewer profile details show in the Inbox.' },
+                { value: 'free', title: t('connectForm.freePlan'), text: t('connectForm.freePlanText') },
                 {
                   value: 'paid',
-                  title: 'Paid plan',
-                  text: `Only choose this if you pay for ${getProfileAccess(platformKey).paidPlanName || 'a paid plan'} — Social then also shows followers, bio, location and more.`,
+                  title: t('connectForm.paidPlan'),
+                  text: t('connectForm.paidPlanText', { plan: getProfileAccess(platformKey).paidPlanName || t('connectForm.aPaidPlan') }),
                 },
               ].map((option) => (
                 <label key={option.value} className={`api-plan-picker__option ${apiTier === option.value ? 'is-selected' : ''}`.trim()}>
@@ -170,23 +174,23 @@ function ConnectAccountForm() {
         ) : null}
 
         {testStatus !== TEST_STATUS.OK ? (
-          <p className="form-hint text-end">Run “Test connection” first — Save &amp; connect unlocks once it passes.</p>
+          <p className="form-hint text-end">{t('connectForm.testFirst')}</p>
         ) : null}
 
         <div className="connect-form__actions">
           <Link to="/social-accounts/connect" className="btn btn-outline-secondary-custom">
-            Back
+            {t('billing.invoicePage.back')}
           </Link>
           <button type="button" className="btn btn-outline-primary-custom" onClick={handleTest} disabled={!allFilled || isTesting || isSaving}>
             {isTesting ? (
               <>
                 <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                Testing...
+                {t('connectForm.testing')}
               </>
             ) : (
               <>
                 <Icon name="PlugZap" size={16} />
-                Test connection
+                {t('connectForm.test')}
               </>
             )}
           </button>
@@ -198,10 +202,10 @@ function ConnectAccountForm() {
             {isSaving ? (
               <>
                 <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                Connecting...
+                {t('connectForm.connecting')}
               </>
             ) : (
-              'Save & connect'
+              t('connectForm.save')
             )}
           </button>
         </div>

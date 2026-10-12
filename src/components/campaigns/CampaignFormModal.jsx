@@ -5,7 +5,10 @@ import TextField from '../../components/forms/TextField';
 import DatePickerField from '../../components/forms/DatePickerField';
 import { PLATFORMS } from '../../config/platforms';
 import { CAMPAIGN_STATUS } from '../../config/constants';
+import { useI18n } from '../../i18n/useI18n';
 
+// Values are stable, always-English keys stored as-is (never shown directly) — only the dropdown's
+// visible option text is translated, via `campaigns.objectives.<lowercase key>` in the component.
 const CAMPAIGN_OBJECTIVES = ['Awareness', 'Engagement', 'Conversions', 'Traffic'];
 
 const EMPTY_FORM_VALUES = {
@@ -30,6 +33,7 @@ function fromDateOnlyString(value) {
 // and never sends `status`, so editing never resets an active/completed/paused campaign back to
 // "scheduled" (the server keeps whatever status it already had when `status` is left out).
 function CampaignFormModal({ isOpen, onClose, onSubmit, ownerName, campaign }) {
+  const { t } = useI18n();
   const isEditing = Boolean(campaign);
   const [formValues, setFormValues] = useState(EMPTY_FORM_VALUES);
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
@@ -69,27 +73,27 @@ function CampaignFormModal({ isOpen, onClose, onSubmit, ownerName, campaign }) {
   const footer = (
     <>
       <button type="button" className="btn btn-outline-secondary-custom" onClick={onClose}>
-        Cancel
+        {t('common.cancel')}
       </button>
       <button type="submit" form="campaign-form" className="btn btn-primary">
-        {isEditing ? 'Save Changes' : 'Create Campaign'}
+        {isEditing ? t('common.saveChanges') : t('campaigns.createCampaign')}
       </button>
     </>
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? 'Edit Campaign' : 'Create Campaign'} footer={footer} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? t('campaigns.editCampaign') : t('campaigns.createCampaign')} footer={footer} size="lg">
       <form id="campaign-form" onSubmit={handleSubmit}>
         <TextField
           id="campaignName"
-          label="Campaign name"
+          label={t('campaigns.campaignName')}
           value={formValues.name}
           onChange={(event) => handleChange('name', event.target.value)}
           required
         />
         <div className="mb-4">
           <label htmlFor="campaignDescription" className="form-label-custom">
-            Description
+            {t('rolesPanel.description')}
           </label>
           <textarea
             id="campaignDescription"
@@ -101,7 +105,7 @@ function CampaignFormModal({ isOpen, onClose, onSubmit, ownerName, campaign }) {
         </div>
         <div className="mb-4">
           <label htmlFor="campaignObjective" className="form-label-custom">
-            Objective
+            {t('campaigns.objective')}
           </label>
           <select
             id="campaignObjective"
@@ -111,7 +115,7 @@ function CampaignFormModal({ isOpen, onClose, onSubmit, ownerName, campaign }) {
           >
             {CAMPAIGN_OBJECTIVES.map((objective) => (
               <option key={objective} value={objective}>
-                {objective}
+                {t(`campaigns.objectives.${objective.toLowerCase()}`)}
               </option>
             ))}
           </select>
@@ -120,27 +124,27 @@ function CampaignFormModal({ isOpen, onClose, onSubmit, ownerName, campaign }) {
           <div className="col-6">
             <DatePickerField
               id="campaignStartDate"
-              label="Start date"
+              label={t('campaigns.startDate')}
               selected={formValues.startDate}
               onChange={(date) => handleChange('startDate', date)}
-              placeholderText="Select start date"
+              placeholderText={t('campaigns.selectStartDate')}
               className="mb-0"
             />
           </div>
           <div className="col-6">
             <DatePickerField
               id="campaignEndDate"
-              label="End date"
+              label={t('campaigns.endDate')}
               selected={formValues.endDate}
               onChange={(date) => handleChange('endDate', date)}
               minDate={formValues.startDate}
-              placeholderText="Select end date"
+              placeholderText={t('campaigns.selectEndDate')}
               className="mb-0"
             />
           </div>
         </div>
         <div className="mb-0">
-          <span className="form-label-custom d-block">Platforms</span>
+          <span className="form-label-custom d-block">{t('posts.colPlatforms')}</span>
           <PlatformSelector
             selectedPlatforms={selectedPlatforms}
             onChange={setSelectedPlatforms}

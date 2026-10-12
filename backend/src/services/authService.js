@@ -1,5 +1,9 @@
 import { config } from '../config/env.js';
-import { query, transaction } from '../db/pool.js';
+import { query, runAsSystem, runWithOrganization, transaction } from '../db/pool.js';
+import { createOrganization, inOrganizationOfEmail, inOrganizationOfUser } from './organizationService.js';
+import { startFirstSubscription } from './billingService.js';
+import { getPlatformSettings } from './platformSettingsService.js';
+import { getPlanAccess } from './planService.js';
 import { formatDateTime, formatDuration } from '../emails/builder.js';
 import { DUMMY_HASH, hashPassword, verifyPassword } from './passwordService.js';
 import {
@@ -17,13 +21,13 @@ import {
   verifyTwoFactorChallenge,
 } from './tokenService.js';
 import { verifyLoginCode } from './twoFactorService.js';
-import { effectiveLanguage, getLanguageSettings, saveWorkspace } from './settingsService.js';
+import { effectiveLanguage, getLanguageSettings } from './settingsService.js';
 import { dispatchEmail } from './systemEmailService.js';
 import { recordActivity } from './auditService.js';
 import { findUserWithRole, toApiUser } from './userService.js';
 import { canEditUsers, canManageTarget } from './permissions.js';
 import { loadActor } from '../middleware/auth.js';
-import { badRequest, forbidden, notFound, tooManyRequests, unauthorized } from '../utils/httpError.js';
+import { badRequest, conflict, forbidden, notFound, organizationSuspended, tooManyRequests, unauthorized } from '../utils/httpError.js';
 import { describeDevice } from '../utils/device.js';
 import { hashToken } from '../utils/security.js';
 
@@ -36,38 +40,67 @@ const INVALID_LOGIN = 'Invalid email or password';
 
 // Loads with the role join (rank/isProtected/permissions) so the session response's `user` carries
 // real capabilities immediately — the frontend needs these to decide which buttons to show.
+// Must run inside the user's organization (every caller below makes sure of that).
 async function startSession(userId, meta) {
   const [refreshToken, actor] = await Promise.all([createRefreshToken(userId, meta), loadActor(userId)]);
-  return { user: toApiUser(actor), accessToken: signAccessToken(userId), refreshToken };
+  if (actor.organization_status !== 'active') throw organizationSuspended();
+  const user = { ...toApiUser(actor), plan: await getPlanAccess() };
+  return { user, accessToken: signAccessToken(userId, actor.organization_id), refreshToken };
 }
 
 /** What the sign-in screens need before anyone is signed in. */
 export async function getPublicConfig() {
-  const [count, languages] = await Promise.all([query('SELECT count(*) AS n FROM users'), getLanguageSettings()]);
-  return { setupRequired: count.rows[0].n === 0, languages, brand: { appName: config.brand.appName } };
+  const [count, languages, platform] = await Promise.all([
+    runAsSystem(() => query('SELECT count(*) AS n FROM users')),
+    getLanguageSettings(),
+    getPlatformSettings(),
+  ]);
+  const setupRequired = count.rows[0].n === 0;
+  return {
+    setupRequired,
+    // The very first sign-up (the platform owner) is always allowed; after that the owner decides.
+    signupEnabled: setupRequired || platform.signupEnabled,
+    languages,
+    brand: { appName: config.brand.appName },
+  };
 }
 
 /**
- * First-run setup: creates the workspace owner (a Super Admin). This is a single-tenant app —
- * once someone exists, everyone else is invited, so registration closes itself.
+ * Sign-up: a new customer creates their organization and becomes its Super Admin. Everything is
+ * created in one transaction (organization, built-in roles, settings, subscription, the user), so
+ * a failure leaves nothing half-made. The very first person ever to sign up is the platform owner.
  */
-export async function registerFirstUser({ name, email, password, companyName, language }, meta) {
+export async function registerOrganization({ name, email, password, companyName, phone = '', language }, meta) {
   const passwordHash = await hashPassword(password);
   const chosenLanguage = await effectiveLanguage(language);
-  const userId = await transaction(async (client) => {
-    await client.query('SELECT pg_advisory_xact_lock(726150002)');
-    const count = await client.query('SELECT count(*) AS n FROM users');
-    if (count.rows[0].n > 0) throw forbidden('Setup is already complete. Ask an administrator to invite you.');
-    const result = await client.query(
-      `INSERT INTO users (name, email, password_hash, role, status, language, last_active_at)
-       VALUES ($1, $2, $3, 'superAdmin', 'active', $4, now()) RETURNING id`,
-      [name, email, passwordHash, chosenLanguage]
-    );
-    return result.rows[0].id;
+  const platform = await getPlatformSettings();
+
+  const { userId, organizationId } = await runAsSystem(() =>
+    transaction(async (client) => {
+      // One sign-up at a time, so "is this the very first user?" can never be answered twice.
+      await client.query('SELECT pg_advisory_xact_lock(726150002)');
+      const isFirstUser = (await client.query('SELECT count(*) AS n FROM users')).rows[0].n === 0;
+      if (!isFirstUser && !platform.signupEnabled) throw forbidden('Sign-up is closed right now. Ask an administrator to invite you.');
+      if ((await client.query('SELECT 1 FROM users WHERE lower(email) = lower($1)', [email])).rows[0]) {
+        throw conflict('An account with this email already exists. Sign in instead.');
+      }
+
+      const organization = await createOrganization(client, { name: companyName || `${name}'s workspace` });
+      const result = await client.query(
+        `INSERT INTO users (organization_id, name, email, password_hash, role, status, language, last_active_at, is_platform_admin, phone)
+         VALUES ($1, $2, $3, $4, 'superAdmin', 'active', $5, now(), $6, $7) RETURNING id`,
+        [organization.id, name, email, passwordHash, chosenLanguage, isFirstUser, phone]
+      );
+      const newUserId = result.rows[0].id;
+      await startFirstSubscription(client, organization.id, newUserId);
+      return { userId: newUserId, organizationId: organization.id };
+    })
+  );
+
+  return runWithOrganization(organizationId, async () => {
+    await recordActivity({ actorId: userId, action: 'workspace.created', entity: 'user', entityId: userId, ip: meta.ip, userAgent: meta.userAgent });
+    return startSession(userId, meta);
   });
-  if (companyName) await saveWorkspace({ name: companyName });
-  await recordActivity({ actorId: userId, action: 'workspace.created', entity: 'user', entityId: userId, ip: meta.ip, userAgent: meta.userAgent });
-  return startSession(userId, meta);
 }
 
 /**
@@ -117,7 +150,9 @@ async function registerFailedAttempt(user, meta, action) {
   await recordActivity({ actorId: user.id, action, entity: 'user', entityId: user.id, ip: meta.ip, userAgent: meta.userAgent });
 }
 
-export async function login({ email, password }, meta) {
+export const login = (input, meta) => inOrganizationOfEmail(input.email, () => loginInOrganization(input, meta));
+
+async function loginInOrganization({ email, password }, meta) {
   const found = await query(
     `SELECT ${PUBLIC_COLUMNS}, password_hash, failed_login_count, locked_until, totp_enabled FROM users WHERE lower(email) = lower($1)`,
     [email]
@@ -151,7 +186,10 @@ export async function completeTwoFactorLogin({ challengeToken, code }, meta) {
   const userId = verifyTwoFactorChallenge(challengeToken);
   const EXPIRED = 'This code has expired. Please sign in again.';
   if (!userId) throw unauthorized(EXPIRED);
+  return inOrganizationOfUser(userId, () => completeTwoFactorLoginInOrganization(userId, code, meta, EXPIRED));
+}
 
+async function completeTwoFactorLoginInOrganization(userId, code, meta, EXPIRED) {
   const found = await query(
     `SELECT ${PUBLIC_COLUMNS}, failed_login_count, locked_until, totp_enabled FROM users WHERE id = $1`,
     [userId]
@@ -175,9 +213,11 @@ export async function completeTwoFactorLogin({ challengeToken, code }, meta) {
 export async function refreshSession(rawRefreshToken, meta) {
   const rotated = rawRefreshToken ? await rotateRefreshToken(rawRefreshToken) : null;
   if (!rotated) throw unauthorized('Your session has expired. Please sign in again.');
-  const user = await query('SELECT status FROM users WHERE id = $1', [rotated.userId]);
-  if (user.rows[0]?.status !== 'active') throw unauthorized('Your session has expired. Please sign in again.');
-  return startSession(rotated.userId, meta);
+  return inOrganizationOfUser(rotated.userId, async () => {
+    const user = await query('SELECT status FROM users WHERE id = $1', [rotated.userId]);
+    if (user.rows[0]?.status !== 'active') throw unauthorized('Your session has expired. Please sign in again.');
+    return startSession(rotated.userId, meta);
+  });
 }
 
 export async function logout(rawRefreshToken) {
@@ -189,7 +229,10 @@ export async function logout(rawRefreshToken) {
  * `actorId`/`action` let an admin-triggered reset (see `adminRequestPasswordReset` below) record
  * itself accurately in the activity log — who actually asked for it, not just whose it is.
  */
-export async function requestPasswordReset(email, meta, { actorId, action = 'auth.password_reset_requested' } = {}) {
+export const requestPasswordReset = (email, meta, options) =>
+  inOrganizationOfEmail(email, () => requestPasswordResetInOrganization(email, meta, options));
+
+async function requestPasswordResetInOrganization(email, meta, { actorId, action = 'auth.password_reset_requested' } = {}) {
   const found = await query(`SELECT ${PUBLIC_COLUMNS}, password_hash FROM users WHERE lower(email) = lower($1)`, [email]);
   const user = found.rows[0];
   if (!user || user.status !== 'active' || !user.password_hash) return;
@@ -229,6 +272,10 @@ async function notifyPasswordChanged(user) {
 export async function resetPassword({ token, password }, meta) {
   const userId = await consumeStoredToken(token, 'password_reset');
   if (!userId) throw badRequest('This reset link is invalid or has expired. Request a new one.');
+  return inOrganizationOfUser(userId, () => finishPasswordReset(userId, password, meta));
+}
+
+async function finishPasswordReset(userId, password, meta) {
   const passwordHash = await hashPassword(password);
   const updated = await query(
     `UPDATE users SET password_hash = $2, failed_login_count = 0, locked_until = NULL, updated_at = now()
@@ -245,6 +292,10 @@ export async function resetPassword({ token, password }, meta) {
 export async function acceptInvite({ token, password, name }, meta) {
   const userId = await consumeStoredToken(token, 'invite');
   if (!userId) throw badRequest('This invitation is invalid or has expired. Ask an administrator to send a new one.');
+  return inOrganizationOfUser(userId, () => finishAcceptInvite(userId, password, name, meta));
+}
+
+async function finishAcceptInvite(userId, password, name, meta) {
   const passwordHash = await hashPassword(password);
   const updated = await query(
     `UPDATE users SET password_hash = $2, status = 'active', name = COALESCE($3, name), last_active_at = now(), updated_at = now()
@@ -277,7 +328,7 @@ export async function updateProfile(actor, { name, language, avatarUrl }) {
   );
   // Role/permissions never change here — carry them over from the already-loaded actor rather than
   // re-querying, so the frontend's `currentUser` (which this response wholesale-replaces) never loses them.
-  return toApiUser({ ...result.rows[0], permissions: actor.permissions, roleRank: actor.roleRank, roleIsProtected: actor.roleIsProtected });
+  return toApiUser({ ...actor, ...result.rows[0] });
 }
 
 /** Real, currently-signed-in devices (Settings → Security). `currentRawToken` marks which one is "this device". */

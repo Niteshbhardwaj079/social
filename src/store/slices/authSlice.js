@@ -67,8 +67,9 @@ export const signOut = createAsyncThunk('auth/signOut', async () => {
 
 const initialState = API_ENABLED
   ? // The session lives in an httpOnly cookie, so we cannot know yet: wait for restoreSession.
-    { isAuthenticated: false, currentUser: null, isBootstrapping: true, setupRequired: false }
-  : { isAuthenticated: Boolean(getStoredAuth()), currentUser: getStoredAuth() || null, isBootstrapping: false, setupRequired: false };
+    // signupEnabled: may a visitor create a new organization? Read from /public/config (the platform owner can close sign-up).
+    { isAuthenticated: false, currentUser: null, isBootstrapping: true, setupRequired: false, signupEnabled: false }
+  : { isAuthenticated: Boolean(getStoredAuth()), currentUser: getStoredAuth() || null, isBootstrapping: false, setupRequired: false, signupEnabled: true };
 
 const signedIn = (state, action) => {
   if (action.payload.requires2fa) return; // password was right, but the 2FA code step isn't done yet
@@ -95,7 +96,19 @@ const authSlice = createSlice({
     },
     // API mode: the server's own fresh copy of the signed-in person, after a real profile/password save.
     setCurrentUser(state, action) {
-      state.currentUser = action.payload;
+      // A profile save does not send the plan back — keep the one we already know.
+      state.currentUser = { plan: state.currentUser?.plan, ...action.payload };
+    },
+    // Billing: the organization's plan changed (or was just re-read), so locked menu items update at once.
+    setCurrentPlan(state, action) {
+      if (state.currentUser) state.currentUser.plan = action.payload;
+    },
+    setSignupEnabled(state, action) {
+      state.signupEnabled = action.payload;
+    },
+    // AI Studio: may this person see / use AI (from GET /ai/access). null = not known yet.
+    setAiAccess(state, action) {
+      state.aiAccess = action.payload;
     },
     logout(state) {
       state.isAuthenticated = false;
@@ -137,5 +150,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { login, logout, updateProfilePhoto, setCurrentUser, sessionExpired, setSetupRequired, setCurrentUserLanguage } = authSlice.actions;
+export const { login, logout, updateProfilePhoto, setCurrentUser, setCurrentPlan, setSignupEnabled, setAiAccess, sessionExpired, setSetupRequired, setCurrentUserLanguage } =
+  authSlice.actions;
 export default authSlice.reducer;

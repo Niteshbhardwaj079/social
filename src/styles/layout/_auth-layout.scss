@@ -1,66 +1,376 @@
 @use '../abstracts/variables' as v;
 @use '../abstracts/mixins' as m;
 
-.auth-layout {
+// Sign in / sign up / password pages: a soft page background, one card (form | highlights),
+// and the copyright line underneath.
+
+.auth-page {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: v.$space-3;
+  padding: v.$space-4;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--color-primary) 10%, transparent) 1px, transparent 0) 0 0 / 2.4rem 2.4rem,
+    linear-gradient(160deg, color-mix(in srgb, var(--color-primary) 8%, var(--color-bg)) 0%, var(--color-bg) 60%);
+}
+
+.auth-page__footer {
+  margin: 0;
+  font-size: v.$font-size-sm;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 108rem;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: v.$space-4;
+  padding: v.$space-2;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: v.$radius-xl;
+  box-shadow: 0 2rem 6rem -3rem rgba(15, 23, 42, 0.25);
 
   @include m.respond-down(v.$breakpoint-lg) {
+    grid-template-columns: 1fr;
+    max-width: 52rem;
+  }
+}
+
+// ---------------------------------------------------------------- left: the form
+.auth-card__form {
+  display: flex;
+  flex-direction: column;
+  min-width: 0; // a grid child may shrink below its content, so nothing pushes past the screen edge
+  padding: v.$space-5 v.$space-8;
+
+  @include m.respond-down(v.$breakpoint-sm) {
+    padding: v.$space-5 v.$space-4;
+  }
+}
+
+.auth-card__header {
+  @include m.flex-between;
+  gap: v.$space-3;
+  flex-wrap: wrap; // on a phone the language picker drops below the logo instead of pushing the card wider
+  margin-bottom: v.$space-5;
+}
+
+.auth-card__brand {
+  display: flex;
+  align-items: center;
+  gap: v.$space-2;
+}
+
+.auth-card__brand-name {
+  font-weight: 700;
+  font-size: v.$font-size-lg;
+  line-height: 1.1;
+}
+
+.auth-card__brand-by {
+  font-size: v.$font-size-xs;
+  color: var(--color-text-muted);
+}
+
+.auth-card__tools {
+  display: flex;
+  align-items: center;
+  gap: v.$space-2;
+}
+
+.auth-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  h2 {
+    font-size: v.$font-size-3xl;
+    font-weight: 800;
+  }
+
+  // The form fields look like soft filled boxes, as in the design.
+  .form-control {
+    min-height: 4.6rem;
+    background-color: var(--color-surface-alt);
+    border-color: var(--color-border);
+  }
+
+  .form-label-custom {
+    margin-bottom: v.$space-1;
+  }
+
+  .btn-lg {
+    min-height: 5rem;
+    border-radius: v.$radius-md;
+    font-weight: 600;
+  }
+}
+
+// A required field's label gets a red star: <label className="form-label-custom is-required">.
+.form-label-custom.is-required::after {
+  content: ' *';
+  color: var(--color-danger);
+}
+
+// Sign-up: two fields side by side (one column on phones).
+.auth-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: v.$space-4;
+
+  @include m.respond-down(v.$breakpoint-sm) {
     grid-template-columns: 1fr;
   }
 }
 
-.auth-layout__form-side {
-  @include m.flex-center;
-  flex-direction: column;
-  padding: v.$space-6;
-  background-color: var(--color-bg);
-}
+// "At least 8 characters" — the circle turns into a green tick once it is true.
+.password-rules {
+  list-style: none;
+  padding: 0;
+  margin: -1.2rem 0 v.$space-4;
+  font-size: v.$font-size-sm;
+  color: var(--color-text-muted);
 
-.auth-layout__inner {
-  width: 100%;
-  max-width: 44rem;
-}
+  li {
+    display: flex;
+    align-items: center;
+    gap: v.$space-1;
 
-.auth-layout__brand {
-  display: flex;
-  align-items: center;
-  gap: v.$space-2;
-  margin-bottom: v.$space-7;
-  font-weight: 700;
-  font-size: v.$font-size-lg;
-}
-
-.auth-layout__showcase {
-  background: linear-gradient(160deg, var(--color-primary) 0%, #312e81 100%);
-  color: #fff;
-  @include m.flex-center;
-  flex-direction: column;
-  text-align: center;
-  padding: v.$space-9;
-  gap: v.$space-4;
-
-  @include m.respond-down(v.$breakpoint-lg) {
-    display: none;
+    &.is-met {
+      color: var(--color-success);
+    }
   }
 }
 
-.auth-layout__showcase-title {
-  font-size: v.$font-size-3xl;
+// ---------------------------------------------------------------- right: product highlights
+.auth-showcase {
+  display: flex;
+  flex-direction: column;
+  gap: v.$space-4;
+  padding: v.$space-5 v.$space-6;
+  border-radius: calc(#{v.$radius-xl} - 0.4rem);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)) 0%, var(--color-surface-alt) 100%);
+
+  @include m.respond-down(v.$breakpoint-lg) {
+    display: none; // phones and tablets: the form alone
+  }
+}
+
+.auth-showcase__media {
+  aspect-ratio: 4 / 3;
+  height: min(30rem, 38vh);
+  max-width: 100%;
+  align-self: center;
+  border-radius: v.$radius-lg;
+  overflow: hidden;
+}
+
+.auth-showcase__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: auth-slide-in 0.4s ease;
+}
+
+.auth-showcase__placeholder {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: v.$space-2;
+  border: 2px dashed color-mix(in srgb, var(--color-primary) 35%, transparent);
+  border-radius: v.$radius-lg;
+  background-color: color-mix(in srgb, var(--color-primary) 6%, var(--color-surface));
+  color: var(--color-primary);
+  text-align: center;
+  padding: v.$space-4;
+}
+
+.auth-showcase__placeholder-title {
+  font-size: v.$font-size-xl;
   font-weight: 700;
-  max-width: 36rem;
 }
 
-.auth-layout__showcase-subtitle {
-  font-size: v.$font-size-md;
-  opacity: 0.85;
-  max-width: 32rem;
-}
-
-.auth-layout__footer {
-  margin-top: v.$space-7;
+.auth-showcase__placeholder-path {
   font-size: v.$font-size-xs;
   color: var(--color-text-muted);
-  text-align: center;
+}
+
+.auth-showcase__copy {
+  animation: auth-slide-in 0.4s ease;
+}
+
+.auth-showcase__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: v.$space-2;
+  padding: 0.3rem v.$space-3 0.3rem 0.3rem;
+  border-radius: v.$radius-pill;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: v.$font-size-sm;
+  font-weight: 600;
+  margin-bottom: v.$space-3;
+}
+
+.auth-showcase__tag-number {
+  padding: 0.1rem v.$space-2;
+  border-radius: v.$radius-pill;
+  background-color: var(--color-primary);
+  color: #fff;
+  font-size: v.$font-size-xs;
+}
+
+.auth-showcase__title {
+  font-size: v.$font-size-2xl;
+  font-weight: 800;
+  margin-bottom: v.$space-2;
+}
+
+.auth-showcase__text {
+  color: var(--color-text-secondary);
+  margin-bottom: 0;
+}
+
+.auth-showcase__footer {
+  margin-top: auto;
+  @include m.flex-between;
+  gap: v.$space-3;
+  flex-wrap: wrap;
+}
+
+.auth-showcase__dots {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.auth-showcase__dot {
+  width: 0.8rem;
+  height: 0.8rem;
+  padding: 0;
+  border: none;
+  border-radius: v.$radius-pill;
+  background-color: color-mix(in srgb, var(--color-text-muted) 40%, transparent);
+  transition: width 0.25s ease;
+
+  &.is-active {
+    width: 2rem;
+    background-color: var(--color-primary);
+  }
+}
+
+.auth-showcase__more {
+  display: inline-flex;
+  align-items: center;
+  gap: v.$space-1;
+  font-weight: 600;
+  font-size: v.$font-size-sm;
+  text-decoration: none;
+}
+
+@keyframes auth-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-showcase__image,
+  .auth-showcase__copy {
+    animation: none;
+  }
+}
+
+// On the auth pages the show/hide-password button is its own bordered box joined to the input.
+.auth-card__body .password-field {
+  .form-control {
+    padding-inline-end: 6rem;
+  }
+
+  .btn {
+    top: 0 !important;
+    height: 100%;
+    width: 5.6rem;
+    margin: 0 !important;
+    transform: none !important;
+    border: 1px solid var(--color-border-strong) !important;
+    // Logical corners, so the joined edge stays on the input's side in right-to-left languages too.
+    border-radius: 0;
+    border-start-end-radius: v.$radius-md;
+    border-end-end-radius: v.$radius-md;
+    background-color: var(--color-surface) !important;
+  }
+}
+
+// Laptop screens (about 600-800px of visible height): tighten the spacing so the whole card and the
+// copyright line fit without a page scrollbar. Taller screens keep the roomier layout above.
+@media (max-height: 800px) {
+  .auth-page {
+    padding-block: v.$space-2;
+    gap: v.$space-2;
+  }
+
+  .auth-card__form {
+    padding-block: v.$space-3;
+  }
+
+  .auth-card__header {
+    margin-bottom: v.$space-2;
+  }
+
+  .auth-card__body {
+    h2 {
+      font-size: v.$font-size-2xl;
+    }
+
+    .form-control {
+      min-height: 4.2rem;
+    }
+
+    // each field's bottom gap (TextField / PasswordField use Bootstrap's mb-4)
+    .mb-4 {
+      margin-bottom: v.$space-2 !important;
+    }
+
+    // the "Already have an account? / Create one" line under the button
+    .mt-4,
+    .mt-5 {
+      margin-top: v.$space-2 !important;
+    }
+
+    .btn-lg {
+      min-height: 4.4rem;
+    }
+  }
+
+  .password-rules {
+    margin: -0.6rem 0 v.$space-3;
+  }
+
+  .auth-showcase {
+    gap: v.$space-3;
+    padding-block: v.$space-4;
+  }
+
+  .auth-showcase__media {
+    height: min(26rem, 34vh);
+  }
+
+  .auth-showcase__title {
+    font-size: v.$font-size-xl;
+  }
 }

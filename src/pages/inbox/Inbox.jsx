@@ -88,7 +88,7 @@ function Inbox() {
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.inbox')} subtitle="Loading conversations..." />
+        <PageHeader title={t('nav.inbox')} subtitle={t('inbox.loading')} />
         <div className="skeleton-card" />
       </>
     );
@@ -107,7 +107,7 @@ function Inbox() {
     return (
       <>
         <PageHeader title={t('nav.inbox')} />
-        <EmptyState icon="Inbox" title="No conversations yet" description="Messages from your connected accounts will show up here." />
+        <EmptyState icon="Inbox" title={t('inbox.noConversationsTitle')} description={t('inbox.noConversationsText')} />
       </>
     );
   }
@@ -127,7 +127,7 @@ function Inbox() {
               <input
                 type="search"
                 className="form-control"
-                placeholder="Search conversations..."
+                placeholder={t('inbox.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
               />

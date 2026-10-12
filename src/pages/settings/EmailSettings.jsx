@@ -11,6 +11,8 @@ import { EMAIL_PROVIDERS, getEmailProvider, uiKeyForSaved } from '../../config/e
 import { REQUEST_STATUS } from '../../config/constants';
 import { formatDate } from '../../utils/formatters';
 import { useToast } from '../../components/common/ToastProvider';
+import { useI18n } from '../../i18n/useI18n';
+import brand from '../../config/brand';
 
 const TEST = { IDLE: 'idle', RUNNING: 'running', OK: 'ok', FAILED: 'failed' };
 const DEFAULT_UI_KEY = EMAIL_PROVIDERS[0].key;
@@ -35,6 +37,7 @@ function valuesFromSaved(provider, savedProvider, connected) {
 }
 
 function EmailSettings() {
+  const { t } = useI18n();
   const { showToast } = useToast();
   const currentUserEmail = useSelector((state) => state.auth.currentUser?.email) || '';
 
@@ -106,9 +109,9 @@ function EmailSettings() {
       .then((settings) => {
         applySettings(settings);
         setTestState({ status: TEST.IDLE, message: '' });
-        showToast({ type: 'success', title: 'Email settings saved', message: 'Outgoing email will now be sent through this connection.' });
+        showToast({ type: 'success', title: t('settings.email.savedToast'), message: t('settings.email.savedMessage') });
       })
-      .catch((error) => showToast({ type: 'error', title: 'Could not save', message: error.message }))
+      .catch((error) => showToast({ type: 'error', title: t('settings.email.couldNotSaveTitle'), message: error.message }))
       .finally(() => setIsSaving(false));
   }
 
@@ -116,7 +119,7 @@ function EmailSettings() {
     disconnectEmailProvider().then((settings) => {
       applySettings(settings);
       setIsDisconnectOpen(false);
-      showToast({ type: 'info', title: 'Email disconnected', message: 'Emails will be recorded but not sent until you connect one again.' });
+      showToast({ type: 'info', title: t('settings.email.disconnectedToast'), message: t('settings.email.disconnectedMessage') });
     });
   }
 
@@ -127,9 +130,9 @@ function EmailSettings() {
     sendTestEmail(recipient.trim())
       .then((result) => {
         if (result.status === 'sent') {
-          setSendState({ status: TEST.OK, message: `Sent to ${recipient.trim()}. Check its inbox (and spam folder).` });
+          setSendState({ status: TEST.OK, message: t('settings.email.sentMessage', { recipient: recipient.trim() }) });
         } else {
-          setSendState({ status: TEST.FAILED, message: 'Nothing is connected yet, so this was only recorded, not actually sent. Save your settings above first.' });
+          setSendState({ status: TEST.FAILED, message: t('settings.email.notConnectedMessage') });
         }
       })
       .catch((error) => setSendState({ status: TEST.FAILED, message: error.message }));
@@ -140,52 +143,51 @@ function EmailSettings() {
   return (
     <div className="d-flex flex-column gap-5">
       <form className="surface-card" onSubmit={handleSave} noValidate>
-        <h3 className="h5 mb-1">Email</h3>
+        <h3 className="h5 mb-1">{t('settings.email.title')}</h3>
         <p className="text-secondary-custom mb-4">
-          Connect your own outgoing email — SMTP or an API provider — so invitations, alerts and notifications are sent from your own address.
-          Social never sends email on your behalf through a shared address.
+          {t('settings.email.subtitle', { product: brand.productName })}
         </p>
 
         {saved.provider ? (
           <div className="storage-status">
             <div className="storage-status__head">
-              <span className="status-badge status-badge--connected">Connected</span>
+              <span className="status-badge status-badge--connected">{t('common.status.connected')}</span>
               <strong>{connectedProviderLabel}</strong>
               <button type="button" className="btn btn-outline-secondary-custom text-danger ms-auto" onClick={() => setIsDisconnectOpen(true)}>
-                Disconnect
+                {t('socialAccounts.disconnect')}
               </button>
             </div>
             <dl className="storage-status__list">
               {saved.provider.providerKey === 'smtp' ? (
                 <div>
-                  <dt>Host</dt>
+                  <dt>{t('settings.email.hostLabel')}</dt>
                   <dd>
-                    {saved.provider.values.host}:{saved.provider.values.port} {saved.provider.values.secure ? '(TLS/SSL)' : ''}
+                    {saved.provider.values.host}:{saved.provider.values.port} {saved.provider.values.secure ? t('settings.email.tlsSslSuffix') : ''}
                   </dd>
                 </div>
               ) : null}
               {saved.provider.values.username ? (
                 <div>
-                  <dt>Username</dt>
+                  <dt>{t('settings.email.usernameDt')}</dt>
                   <dd>{saved.provider.values.username}</dd>
                 </div>
               ) : null}
               {Object.entries(saved.provider.secretHints).map(([key, hint]) => (
                 <div key={key}>
-                  <dt>{key === 'apiKey' ? 'API Key' : 'Password'}</dt>
+                  <dt>{key === 'apiKey' ? t('settings.email.apiKeyDt') : t('settings.email.passwordDt')}</dt>
                   <dd>{hint}</dd>
                 </div>
               ))}
               <div>
-                <dt>From</dt>
+                <dt>{t('settings.email.fromDt')}</dt>
                 <dd>{saved.provider.values.fromName ? `${saved.provider.values.fromName} <${saved.provider.values.fromEmail}>` : saved.provider.values.fromEmail}</dd>
               </div>
               <div>
-                <dt>Connected</dt>
+                <dt>{t('settings.storage.connectedDt')}</dt>
                 <dd>{formatDate(saved.provider.connectedAt)}</dd>
               </div>
               <div>
-                <dt>Last connection test</dt>
+                <dt>{t('settings.storage.lastTestDt')}</dt>
                 <dd>
                   {formatDate(saved.provider.lastTestedAt)} — {saved.provider.lastTestMessage}
                 </dd>
@@ -195,15 +197,15 @@ function EmailSettings() {
         ) : (
           <div className="callout-banner callout-banner--info">
             <Icon name="Info" size={16} />
-            <span>No outgoing email connected yet. Emails are recorded but not sent until you connect one.</span>
+            <span>{t('settings.email.noneConnectedBanner')}</span>
           </div>
         )}
 
-        <h4 className="h6 mt-4 mb-3">{saved.provider ? 'Change email settings' : 'Connect your email'}</h4>
+        <h4 className="h6 mt-4 mb-3">{saved.provider ? t('settings.email.changeSettings') : t('settings.email.connectYours')}</h4>
 
         <div className="mb-4">
           <label htmlFor="email-provider" className="form-label-custom">
-            Email provider
+            {t('settings.email.providerLabel')}
           </label>
           <select id="email-provider" className="form-select" value={uiKey} onChange={(event) => handleProviderChange(event.target.value)}>
             {EMAIL_PROVIDERS.map((item) => (
@@ -214,7 +216,7 @@ function EmailSettings() {
           </select>
           <div className="form-hint">
             {provider.summary}
-            {provider.locked ? ` Uses ${provider.host}:${provider.port}.` : ''}
+            {provider.locked ? t('settings.email.usesHostPort', { host: provider.host, port: provider.port }) : ''}
           </div>
         </div>
 
@@ -227,7 +229,7 @@ function EmailSettings() {
 
         {provider.steps ? (
           <details className="storage-guide" open={!connected}>
-            <summary>How to get these details</summary>
+            <summary>{t('settings.storage.howToGetDetails')}</summary>
             <ol className="connect-guide__steps">
               {provider.steps.map((step) => (
                 <li key={step}>{step}</li>
@@ -247,7 +249,7 @@ function EmailSettings() {
             <>
               <TextField
                 id="email-host"
-                label={<>Host<span className="text-danger"> *</span></>}
+                label={<>{t('settings.email.hostLabel')}<span className="text-danger"> *</span></>}
                 value={values.host}
                 onChange={(event) => handleFieldChange('host', event.target.value)}
                 placeholder="smtp.gmail.com"
@@ -256,7 +258,7 @@ function EmailSettings() {
               />
               <TextField
                 id="email-port"
-                label={<>Port<span className="text-danger"> *</span></>}
+                label={<>{t('settings.email.portLabel')}<span className="text-danger"> *</span></>}
                 type="number"
                 value={values.port}
                 onChange={(event) => handleFieldChange('port', event.target.value)}
@@ -267,7 +269,7 @@ function EmailSettings() {
 
           {provider.fields.map((field) => {
             const Field = field.secret ? PasswordField : TextField;
-            const hint = field.secret && connected ? 'Stored encrypted. Never shown again once saved — leave this blank to keep the current one.' : field.hint;
+            const hint = field.secret && connected ? t('settings.email.secretHintConnected') : field.hint;
             return (
               <Field
                 key={`${uiKey}-${field.key}`}
@@ -281,7 +283,7 @@ function EmailSettings() {
                 {...(field.secret ? {} : { type: field.type === 'email' ? 'email' : 'text' })}
                 value={values[field.key] || ''}
                 onChange={(event) => handleFieldChange(field.key, event.target.value)}
-                placeholder={field.secret && connected ? 'Leave blank to keep the current one' : field.placeholder}
+                placeholder={field.secret && connected ? t('settings.email.secretPlaceholderConnected') : field.placeholder}
                 autoComplete="off"
                 spellCheck={false}
                 hint={hint}
@@ -301,7 +303,7 @@ function EmailSettings() {
                   onChange={(event) => handleFieldChange('secure', event.target.checked)}
                 />
                 <label htmlFor="email-secure" className="form-check-label">
-                  Use TLS/SSL (usually needed for port 465; leave off for 587 or 25)
+                  {t('settings.email.tlsSwitchLabel')}
                 </label>
               </div>
             </div>
@@ -313,29 +315,29 @@ function EmailSettings() {
             <Icon name={testState.status === TEST.OK ? 'CheckCircle2' : 'AlertCircle'} size={16} />
             <span>
               {testState.message}
-              {testState.status === TEST.OK ? ' This is only a test — click "Save changes" below to actually connect it.' : ''}
+              {testState.status === TEST.OK ? t('settings.email.testOkSuffix') : ''}
             </span>
           </div>
         ) : null}
 
         <div className="connect-form__actions">
           <button type="button" className="btn btn-outline-secondary-custom" onClick={runTest} disabled={isRunning || isSaving}>
-            {isRunning ? 'Testing...' : 'Test Connection'}
+            {isRunning ? t('settings.email.testingEllipsis') : t('settings.email.testConnection')}
           </button>
           <button type="submit" className="btn btn-primary" disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save changes'}
+            {isSaving ? t('common.saving') : t('common.saveChanges')}
           </button>
         </div>
-        <div className="form-hint mt-2">"Test Connection" only checks the details — nothing is connected until you click "Save changes".</div>
+        <div className="form-hint mt-2">{t('settings.email.testHint')}</div>
       </form>
 
       {saved.provider ? (
         <form className="surface-card" onSubmit={handleSendTest}>
-          <h3 className="h5 mb-1">Send a test email</h3>
-          <p className="text-secondary-custom mb-4">Send a real email through your connected server to make sure it actually arrives.</p>
+          <h3 className="h5 mb-1">{t('settings.email.sendTestTitle')}</h3>
+          <p className="text-secondary-custom mb-4">{t('settings.email.sendTestSubtitle')}</p>
           <TextField
             id="email-test-recipient"
-            label="Send to"
+            label={t('settings.email.sendToLabel')}
             type="email"
             value={recipient}
             onChange={(event) => setRecipient(event.target.value)}
@@ -349,7 +351,7 @@ function EmailSettings() {
             </div>
           ) : null}
           <button type="submit" className="btn btn-outline-secondary-custom" disabled={isSending || !recipient.trim()}>
-            {isSending ? 'Sending...' : 'Send test email'}
+            {isSending ? t('settings.email.sendingEllipsis') : t('settings.email.sendTestEmail')}
           </button>
         </form>
       ) : null}
@@ -358,9 +360,9 @@ function EmailSettings() {
         isOpen={isDisconnectOpen}
         onClose={() => setIsDisconnectOpen(false)}
         onConfirm={handleDisconnectConfirmed}
-        title="Disconnect this email connection?"
-        message="Invitations, alerts and notifications will stop being sent until you connect one again — they will still be recorded, just not delivered."
-        confirmLabel="Disconnect"
+        title={t('settings.email.disconnectConfirmTitle')}
+        message={t('settings.email.disconnectConfirmMessage')}
+        confirmLabel={t('socialAccounts.disconnect')}
         isDanger
       />
     </div>

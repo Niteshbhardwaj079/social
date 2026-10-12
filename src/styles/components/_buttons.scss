@@ -48,6 +48,14 @@
     background-color: var(--color-primary-hover);
     border-color: var(--color-primary-hover);
   }
+
+  // Switched-off buttons keep the chosen brand colour (Bootstrap would fall back to its own purple).
+  &:disabled,
+  &.disabled {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    opacity: 0.5;
+  }
 }
 
 .btn-soft-primary {

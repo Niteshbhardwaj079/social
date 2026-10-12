@@ -17,6 +17,7 @@ export const PERMISSION_COLUMNS = [
 export const ROLE_PERMISSION_MODULES = [
   {
     module: 'Users',
+    moduleKey: 'users',
     cells: {
       view: { key: 'usersView', description: 'See the list of people in the workspace.' },
       create: { key: 'usersCreate', description: 'Invite new people.' },
@@ -26,6 +27,7 @@ export const ROLE_PERMISSION_MODULES = [
   },
   {
     module: 'Roles',
+    moduleKey: 'roles',
     cells: {
       view: { key: 'rolesView', description: 'See the Roles & Permissions page.' },
       create: { key: 'rolesCreate', description: 'Create a new custom role, or duplicate one.' },
@@ -35,6 +37,7 @@ export const ROLE_PERMISSION_MODULES = [
   },
   {
     module: 'Posts',
+    moduleKey: 'posts',
     cells: {
       view: { key: 'postsView', description: 'See posts in the calendar and list.' },
       create: { key: 'postsWrite', description: 'Create and edit drafts; submit for approval.' },
@@ -44,6 +47,7 @@ export const ROLE_PERMISSION_MODULES = [
   },
   {
     module: 'Social Accounts',
+    moduleKey: 'socialAccounts',
     cells: {
       view: { key: 'socialAccountsView', description: 'See which accounts are connected (also needed by the post composer).' },
       create: { key: 'socialAccountsConnect', description: 'Connect a social account or storage provider, or test credentials.' },
@@ -53,6 +57,7 @@ export const ROLE_PERMISSION_MODULES = [
   },
   {
     module: 'Ads',
+    moduleKey: 'ads',
     cells: {
       view: { key: 'adsView', description: 'See ad accounts, launched ads and their stats.' },
       create: { key: 'adsCreate', description: 'Launch a new ad or ad variation.' },
@@ -62,6 +67,7 @@ export const ROLE_PERMISSION_MODULES = [
   },
   {
     module: 'Campaigns',
+    moduleKey: 'campaigns',
     cells: {
       view: { key: 'campaignsView', description: 'See the list of campaigns.' },
       create: { key: 'campaignsCreate', description: 'Create a new campaign.' },
@@ -71,6 +77,7 @@ export const ROLE_PERMISSION_MODULES = [
   },
   {
     module: 'Reports',
+    moduleKey: 'reports',
     cells: {
       view: { key: 'reportsView', description: 'View the Dashboard and Analytics pages.' },
       create: null,
@@ -80,6 +87,7 @@ export const ROLE_PERMISSION_MODULES = [
   },
   {
     module: 'Media',
+    moduleKey: 'media',
     cells: {
       view: { key: 'mediaView', description: 'See files in the Media Library.' },
       create: { key: 'mediaCreate', description: 'Upload a new file or add one by link.' },
@@ -89,6 +97,7 @@ export const ROLE_PERMISSION_MODULES = [
   },
   {
     module: 'Templates',
+    moduleKey: 'templates',
     cells: {
       view: { key: 'templatesView', description: 'See saved ad creative templates.' },
       create: { key: 'templatesCreate', description: 'Save a new ad creative template.' },
@@ -98,6 +107,7 @@ export const ROLE_PERMISSION_MODULES = [
   },
   {
     module: 'Activity Logs',
+    moduleKey: 'activityLogs',
     cells: {
       view: { key: 'activityLogsView', description: 'View the activity log.' },
       create: null,
@@ -107,10 +117,22 @@ export const ROLE_PERMISSION_MODULES = [
   },
   {
     module: 'Settings',
+    moduleKey: 'settings',
     cells: {
       view: { key: 'settingsView', description: 'View workspace, language and system email settings.' },
       create: null,
       edit: { key: 'settingsEdit', description: 'Change workspace, language and system email settings.' },
+      delete: null,
+    },
+  },
+  {
+    // AI Studio. The organization's plan and the platform owner's switches also apply on top of these.
+    module: 'AI',
+    moduleKey: 'ai',
+    cells: {
+      view: null,
+      create: { key: 'aiUse', description: 'Write posts and create images and videos with AI.' },
+      edit: { key: 'aiAutopilot', description: 'Set up AI auto-posting (autopilot).' },
       delete: null,
     },
   },

@@ -1,8 +1,26 @@
 # Social — by Gowebkart Pvt Ltd
 
 One dashboard for every social channel: publishing, ads, inbox, analytics, users & roles, system emails.
-Single-tenant: each client gets their own copy (own subdomain, own database). No paid third-party APIs —
-clients bring their own platform credentials, SMTP mailbox and storage.
+**SaaS (multi-tenant):** any company can sign up and gets its own **organization** — its own people, roles,
+posts, accounts and settings — all in one shared database, kept apart by PostgreSQL row-level security
+(see `backend/migrations/028_multi_tenancy.sql` and `backend/src/db/pool.js`). Organizations subscribe to a plan
+(Free / Starter / Pro / Enterprise) under **Billing**; payments are manual for now (UPI / bank transfer +
+transaction ID, approved by the platform owner, with a GST invoice issued automatically), built so a payment
+gateway can be added later — see `backend/src/billing/README.md`. The very first person to sign up is the
+**platform owner** and gets the **Platform** area (all organizations, payments, plans, invoices, settings).
+No paid third-party APIs — organizations bring their own platform credentials, SMTP mailbox and storage.
+
+**AI Studio & marketing agent:** a Brand Kit (filled from the business website), research (competitors,
+news, festivals → post ideas), AI-written posts, images, slideshow and AI videos, weekly content plans and
+daily autopilots that post by themselves. It runs on Claude / OpenAI / Gemini / self-hosted Ollama when a
+key and credits allow, and otherwise on a built-in **free agent**, so every plan can use it — see
+`backend/src/ai/README.md`. Owners edit plans freely; mid-period plan changes are prorated and invoices
+are issued, voided and re-issued automatically.
+
+**Phone to 8K:** on a phone it works like an app — a bottom bar, a "More" screen with every page, tables
+that turn into cards (`data-table--stack`), and it can be installed to the home screen (`public/manifest.webmanifest`,
+`public/sw.js`, which shows an offline page but caches nothing else). On big screens the whole UI scales from one
+root font size (`src/styles/base/_root.scss`), so 4K and 8K look like Full HD, only sharper.
 
 | Part | Where | Stack |
 | --- | --- | --- |

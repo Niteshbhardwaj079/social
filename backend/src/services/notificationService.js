@@ -1,4 +1,4 @@
-import { query } from '../db/pool.js';
+import { query, runWithOrganization } from '../db/pool.js';
 import { logger } from '../utils/logger.js';
 
 export const NOTIFICATION_TYPES = [
@@ -12,6 +12,8 @@ export const NOTIFICATION_TYPES = [
   'tokenExpired',
   'accountRevoked',
   'accountNeedsAttention',
+  'billingUpdate', // payment approved / rejected, invoice issued, plan ending or ended
+  'aiAgentUpdate', // a week of AI posts is ready, an autopilot needs attention
 ];
 
 function present(row) {
@@ -65,6 +67,29 @@ export async function notifyRoles(roles, { type, title, message, entityType = nu
     ).rows;
     const recipients = rows.filter((row) => row.notification_prefs?.[type] !== false);
     await insertMany(recipients.map((row) => ({ userId: row.id, type, title, message, entityType, entityId })));
+  } catch (error) {
+    logger.error('Could not create notifications', error, { type });
+  }
+}
+
+/**
+ * Notifies the people who look after billing in an organization (anyone whose role can edit Settings).
+ * Works from anywhere — also from the platform owner's screens, which run outside the organization.
+ * Never throws.
+ */
+export async function notifyOrganizationAdmins(organizationId, { type, title, message, entityType = null, entityId = null }) {
+  try {
+    await runWithOrganization(organizationId, async () => {
+      const rows = (
+        await query(
+          `SELECT users.id, users.notification_prefs FROM users
+             JOIN roles ON roles.organization_id = users.organization_id AND roles.id = users.role
+            WHERE users.status = 'active' AND roles.settings_edit`
+        )
+      ).rows;
+      const recipients = rows.filter((row) => row.notification_prefs?.[type] !== false);
+      await insertMany(recipients.map((row) => ({ userId: row.id, type, title, message, entityType, entityId })));
+    });
   } catch (error) {
     logger.error('Could not create notifications', error, { type });
   }

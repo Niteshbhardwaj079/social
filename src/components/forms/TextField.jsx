@@ -1,8 +1,8 @@
-function TextField({ label, id, error, hint, className = '', ...inputProps }) {
+function TextField({ label, id, error, hint, requiredMark = false, className = '', ...inputProps }) {
   return (
     <div className={`mb-4 ${className}`.trim()}>
       {label ? (
-        <label htmlFor={id} className="form-label-custom">
+        <label htmlFor={id} className={`form-label-custom ${requiredMark ? 'is-required' : ''}`.trim()}>
           {label}
         </label>
       ) : null}

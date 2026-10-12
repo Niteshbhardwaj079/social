@@ -2,18 +2,18 @@ import { useState } from 'react';
 import Icon from '../common/Icon';
 import { useI18n } from '../../i18n/useI18n';
 
-function PasswordField({ label, id, error, hint, className = '', ...inputProps }) {
+function PasswordField({ label, id, error, hint, requiredMark = false, className = '', ...inputProps }) {
   const { t } = useI18n();
   const [isVisible, setIsVisible] = useState(false);
 
   return (
     <div className={`mb-4 ${className}`.trim()}>
       {label ? (
-        <label htmlFor={id} className="form-label-custom">
+        <label htmlFor={id} className={`form-label-custom ${requiredMark ? 'is-required' : ''}`.trim()}>
           {label}
         </label>
       ) : null}
-      <div className="position-relative">
+      <div className="position-relative password-field">
         <input
           id={id}
           type={isVisible ? 'text' : 'password'}

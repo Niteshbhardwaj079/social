@@ -3,7 +3,8 @@ import { query, transaction } from '../db/pool.js';
 import * as storage from '../storage/index.js';
 import { StorageError } from '../storage/index.js';
 import { assertPublicOrigin } from '../providers/http.js';
-import { HttpError, badRequest, forbidden, notFound } from '../utils/httpError.js';
+import { HttpError, badRequest, forbidden, notFound, planLimit } from '../utils/httpError.js';
+import { planStorageLimitBytes } from './planService.js';
 import { logger } from '../utils/logger.js';
 import { recordActivity } from './auditService.js';
 import { canCreateMedia, canDeleteMedia, canEditMedia } from './permissions.js';
@@ -75,10 +76,14 @@ const slugify = (name) => name.toLowerCase().replace(/[^a-z0-9.]+/g, '-').replac
 const newKey = (name) => `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}-${slugify(name)}`;
 
 async function assertWithinLimit(extraBytes) {
-  const limit = await storageService.currentLimitBytes();
-  if (!limit) return;
-  const used = (await query("SELECT COALESCE(SUM(size_bytes), 0) AS used FROM media_items WHERE storage <> 'linked'")).rows[0].used;
-  if (Number(used) + extraBytes > limit) {
+  const [workspaceLimit, planLimitBytes] = await Promise.all([storageService.currentLimitBytes(), planStorageLimitBytes()]);
+  if (!workspaceLimit && !planLimitBytes) return;
+  const used = Number((await query("SELECT COALESCE(SUM(size_bytes), 0) AS used FROM media_items WHERE storage <> 'linked'")).rows[0].used);
+  // The plan's limit (SaaS) comes first: raising the workspace's own limit cannot go past it.
+  if (planLimitBytes && used + extraBytes > planLimitBytes) {
+    throw planLimit('That would go over your plan’s storage. Free up space, or upgrade your plan under Billing.', { limit: 'storageMb' });
+  }
+  if (workspaceLimit && used + extraBytes > workspaceLimit) {
     throw badRequest('That would go over your storage limit. Free up space, or raise the limit in Settings → Storage, then try again.');
   }
 }

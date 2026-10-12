@@ -50,9 +50,9 @@ function Campaigns() {
       (newCampaign) => {
         setCampaigns((current) => [newCampaign, ...current]);
         setIsFormOpen(false);
-        showToast({ type: 'success', title: 'Campaign created', message: `${newCampaign.name} is ready to go.` });
+        showToast({ type: 'success', title: t('campaigns.createdToast'), message: t('campaigns.createdToastText', { name: newCampaign.name }) });
       },
-      (error) => showToast({ type: 'error', title: 'Could not create the campaign', message: apiErrorMessage(error) })
+      (error) => showToast({ type: 'error', title: t('campaigns.createErrorTitle'), message: apiErrorMessage(error) })
     );
   }
 
@@ -62,18 +62,18 @@ function Campaigns() {
     onClick: () => setStatusFilter((current) => (value === 'all' || current === value ? 'all' : value)),
   });
   const statCards = [
-    { key: 'all', label: 'Total Campaigns', value: campaigns.length, icon: 'Megaphone', tone: 'primary', ...card('all') },
-    { key: 'active', label: 'Active', value: countOf(CAMPAIGN_STATUS.ACTIVE), icon: 'Rocket', tone: 'green', ...card(CAMPAIGN_STATUS.ACTIVE) },
-    { key: 'scheduled', label: 'Scheduled', value: countOf(CAMPAIGN_STATUS.SCHEDULED), icon: 'CalendarClock', tone: 'sky', ...card(CAMPAIGN_STATUS.SCHEDULED) },
-    { key: 'completed', label: 'Completed', value: countOf(CAMPAIGN_STATUS.COMPLETED), icon: 'CheckCircle2', tone: 'purple', ...card(CAMPAIGN_STATUS.COMPLETED) },
-    { key: 'paused', label: 'Paused', value: countOf(CAMPAIGN_STATUS.PAUSED), icon: 'PauseCircle', tone: 'slate', ...card(CAMPAIGN_STATUS.PAUSED) },
-    { key: 'posts', label: 'Posts in Campaigns', value: campaigns.reduce((sum, campaign) => sum + (campaign.postsCount || 0), 0), icon: 'FileText', tone: 'amber' },
+    { key: 'all', label: t('campaigns.totalCampaigns'), value: campaigns.length, icon: 'Megaphone', tone: 'primary', ...card('all') },
+    { key: 'active', label: t('common.status.active'), value: countOf(CAMPAIGN_STATUS.ACTIVE), icon: 'Rocket', tone: 'green', ...card(CAMPAIGN_STATUS.ACTIVE) },
+    { key: 'scheduled', label: t('common.status.scheduled'), value: countOf(CAMPAIGN_STATUS.SCHEDULED), icon: 'CalendarClock', tone: 'sky', ...card(CAMPAIGN_STATUS.SCHEDULED) },
+    { key: 'completed', label: t('common.status.completed'), value: countOf(CAMPAIGN_STATUS.COMPLETED), icon: 'CheckCircle2', tone: 'purple', ...card(CAMPAIGN_STATUS.COMPLETED) },
+    { key: 'paused', label: t('common.status.paused'), value: countOf(CAMPAIGN_STATUS.PAUSED), icon: 'PauseCircle', tone: 'slate', ...card(CAMPAIGN_STATUS.PAUSED) },
+    { key: 'posts', label: t('campaigns.postsInCampaigns'), value: campaigns.reduce((sum, campaign) => sum + (campaign.postsCount || 0), 0), icon: 'FileText', tone: 'amber' },
   ];
 
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.campaigns')} subtitle="Loading your campaigns..." />
+        <PageHeader title={t('nav.campaigns')} subtitle={t('campaigns.loading')} />
         <SkeletonKpiRow />
       </>
     );
@@ -97,7 +97,7 @@ function Campaigns() {
         actions={
           <button type="button" className="btn btn-primary" onClick={() => setIsFormOpen(true)}>
             <Icon name="Plus" size={16} />
-            Create Campaign
+            {t('campaigns.createCampaign')}
           </button>
         }
       />
@@ -107,13 +107,13 @@ function Campaigns() {
       {campaigns.length === 0 ? (
         <EmptyState
           icon="Megaphone"
-          title="No campaigns yet"
-          description="Group related posts into a campaign to track performance together."
-          actionLabel="Create Campaign"
+          title={t('campaigns.emptyTitle')}
+          description={t('campaigns.emptyText')}
+          actionLabel={t('campaigns.createCampaign')}
           onAction={() => setIsFormOpen(true)}
         />
       ) : filteredCampaigns.length === 0 ? (
-        <EmptyState icon="Megaphone" title="No campaigns here" description="Try another status." />
+        <EmptyState icon="Megaphone" title={t('campaigns.noneTitle')} description={t('campaigns.noneText')} />
       ) : (
         <>
           <div className="grid-toolbar">

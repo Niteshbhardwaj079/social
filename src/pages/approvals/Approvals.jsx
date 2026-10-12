@@ -61,9 +61,9 @@ function Approvals() {
         if (API_ENABLED) loadApprovals();
         else setApprovals((current) => current.map((approval) => (approval.id === approvalId ? { ...approval, status: APPROVAL_STATUS.APPROVED } : approval)));
         setActiveApprovalId(null);
-        showToast({ type: 'success', title: 'Post approved' });
+        showToast({ type: 'success', title: t('posts.postApprovedToast') });
       },
-      (error) => showToast({ type: 'error', title: 'Could not approve that post', message: error.message })
+      (error) => showToast({ type: 'error', title: t('approvals.approveError'), message: error.message })
     );
   }
 
@@ -89,9 +89,9 @@ function Approvals() {
           );
         }
         setActiveApprovalId(null);
-        showToast({ type: 'info', title: 'Post rejected' });
+        showToast({ type: 'info', title: t('posts.postRejectedToast') });
       },
-      (error) => showToast({ type: 'error', title: 'Could not reject that post', message: error.message })
+      (error) => showToast({ type: 'error', title: t('approvals.rejectError'), message: error.message })
     );
   }
 
@@ -108,7 +108,7 @@ function Approvals() {
   function handleBulkApprove() {
     const ids = pendingSelectedIds();
     if (ids.length === 0) {
-      showToast({ type: 'info', title: 'Nothing to approve', message: 'Only pending requests can be approved.' });
+      showToast({ type: 'info', title: t('approvals.nothingToApprove'), message: t('approvals.nothingToApproveText') });
       return;
     }
     Promise.allSettled(ids.map((id) => approveRequest(id))).then((results) => {
@@ -118,8 +118,8 @@ function Approvals() {
       selection.clear();
       showToast({
         type: okCount === ids.length ? 'success' : 'error',
-        title: `${okCount} ${okCount === 1 ? 'post' : 'posts'} approved`,
-        message: okCount < ids.length ? `${ids.length - okCount} could not be approved.` : undefined,
+        title: t(okCount === 1 ? 'approvals.approvedCountOne' : 'approvals.approvedCountOther', { count: okCount }),
+        message: okCount < ids.length ? t('approvals.someCouldNotApprove', { count: ids.length - okCount }) : undefined,
       });
     });
   }
@@ -128,15 +128,15 @@ function Approvals() {
     const ids = pendingSelectedIds();
     setIsBulkRejectOpen(false);
     if (ids.length === 0) return;
-    Promise.allSettled(ids.map((id) => rejectRequest(id, 'Rejected in bulk'))).then((results) => {
+    Promise.allSettled(ids.map((id) => rejectRequest(id, t('approvals.rejectedInBulkReason')))).then((results) => {
       const okCount = results.filter((result) => result.status === 'fulfilled').length;
       if (API_ENABLED) loadApprovals();
       else setApprovals((current) => current.map((approval) => (ids.includes(approval.id) ? { ...approval, status: APPROVAL_STATUS.REJECTED } : approval)));
       selection.clear();
       showToast({
         type: okCount === ids.length ? 'info' : 'error',
-        title: `${okCount} ${okCount === 1 ? 'post' : 'posts'} rejected`,
-        message: okCount < ids.length ? `${ids.length - okCount} could not be rejected.` : undefined,
+        title: t(okCount === 1 ? 'approvals.rejectedCountOne' : 'approvals.rejectedCountOther', { count: okCount }),
+        message: okCount < ids.length ? t('approvals.someCouldNotReject', { count: ids.length - okCount }) : undefined,
       });
     });
   }
@@ -144,17 +144,17 @@ function Approvals() {
   const statusCount = (status) => approvals.filter((approval) => approval.status === status).length;
   const cardFilter = (value) => ({ isActive: statusFilter === value, onClick: () => setStatusFilter((current) => (value === 'all' || current === value ? 'all' : value)) });
   const statCards = [
-    { key: 'all', label: 'All Requests', value: approvals.length, icon: 'ClipboardList', tone: 'primary', ...cardFilter('all') },
-    { key: 'submitted', label: 'Submitted', value: statusCount(APPROVAL_STATUS.SUBMITTED), icon: 'Send', tone: 'amber', ...cardFilter(APPROVAL_STATUS.SUBMITTED) },
-    { key: 'review', label: 'Under Review', value: statusCount(APPROVAL_STATUS.UNDER_REVIEW), icon: 'Eye', tone: 'sky', ...cardFilter(APPROVAL_STATUS.UNDER_REVIEW) },
-    { key: 'approved', label: 'Approved', value: statusCount(APPROVAL_STATUS.APPROVED), icon: 'CheckCircle2', tone: 'green', ...cardFilter(APPROVAL_STATUS.APPROVED) },
-    { key: 'rejected', label: 'Rejected', value: statusCount(APPROVAL_STATUS.REJECTED), icon: 'XCircle', tone: 'red', ...cardFilter(APPROVAL_STATUS.REJECTED) },
+    { key: 'all', label: t('approvals.allRequests'), value: approvals.length, icon: 'ClipboardList', tone: 'primary', ...cardFilter('all') },
+    { key: 'submitted', label: t('common.status.submitted'), value: statusCount(APPROVAL_STATUS.SUBMITTED), icon: 'Send', tone: 'amber', ...cardFilter(APPROVAL_STATUS.SUBMITTED) },
+    { key: 'review', label: t('common.status.underReview'), value: statusCount(APPROVAL_STATUS.UNDER_REVIEW), icon: 'Eye', tone: 'sky', ...cardFilter(APPROVAL_STATUS.UNDER_REVIEW) },
+    { key: 'approved', label: t('common.status.approved'), value: statusCount(APPROVAL_STATUS.APPROVED), icon: 'CheckCircle2', tone: 'green', ...cardFilter(APPROVAL_STATUS.APPROVED) },
+    { key: 'rejected', label: t('common.status.rejected'), value: statusCount(APPROVAL_STATUS.REJECTED), icon: 'XCircle', tone: 'red', ...cardFilter(APPROVAL_STATUS.REJECTED) },
   ];
 
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.approvals')} subtitle="Loading approval requests..." />
+        <PageHeader title={t('nav.approvals')} subtitle={t('approvals.loading')} />
         <SkeletonTable rows={4} columns={4} />
       </>
     );
@@ -179,22 +179,22 @@ function Approvals() {
         {filteredApprovals.length > 0 ? <TableToolbar pagination={pagination} /> : null}
         <BulkActionBar selection={selection} show={filteredApprovals.length > 0}>
           <button type="button" className="btn btn-sm btn-outline-secondary-custom" onClick={handleBulkApprove}>
-            <Icon name="CheckCircle2" size={14} /> Approve
+            <Icon name="CheckCircle2" size={14} /> {t('posts.approve')}
           </button>
           <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setIsBulkRejectOpen(true)}>
-            <Icon name="XCircle" size={14} /> Reject
+            <Icon name="XCircle" size={14} /> {t('posts.reject')}
           </button>
         </BulkActionBar>
         <div className="panel-card__body panel-card__body--flush">
           {approvals.length === 0 ? (
-            <EmptyState icon="CheckSquare" title="Nothing to review" description="Posts submitted for approval will appear here." />
+            <EmptyState icon="CheckSquare" title={t('approvals.emptyTitle')} description={t('approvals.emptyText')} />
           ) : filteredApprovals.length === 0 ? (
-            <EmptyState icon="CheckSquare" title="No requests here" description="Try another status." />
+            <EmptyState icon="CheckSquare" title={t('approvals.noneTitle')} description={t('approvals.noneText')} />
           ) : (
             <div className="d-flex flex-column">
               <label className="list-select-row">
-                <SelectAllCheckbox ids={pageIds} selection={selection} label="Select all requests on this page" />
-                <span>Select all on this page</span>
+                <SelectAllCheckbox ids={pageIds} selection={selection} label={t('approvals.selectAllRequestsAria')} />
+                <span>{t('approvals.selectAllOnPage')}</span>
               </label>
               {pagination.pageItems.map((approval) => (
                 <div
@@ -204,7 +204,7 @@ function Approvals() {
                   role="button"
                   tabIndex={0}
                 >
-                  <RowCheckbox id={approval.id} selection={selection} label={`Select request from ${approval.submittedBy}`} />
+                  <RowCheckbox id={approval.id} selection={selection} label={t('approvals.selectRequestFrom', { name: approval.submittedBy })} />
                   <Avatar name={approval.submittedBy} size="sm" />
                   <div className="flex-grow-1">
                     <div className="table-cell-truncate">{approval.postContent}</div>
@@ -230,9 +230,9 @@ function Approvals() {
         isOpen={isBulkRejectOpen}
         onClose={() => setIsBulkRejectOpen(false)}
         onConfirm={handleBulkRejectConfirmed}
-        title="Reject the selected requests?"
-        message="Only requests still waiting for a decision will be rejected. Their authors will see “Rejected in bulk” as the reason."
-        confirmLabel="Reject"
+        title={t('approvals.bulkRejectTitle')}
+        message={t('approvals.bulkRejectMessage', { reason: t('approvals.rejectedInBulkReason') })}
+        confirmLabel={t('posts.reject')}
         isDanger
       />
 

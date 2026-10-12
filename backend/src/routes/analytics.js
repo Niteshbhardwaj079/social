@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate, requireReportsViewer } from '../middleware/auth.js';
+import { requireFeature } from '../services/planService.js';
 import { validate } from '../middleware/validate.js';
 import { getAnalyticsOverview, getContentAnalytics } from '../services/analyticsService.js';
 
 const RANGE_DAYS = { '7d': 7, '30d': 30, '90d': 90 };
 
 const router = Router();
-router.use(authenticate, requireReportsViewer);
+router.use(authenticate, requireReportsViewer, requireFeature('analytics'));
 
 router.get(
   '/overview',

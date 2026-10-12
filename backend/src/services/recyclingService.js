@@ -5,6 +5,7 @@ import { logger } from '../utils/logger.js';
 import { recordActivity } from './auditService.js';
 import { getPost, runPublish } from './postService.js';
 import { canPublishPosts } from './permissions.js';
+import { forEachOrganization } from './organizationService.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -156,7 +157,7 @@ export async function runRecyclingPass() {
 export function startRecyclingScheduler() {
   if (!config.recycling.intervalMs) return () => {};
   const timer = setInterval(() => {
-    runRecyclingPass().catch((error) => logger.error('Recycling pass failed', error));
+    forEachOrganization('Recycling', () => runRecyclingPass()).catch((error) => logger.error('Recycling pass failed', error));
   }, config.recycling.intervalMs);
   timer.unref();
   return () => clearInterval(timer);

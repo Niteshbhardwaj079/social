@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
+import { requireFeature } from '../services/planService.js';
 import { validate } from '../middleware/validate.js';
 import { createLink, deleteLink, deleteLinks, listLinks } from '../services/shortLinkService.js';
 
 const router = Router();
-router.use(authenticate);
+router.use(authenticate, requireFeature('links'));
 
 router.get('/', async (_req, res) => res.json({ links: await listLinks() }));
 

@@ -10,7 +10,7 @@ import ActivityDetailModal from '../../components/activityLogs/ActivityDetailMod
 import { SkeletonTable } from '../../components/common/LoadingSkeleton';
 import { getActivityLogs, deleteActivityLogs } from '../../services/api/activityLogsApi';
 import { REQUEST_STATUS } from '../../config/constants';
-import { ACTIVITY_ACTION_META, ACTIVITY_SECTIONS, ACTIVITY_DATE_RANGES } from '../../config/activityLogTypes';
+import { ACTIVITY_ACTION_META, ACTIVITY_SECTIONS, ACTIVITY_SECTION_LABEL_KEYS, ACTIVITY_DATE_RANGES } from '../../config/activityLogTypes';
 import { formatDateTime } from '../../utils/formatters';
 import { useToast } from '../../components/common/ToastProvider';
 import { StatCardGrid } from '../../components/common/StatCard';
@@ -80,6 +80,14 @@ function downloadCsv(rows) {
   URL.revokeObjectURL(url);
 }
 
+function detailsText(log, t) {
+  return log.detailsKey ? t(log.detailsKey, log.detailsVars) : log.details;
+}
+
+function userDisplayName(user, t) {
+  return user || t('activityLogs.systemUser');
+}
+
 function ActivityLogs() {
   const { t } = useI18n();
   const { showToast } = useToast();
@@ -114,7 +122,7 @@ function ActivityLogs() {
       const meta = ACTIVITY_ACTION_META[log.actionType];
       const matchesSearch =
         !searchTerm ||
-        [log.user, log.target, log.details, meta?.label].some((field) =>
+        [log.user, log.target, detailsText(log, t), meta?.labelKey ? t(meta.labelKey) : meta?.label].some((field) =>
           field?.toLowerCase().includes(searchTerm)
         );
       const matchesUser = filters.user === 'all' || log.user === filters.user;
@@ -133,11 +141,11 @@ function ActivityLogs() {
   const todayCount = logs.filter((log) => isWithinDateRange(log.time, 'today')).length;
   const countOf = (type) => logs.filter((log) => log.actionType === type).length;
   const statCards = [
-    { key: 'total', label: 'Total Entries', value: logs.length, icon: 'History', tone: 'primary' },
-    { key: 'today', label: 'Today', value: todayCount, icon: 'CalendarDays', tone: 'sky', isActive: filters.dateRange === 'today', onClick: () => updateFilter('dateRange', filters.dateRange === 'today' ? 'all' : 'today') },
-    { key: 'users', label: 'Active People', value: new Set(logs.map((log) => log.user)).size, icon: 'Users', tone: 'green' },
-    { key: 'deleted', label: 'Deletions', value: countOf('deleted'), icon: 'Trash2', tone: 'amber', isActive: filters.actionType === 'deleted', onClick: () => updateFilter('actionType', filters.actionType === 'deleted' ? 'all' : 'deleted') },
-    { key: 'failed', label: 'Failed Logins', value: countOf('login_failed'), icon: 'ShieldAlert', tone: 'red', isActive: filters.actionType === 'login_failed', onClick: () => updateFilter('actionType', filters.actionType === 'login_failed' ? 'all' : 'login_failed') },
+    { key: 'total', label: t('activityLogs.statTotal'), value: logs.length, icon: 'History', tone: 'primary' },
+    { key: 'today', label: t('posts.calendar.today'), value: todayCount, icon: 'CalendarDays', tone: 'sky', isActive: filters.dateRange === 'today', onClick: () => updateFilter('dateRange', filters.dateRange === 'today' ? 'all' : 'today') },
+    { key: 'users', label: t('activityLogs.statActivePeople'), value: new Set(logs.map((log) => log.user)).size, icon: 'Users', tone: 'green' },
+    { key: 'deleted', label: t('activityLogs.statDeletions'), value: countOf('deleted'), icon: 'Trash2', tone: 'amber', isActive: filters.actionType === 'deleted', onClick: () => updateFilter('actionType', filters.actionType === 'deleted' ? 'all' : 'deleted') },
+    { key: 'failed', label: t('activityLogs.statFailedLogins'), value: countOf('login_failed'), icon: 'ShieldAlert', tone: 'red', isActive: filters.actionType === 'login_failed', onClick: () => updateFilter('actionType', filters.actionType === 'login_failed' ? 'all' : 'login_failed') },
   ];
 
   const hasActiveFilters = JSON.stringify(filters) !== JSON.stringify(EMPTY_FILTERS);
@@ -175,7 +183,7 @@ function ActivityLogs() {
 
   function handleExport() {
     downloadCsv(filteredLogs);
-    showToast({ type: 'success', title: 'Export ready', message: `${filteredLogs.length} entries exported to CSV.` });
+    showToast({ type: 'success', title: t('activityLogs.exportReadyTitle'), message: t('activityLogs.exportedMessage', { count: filteredLogs.length }) });
   }
 
   function handleDeleteConfirmed() {
@@ -185,7 +193,10 @@ function ActivityLogs() {
       setLogs((current) => current.filter((log) => !idsToRemove.includes(log.id)));
       setSelectedIds(new Set());
       setIsDeleteConfirmOpen(false);
-      showToast({ type: 'success', title: `${idsToRemove.length} entries deleted` });
+      showToast({
+        type: 'success',
+        title: idsToRemove.length === 1 ? t('activityLogs.deletedToastOne') : t('activityLogs.deletedToastOther', { count: idsToRemove.length }),
+      });
     });
   }
 
@@ -219,7 +230,7 @@ function ActivityLogs() {
           <>
             <button type="button" className="btn btn-outline-secondary-custom" onClick={handleExport}>
               <Icon name="Download" size={16} />
-              Export log
+              {t('activityLogs.exportLog')}
             </button>
             <button
               type="button"
@@ -228,7 +239,7 @@ function ActivityLogs() {
               disabled={filteredLogs.length === 0}
             >
               <Icon name="Trash2" size={16} />
-              Delete matching
+              {t('activityLogs.deleteMatching')}
             </button>
           </>
         }
@@ -243,7 +254,7 @@ function ActivityLogs() {
           <input
             type="search"
             className="form-control"
-            placeholder={isMobile ? "Search log..." : "Search person, action or item..."}
+            placeholder={isMobile ? t('activityLogs.searchPlaceholderMobile') : t('activityLogs.searchPlaceholderDesktop')}
             value={filters.search}
             onChange={(event) => updateFilter('search', event.target.value)}
           />
@@ -257,7 +268,7 @@ function ActivityLogs() {
               aria-expanded={isFiltersOpen}
             >
               <Icon name="SlidersHorizontal" size={16} />
-              Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+              {t('activityLogs.filtersToggle')}{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
             </button>
           ) : null}
 
@@ -265,13 +276,13 @@ function ActivityLogs() {
           <>
           <div className="filter-bar__field">
             <span className="filter-bar__label">
-              <Icon name="User" size={13} /> User
+              <Icon name="User" size={13} /> {t('activityLogs.userLabel')}
             </span>
             <select className="form-select" value={filters.user} onChange={(event) => updateFilter('user', event.target.value)}>
-              <option value="all">All users</option>
+              <option value="all">{t('activityLogs.allUsers')}</option>
               {uniqueUsers.map((user) => (
                 <option key={user} value={user}>
-                  {user}
+                  {userDisplayName(user, t)}
                 </option>
               ))}
             </select>
@@ -279,17 +290,17 @@ function ActivityLogs() {
 
           <div className="filter-bar__field">
             <span className="filter-bar__label">
-              <Icon name="Zap" size={13} /> Action
+              <Icon name="Zap" size={13} /> {t('activityLogs.actionLabel')}
             </span>
             <select
               className="form-select"
               value={filters.actionType}
               onChange={(event) => updateFilter('actionType', event.target.value)}
             >
-              <option value="all">All actions</option>
+              <option value="all">{t('activityLogs.allActions')}</option>
               {Object.entries(ACTIVITY_ACTION_META).map(([value, meta]) => (
                 <option key={value} value={value}>
-                  {meta.label}
+                  {meta.labelKey ? t(meta.labelKey) : meta.label}
                 </option>
               ))}
             </select>
@@ -297,17 +308,17 @@ function ActivityLogs() {
 
           <div className="filter-bar__field">
             <span className="filter-bar__label">
-              <Icon name="LayoutGrid" size={13} /> Section
+              <Icon name="LayoutGrid" size={13} /> {t('activityLogs.sectionLabel')}
             </span>
             <select
               className="form-select"
               value={filters.section}
               onChange={(event) => updateFilter('section', event.target.value)}
             >
-              <option value="all">All sections</option>
+              <option value="all">{t('activityLogs.allSections')}</option>
               {ACTIVITY_SECTIONS.map((section) => (
                 <option key={section} value={section}>
-                  {section}
+                  {ACTIVITY_SECTION_LABEL_KEYS[section] ? t(ACTIVITY_SECTION_LABEL_KEYS[section]) : section}
                 </option>
               ))}
             </select>
@@ -315,7 +326,7 @@ function ActivityLogs() {
 
           <div className="filter-bar__field">
             <span className="filter-bar__label">
-              <Icon name="CalendarRange" size={13} /> Date range
+              <Icon name="CalendarRange" size={13} /> {t('activityLogs.dateRangeLabel')}
             </span>
             <select
               className="form-select"
@@ -324,7 +335,7 @@ function ActivityLogs() {
             >
               {ACTIVITY_DATE_RANGES.map((range) => (
                 <option key={range.value} value={range.value}>
-                  {range.label}
+                  {range.labelKey ? t(range.labelKey) : range.label}
                 </option>
               ))}
             </select>
@@ -333,7 +344,7 @@ function ActivityLogs() {
           <div className="filter-bar__field filter-bar__field--wide">
             <DatePickerField
               id="logFromDate"
-              label="From"
+              label={t('activityLogs.fromLabel')}
               selected={filters.from}
               onChange={(date) => updateFilter('from', date)}
               placeholderText="dd-mm-yyyy"
@@ -344,7 +355,7 @@ function ActivityLogs() {
           <div className="filter-bar__field filter-bar__field--wide">
             <DatePickerField
               id="logToDate"
-              label="To"
+              label={t('activityLogs.toLabel')}
               selected={filters.to}
               onChange={(date) => updateFilter('to', date)}
               minDate={filters.from}
@@ -358,7 +369,7 @@ function ActivityLogs() {
             <div className="filter-bar__end">
               <button type="button" className="btn btn-outline-secondary-custom" onClick={() => setFilters(EMPTY_FILTERS)}>
                 <Icon name="XCircle" size={16} />
-                Clear filters
+                {t('activityLogs.clearFilters')}
               </button>
             </div>
           ) : null}
@@ -368,7 +379,7 @@ function ActivityLogs() {
       </div>
 
       {filteredLogs.length === 0 ? (
-        <EmptyState icon="History" title="No activity found" description="Try adjusting your filters." />
+        <EmptyState icon="History" title={t('activityLogs.emptyTitle')} description={t('activityLogs.emptyDescription')} />
       ) : isMobile ? (
         <>
         <div className="grid-toolbar">
@@ -385,12 +396,12 @@ function ActivityLogs() {
                   </span>
                   <div className="flex-grow-1">
                     <div className="small">
-                      <strong>{meta?.label}</strong> {log.target}
+                      <strong>{meta?.labelKey ? t(meta.labelKey) : meta?.label}</strong> {log.target}
                     </div>
-                    <div className="small text-secondary-custom">{log.details}</div>
+                    <div className="small text-secondary-custom">{detailsText(log, t)}</div>
                     <div className="d-flex justify-content-between mt-2">
-                      <span className="small text-muted-custom">{log.section}</span>
-                      <span className="small text-muted-custom">{log.user}</span>
+                      <span className="small text-muted-custom">{ACTIVITY_SECTION_LABEL_KEYS[log.section] ? t(ACTIVITY_SECTION_LABEL_KEYS[log.section]) : log.section}</span>
+                      <span className="small text-muted-custom">{userDisplayName(log.user, t)}</span>
                     </div>
                     <div className="small text-muted-custom mt-1">
                       {formatDateTime(log.time)} · {log.ip}
@@ -416,12 +427,12 @@ function ActivityLogs() {
                     <th className="table-checkbox-col">
                       <input type="checkbox" className="form-check-input" checked={allVisibleSelected} onChange={toggleSelectAll} />
                     </th>
-                    <th>Who</th>
-                    <th>What they did</th>
-                    <th>Section</th>
-                    <th>Details</th>
-                    <th>When</th>
-                    <th>Device / IP</th>
+                    <th>{t('activityLogs.colWho')}</th>
+                    <th>{t('activityLogs.colWhatTheyDid')}</th>
+                    <th>{t('activityLogs.colSection')}</th>
+                    <th>{t('activityLogs.colDetails')}</th>
+                    <th>{t('activityLogs.colWhen')}</th>
+                    <th>{t('activityLogs.colDeviceIp')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -439,8 +450,8 @@ function ActivityLogs() {
                         </td>
                         <td role="button" onClick={() => setActiveLogId(log.id)}>
                           <div className="d-flex align-items-center gap-2">
-                            <Avatar name={log.user} size="xs" />
-                            {log.user}
+                            <Avatar name={userDisplayName(log.user, t)} size="xs" />
+                            {userDisplayName(log.user, t)}
                           </div>
                         </td>
                         <td role="button" onClick={() => setActiveLogId(log.id)}>
@@ -449,16 +460,16 @@ function ActivityLogs() {
                               <Icon name={meta?.icon || 'Circle'} size={15} />
                             </span>
                             <div>
-                              <div className="table-row-title">{meta?.label}</div>
+                              <div className="table-row-title">{meta?.labelKey ? t(meta.labelKey) : meta?.label}</div>
                               <div className="table-row-subtitle">{log.target}</div>
                             </div>
                           </div>
                         </td>
                         <td role="button" onClick={() => setActiveLogId(log.id)}>
-                          {log.section}
+                          {ACTIVITY_SECTION_LABEL_KEYS[log.section] ? t(ACTIVITY_SECTION_LABEL_KEYS[log.section]) : log.section}
                         </td>
                         <td role="button" onClick={() => setActiveLogId(log.id)} className="activity-log-details-col">
-                          {log.details}
+                          {detailsText(log, t)}
                         </td>
                         <td role="button" onClick={() => setActiveLogId(log.id)}>
                           {formatDateTime(log.time)}
@@ -484,11 +495,18 @@ function ActivityLogs() {
         isOpen={isDeleteConfirmOpen}
         onClose={() => setIsDeleteConfirmOpen(false)}
         onConfirm={handleDeleteConfirmed}
-        title="Delete matching entries?"
-        message={`This will permanently delete ${deleteTargetCount} log ${deleteTargetCount === 1 ? 'entry' : 'entries'}${
-          selectedIds.size > 0 ? ' you selected' : ' matching your current filters'
-        }. This can't be undone.`}
-        confirmLabel="Delete"
+        title={t('activityLogs.deleteConfirmTitle')}
+        message={t(
+          deleteTargetCount === 1
+            ? selectedIds.size > 0
+              ? 'activityLogs.deleteConfirmMessageOneSelected'
+              : 'activityLogs.deleteConfirmMessageOneFiltered'
+            : selectedIds.size > 0
+              ? 'activityLogs.deleteConfirmMessageOtherSelected'
+              : 'activityLogs.deleteConfirmMessageOtherFiltered',
+          { count: deleteTargetCount }
+        )}
+        confirmLabel={t('activityLogs.deleteConfirmLabel')}
         isDanger
       />
     </div>

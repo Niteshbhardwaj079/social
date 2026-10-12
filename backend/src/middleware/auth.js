@@ -1,6 +1,7 @@
-import { query } from '../db/pool.js';
+import { query, setRequestOrganization } from '../db/pool.js';
+import { PERMISSION_COLUMNS } from '../services/permissionColumns.js';
 import { verifyAccessToken } from '../services/tokenService.js';
-import { forbidden, unauthorized } from '../utils/httpError.js';
+import { forbidden, organizationSuspended, unauthorized } from '../utils/httpError.js';
 import {
   canConnectAccounts,
   canCreateRoles,
@@ -25,51 +26,15 @@ import {
 
 const TOUCH_AFTER_MS = 5 * 60 * 1000;
 
-const PERMISSION_COLUMNS = [
-  'users_view',
-  'users_create',
-  'users_edit',
-  'users_delete',
-  'roles_view',
-  'roles_create',
-  'roles_edit',
-  'roles_delete',
-  'posts_view',
-  'posts_write',
-  'posts_publish',
-  'posts_delete',
-  'social_accounts_view',
-  'social_accounts_connect',
-  'social_accounts_edit',
-  'social_accounts_delete',
-  'ads_view',
-  'ads_create',
-  'ads_edit',
-  'ads_delete',
-  'campaigns_view',
-  'campaigns_create',
-  'campaigns_edit',
-  'campaigns_delete',
-  'reports_view',
-  'media_view',
-  'media_create',
-  'media_edit',
-  'media_delete',
-  'templates_view',
-  'templates_create',
-  'templates_edit',
-  'templates_delete',
-  'activity_logs_view',
-  'activity_logs_delete',
-  'settings_view',
-  'settings_edit',
-];
-
 const USER_ROLE_JOIN_SELECT = `
   SELECT users.id, users.name, users.email, users.role, users.status, users.language, users.avatar_url, users.last_active_at,
+         users.organization_id, users.is_platform_admin,
+         organizations.name AS organization_name, organizations.status AS organization_status,
          roles.rank AS role_rank, roles.is_protected AS role_is_protected,
          roles.${PERMISSION_COLUMNS.join(', roles.')}
-    FROM users JOIN roles ON roles.id = users.role
+    FROM users
+    JOIN organizations ON organizations.id = users.organization_id
+    JOIN roles ON roles.organization_id = users.organization_id AND roles.id = users.role
    WHERE users.id = $1`;
 
 /** Reshapes a row from USER_ROLE_JOIN_SELECT into the actor shape every permission check reads. */
@@ -114,6 +79,8 @@ export function attachRoleCapabilities(row) {
     activityLogsDelete: row.activity_logs_delete,
     settingsView: row.settings_view,
     settingsEdit: row.settings_edit,
+    aiUse: row.ai_use,
+    aiAutopilot: row.ai_autopilot,
   };
   return row;
 }
@@ -135,17 +102,27 @@ export async function loadActor(userId) {
 export async function authenticate(req, _res, next) {
   const header = req.get('authorization') || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-  const userId = token ? verifyAccessToken(token) : null;
-  if (!userId) throw unauthorized();
+  const session = token ? verifyAccessToken(token) : null;
+  if (!session) throw unauthorized();
 
-  const user = await loadActor(userId);
+  // From here on every query in this request only sees this person's organization (see db/pool.js).
+  setRequestOrganization(session.organizationId);
+  const user = await loadActor(session.userId);
   if (!user || user.status !== 'active') throw unauthorized();
+  if (user.organization_status !== 'active') throw organizationSuspended();
   req.user = user;
 
   // "Last active" is only refreshed every few minutes: cheap, and good enough for that column.
   if (!user.last_active_at || Date.now() - new Date(user.last_active_at).getTime() > TOUCH_AFTER_MS) {
     query('UPDATE users SET last_active_at = now() WHERE id = $1', [user.id]).catch(() => {});
   }
+  next();
+}
+
+// ---------------------------------------------------------------- Platform owner (the SaaS operator)
+/** Platform screens (all organizations, plans, payments). Not the same as an organization's Super Admin. */
+export function requirePlatformAdmin(req, _res, next) {
+  if (!req.user?.is_platform_admin) throw forbidden('Only the platform owner can do that.');
   next();
 }
 

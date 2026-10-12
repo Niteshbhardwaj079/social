@@ -3,7 +3,7 @@ import { useDispatch } from 'react-redux';
 import { API_ENABLED } from '../config/runtime';
 import { fetchPublicConfig } from '../services/api/authApi';
 import { onSessionExpired } from '../services/api/axiosClient';
-import { restoreSession, sessionExpired, setSetupRequired } from '../store/slices/authSlice';
+import { restoreSession, sessionExpired, setSetupRequired, setSignupEnabled } from '../store/slices/authSlice';
 import { saveWorkspaceLanguages } from '../store/slices/i18nSlice';
 
 /**
@@ -22,6 +22,7 @@ export default function useAppBootstrap() {
         const config = await fetchPublicConfig();
         dispatch(saveWorkspaceLanguages(config.languages));
         dispatch(setSetupRequired(config.setupRequired));
+        dispatch(setSignupEnabled(config.signupEnabled !== false));
       } catch {
         // Server unreachable: carry on with what this browser remembers.
       }

@@ -4,19 +4,22 @@ import { query } from '../db/pool.js';
 import { hashToken, randomToken } from '../utils/security.js';
 
 // ---------------------------------------------------------------- access tokens (short-lived JWT)
-export function signAccessToken(userId) {
-  return jwt.sign({}, config.auth.jwtSecret, {
+// `org` = the organization the person belongs to, so every request knows which customer it is for
+// without an extra database lookup (see middleware/auth.js).
+export function signAccessToken(userId, organizationId) {
+  return jwt.sign({ org: organizationId }, config.auth.jwtSecret, {
     subject: userId,
     algorithm: 'HS256',
     expiresIn: config.auth.accessTtlSeconds,
   });
 }
 
-/** Returns the user id, or null for anything that is not a valid, unexpired token of ours. */
+/** Returns { userId, organizationId }, or null for anything that is not a valid, unexpired access token of ours. */
 export function verifyAccessToken(token) {
   try {
     const payload = jwt.verify(token, config.auth.jwtSecret, { algorithms: ['HS256'] });
-    return typeof payload.sub === 'string' ? payload.sub : null;
+    if (payload.purpose || typeof payload.sub !== 'string' || typeof payload.org !== 'string') return null;
+    return { userId: payload.sub, organizationId: payload.org };
   } catch {
     return null;
   }

@@ -1,8 +1,10 @@
 import PlatformIcon from '../common/PlatformIcon';
 import { getPlatformByKey } from '../../config/platforms';
 import brand from '../../config/brand';
+import { useI18n } from '../../i18n/useI18n';
 
 function PostPreview({ platformKey, content, mediaItems }) {
+  const { t } = useI18n();
   const platform = getPlatformByKey(platformKey);
 
   return (
@@ -14,7 +16,7 @@ function PostPreview({ platformKey, content, mediaItems }) {
           <div className="post-preview-card__platform">{platform?.label}</div>
         </div>
       </div>
-      <p className="post-preview-card__text">{content || 'Your post content will appear here...'}</p>
+      <p className="post-preview-card__text">{content || t('composer.previewPlaceholderText')}</p>
       {mediaItems.length > 0 ? (
         <div className="post-preview-card__media">
           {mediaItems[0].type === 'video' ? (

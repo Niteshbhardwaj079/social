@@ -29,12 +29,14 @@ describe('language settings', () => {
     assert.match(badDefault.body.error.message, /default language/i);
   });
 
-  it('saves the list, and the sign-in screen (no login needed) sees it', async () => {
+  it('saves the list for this organization; the sign-in screen (no organization yet) offers every language', async () => {
     const saved = await owner.put('/settings/languages', { enabledLanguages: ['hi', 'en', 'es'], defaultLanguage: 'hi' });
     assert.equal(saved.status, 200);
     assert.deepEqual(saved.body.enabledLanguages, ['en', 'hi', 'es'], 'kept in the canonical order');
+    const mine = await owner.get('/settings/languages');
+    assert.deepEqual({ enabledLanguages: mine.body.enabledLanguages, defaultLanguage: mine.body.defaultLanguage }, { enabledLanguages: ['en', 'hi', 'es'], defaultLanguage: 'hi' });
     const publicConfig = await createClient(server.baseUrl).get('/public/config');
-    assert.deepEqual(publicConfig.body.languages, { enabledLanguages: ['en', 'hi', 'es'], defaultLanguage: 'hi' });
+    assert.ok(publicConfig.body.languages.enabledLanguages.length > 3, 'before sign-in we do not know the organization, so every language is offered');
   });
 
   it('serves a person whose language was switched off in the default language instead', async () => {

@@ -9,6 +9,7 @@ import { getPublishingContext, redact } from './socialAccountService.js';
 import { recordActivity } from './auditService.js';
 import { notifyRoles } from './notificationService.js';
 import { dispatchEmail } from './systemEmailService.js';
+import { forEachOrganization } from './organizationService.js';
 
 // Who can see/act on the Inbox — the same roles who already get an "approval requested" notification,
 // since this is the same kind of "someone needs to act on this" engagement work.
@@ -183,7 +184,7 @@ export async function refreshInboxComments(refreshIntervalMin) {
                 author_following, author_posts_count, author_verified, author_joined_at, author_bio, author_profile_url,
                 text, meta, created_at)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-             ON CONFLICT (platform, external_comment_id) DO NOTHING
+             ON CONFLICT (organization_id, platform, external_comment_id) DO NOTHING
              RETURNING id`,
             [
               target.post_id,
@@ -221,7 +222,7 @@ export async function refreshInboxComments(refreshIntervalMin) {
 export function startInboxRefresher() {
   if (!config.inbox.refreshIntervalMs) return () => {};
   const timer = setInterval(() => {
-    refreshInboxComments(config.inbox.refreshIntervalMin).catch((error) => logger.error('Inbox refresh pass failed', error));
+    forEachOrganization('Inbox refresh', () => refreshInboxComments(config.inbox.refreshIntervalMin)).catch((error) => logger.error('Inbox refresh pass failed', error));
   }, config.inbox.refreshIntervalMs);
   timer.unref();
   return () => clearInterval(timer);

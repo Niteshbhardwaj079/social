@@ -1,9 +1,11 @@
 import Avatar from './Avatar';
 import { formatRelativeTime } from '../../utils/formatters';
+import { useI18n } from '../../i18n/useI18n';
 
 function ActivityTimeline({ items }) {
+  const { t } = useI18n();
   if (!items.length) {
-    return <p className="text-muted-custom mb-0">No recent activity yet.</p>;
+    return <p className="text-muted-custom mb-0">{t('misc.noRecentActivity')}</p>;
   }
 
   return (

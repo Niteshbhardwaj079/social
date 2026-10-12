@@ -1,6 +1,10 @@
 // Placeholder guide content — write the real step-by-step copy once the
 // full application is finished. Every chapter here just needs a `route` so
 // the "?" icon on that page can deep-link to its chapter (?chapter=<id>).
+//
+// This file is the English text. Translations live in src/i18n/guides/<code>.js
+// (see i18n/guideText.js); after changing text here, update those too and run
+// `npm run check:i18n`.
 
 const guideChapters = [
   {

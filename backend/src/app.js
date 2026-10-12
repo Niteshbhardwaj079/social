@@ -11,6 +11,7 @@ import { apiLimiter } from './middleware/rateLimit.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/index.js';
 import { resolveAndRecordClick } from './services/shortLinkService.js';
+import { runAsSystem, runWithRequestContext } from './db/pool.js';
 
 /** Builds the Express app (no listening, no database work — that is server.js / bootstrap.js). */
 export function createApp() {
@@ -72,6 +73,8 @@ export function createApp() {
     next();
   });
 
+  // Every API request gets its own organization context; `authenticate` fills it in (see db/pool.js).
+  app.use('/api', (_req, _res, next) => runWithRequestContext(next));
   app.use('/api', apiLimiter, apiRoutes);
   app.use('/api', notFoundHandler);
 
@@ -82,7 +85,8 @@ export function createApp() {
   // also serves the built front-end (SERVE_FRONTEND=false / split hosting included).
   app.get('/l/:slug', async (req, res, next) => {
     try {
-      const destination = await resolveAndRecordClick(req.params.slug);
+      // Public link: nobody is signed in, and the slug alone says which organization it belongs to.
+      const destination = await runAsSystem(() => resolveAndRecordClick(req.params.slug));
       if (!destination) {
         res.status(404).type('text/plain').send('This short link does not exist.');
         return;

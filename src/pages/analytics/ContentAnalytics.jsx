@@ -34,7 +34,7 @@ function ContentAnalytics() {
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.contentAnalytics')} subtitle="Loading content performance..." />
+        <PageHeader title={t('nav.contentAnalytics')} subtitle={t('analytics.loadingContent')} />
         <SkeletonTable rows={4} columns={4} />
       </>
     );
@@ -55,11 +55,11 @@ function ContentAnalytics() {
 
       <div className="panel-card">
         <div className="panel-card__header">
-          <h3 className="panel-card__title">Top Performing Content</h3>
+          <h3 className="panel-card__title">{t('analytics.topPerformingContent')}</h3>
         </div>
         <div className="panel-card__body panel-card__body--flush">
           {data.topContent.length === 0 ? (
-            <EmptyState icon="PieChart" title="No content data yet" description="Publish posts to start seeing performance data." />
+            <EmptyState icon="PieChart" title={t('analytics.noContentDataTitle')} description={t('analytics.noContentDataText')} />
           ) : isMobile ? (
             <div className="d-flex flex-column gap-3 p-4">
               {data.topContent.map((item) => {
@@ -73,11 +73,11 @@ function ContentAnalytics() {
                     <div className="table-row-title mb-3">{item.title}</div>
                     <div className="d-flex gap-4">
                       <div>
-                        <div className="small text-muted-custom">Engagement</div>
+                        <div className="small text-muted-custom">{t('campaigns.statEngagement')}</div>
                         <div className="fw-semibold">{formatCompactNumber(item.engagement)}</div>
                       </div>
                       <div>
-                        <div className="small text-muted-custom">Reach</div>
+                        <div className="small text-muted-custom">{t('campaigns.statReach')}</div>
                         <div className="fw-semibold">{formatCompactNumber(item.reach)}</div>
                       </div>
                     </div>
@@ -90,10 +90,10 @@ function ContentAnalytics() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Post</th>
-                    <th>Platform</th>
-                    <th>Engagement</th>
-                    <th>Reach</th>
+                    <th>{t('analytics.colPost')}</th>
+                    <th>{t('ads.platformFilter')}</th>
+                    <th>{t('campaigns.statEngagement')}</th>
+                    <th>{t('campaigns.statReach')}</th>
                   </tr>
                 </thead>
                 <tbody>

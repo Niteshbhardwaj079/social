@@ -59,21 +59,21 @@
 @include m.respond-down(v.$breakpoint-md) {
   .form-control,
   .form-select {
-    font-size: 1.6rem;
+    // Never under 16px, even on the smallest phones where 1rem is smaller (see base/_root.scss).
+    font-size: max(16px, 1.6rem);
   }
 }
 
-.auth-card {
-  @include m.card-surface;
-  padding: v.$space-8;
-  width: 100%;
-  max-width: 44rem;
+// Checkboxes and switches follow the chosen brand colour (Settings → Appearance) in light mode too;
+// Bootstrap would otherwise keep the colour it was compiled with.
+.form-check-input:checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
 
-  @include m.respond-down(v.$breakpoint-sm) {
-    padding: v.$space-6;
-    border: none;
-    box-shadow: none;
-  }
+.form-check-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.25rem var(--color-primary-soft);
 }
 
 .character-counter {

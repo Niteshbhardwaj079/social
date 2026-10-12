@@ -3,6 +3,7 @@ import Modal from '../common/Modal';
 import Icon from '../common/Icon';
 import { formatDate, formatFileSize } from '../../utils/formatters';
 import { isSafeToBulkDelete, summarizeUsage } from '../../utils/mediaUsage';
+import { useI18n } from '../../i18n/useI18n';
 
 const AGE_OPTIONS = [30, 60, 90, 180];
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -11,6 +12,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // break (scheduled/draft posts, recycling, emails). Linked files are skipped
 // because they take no space here.
 function FreeUpSpaceModal({ isOpen, onClose, items, onConfirm, isDeleting }) {
+  const { t } = useI18n();
   const [olderThanDays, setOlderThanDays] = useState(90);
 
   const eligible = useMemo(() => {
@@ -25,7 +27,7 @@ function FreeUpSpaceModal({ isOpen, onClose, items, onConfirm, isDeleting }) {
   const footer = (
     <>
       <button type="button" className="btn btn-outline-secondary-custom" onClick={onClose} disabled={isDeleting}>
-        Cancel
+        {t('common.cancel')}
       </button>
       <button
         type="button"
@@ -33,20 +35,17 @@ function FreeUpSpaceModal({ isOpen, onClose, items, onConfirm, isDeleting }) {
         onClick={() => onConfirm(eligible.map((item) => item.id))}
         disabled={eligible.length === 0 || isDeleting}
       >
-        Delete {eligible.length} {eligible.length === 1 ? 'file' : 'files'} ({formatFileSize(totalBytes)})
+        {t(eligible.length === 1 ? 'media.freeUpModal.deleteButtonOne' : 'media.freeUpModal.deleteButtonOther', { count: eligible.length, size: formatFileSize(totalBytes) })}
       </button>
     </>
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Free up space" footer={footer}>
-      <p className="text-secondary-custom">
-        Removes old files that nothing needs any more. Files used by a <strong>scheduled post, draft, recycling item or email</strong> are
-        never included. Posts that are already published stay live on the platforms.
-      </p>
+    <Modal isOpen={isOpen} onClose={onClose} title={t('media.freeUpModal.title')} footer={footer}>
+      <p className="text-secondary-custom">{t('media.freeUpModal.intro')}</p>
 
       <label htmlFor="cleanupAge" className="form-label-custom">
-        Older than
+        {t('media.freeUpModal.olderThan')}
       </label>
       <select
         id="cleanupAge"
@@ -56,7 +55,7 @@ function FreeUpSpaceModal({ isOpen, onClose, items, onConfirm, isDeleting }) {
       >
         {AGE_OPTIONS.map((days) => (
           <option key={days} value={days}>
-            {days} days
+            {t('media.freeUpModal.daysOption', { days })}
           </option>
         ))}
       </select>
@@ -64,7 +63,7 @@ function FreeUpSpaceModal({ isOpen, onClose, items, onConfirm, isDeleting }) {
       {eligible.length === 0 ? (
         <div className="callout-banner callout-banner--info mb-0">
           <Icon name="Info" size={16} />
-          <span>Nothing to clean up — no file older than {olderThanDays} days is safe to remove.</span>
+          <span>{t('media.freeUpModal.nothingToCleanUp', { days: olderThanDays })}</span>
         </div>
       ) : (
         <ul className="media-usage-list media-usage-list--scroll">
@@ -75,7 +74,7 @@ function FreeUpSpaceModal({ isOpen, onClose, items, onConfirm, isDeleting }) {
                 <span className="media-usage-list__kind">{formatFileSize(item.sizeKb * 1024)}</span>
                 {item.name}
                 <span className="media-usage-list__note">
-                  {formatDate(item.uploadedAt)} · {publishedCount ? `${publishedCount} published` : 'unused'}
+                  {formatDate(item.uploadedAt)} · {publishedCount ? t('media.freeUpModal.publishedCount', { count: publishedCount }) : t('media.freeUpModal.unused')}
                 </span>
               </li>
             );

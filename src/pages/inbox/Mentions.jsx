@@ -46,7 +46,7 @@ function Mentions() {
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.mentions')} subtitle="Loading mentions..." />
+        <PageHeader title={t('nav.mentions')} subtitle={t('inbox.loadingMentions')} />
         <SkeletonTable rows={5} columns={3} />
       </>
     );
@@ -68,7 +68,7 @@ function Mentions() {
       <div className="panel-card">
         <div className="panel-card__body panel-card__body--flush">
           {mentions.length === 0 ? (
-            <EmptyState icon="AtSign" title="No mentions yet" description="Mentions of your brand will appear here." />
+            <EmptyState icon="AtSign" title={t('inbox.noMentionsTitle')} description={t('inbox.noMentionsText')} />
           ) : (
             <div className="d-flex flex-column">
               {mentions.map((mention) => (

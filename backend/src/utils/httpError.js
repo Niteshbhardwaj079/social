@@ -13,5 +13,9 @@ export const unauthorized = (message = 'Please sign in') => new HttpError(401, '
 export const forbidden = (message = 'You do not have permission to do that') => new HttpError(403, 'forbidden', message);
 export const notFound = (message = 'Not found') => new HttpError(404, 'not_found', message);
 export const conflict = (message = 'Conflict') => new HttpError(409, 'conflict', message);
-export const tooManyRequests = (message = 'Too many attempts, try again later') =>
+export const organizationSuspended = () =>
+  new HttpError(403, 'organization_suspended', 'This workspace has been suspended. Please contact support.');
+/** The organization's plan does not include this, or it has used up its plan's limit. `details` says which. */
+export const planLimit = (message, details) => new HttpError(403, 'plan_limit', message, details);
+export const tooManyRequests =(message = 'Too many attempts, try again later') =>
   new HttpError(429, 'too_many_requests', message);

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate, requireAccountViewer, requireAdsViewer, requireTemplatesViewer } from '../middleware/auth.js';
 import { providerLimiter } from '../middleware/rateLimit.js';
+import { requireFeature } from '../services/planService.js';
 import { validate } from '../middleware/validate.js';
 import { isPlatform } from '../providers/index.js';
 import { notFound } from '../utils/httpError.js';
@@ -20,7 +21,7 @@ import { createTemplate, deleteTemplate, listTemplates, updateTemplate } from '.
 import { createRule, deleteRule, listRules, updateRule } from '../services/adRuleService.js';
 
 const router = Router();
-router.use(authenticate);
+router.use(authenticate, requireFeature('ads'));
 
 // Ad accounts are discovered from the client's own Facebook connection (Social Accounts) — there is
 // no per-network connect/test/disconnect here any more, only "read the cache" and "sync it for real".

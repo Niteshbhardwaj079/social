@@ -65,6 +65,8 @@ const schema = z.object({
   // "Server" storage: files saved to this server's own disk. Always available, needs no client account.
   MEDIA_LOCAL_DIR: z.string().optional(),
   MEDIA_MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(2048).default(200),
+  // Payment screenshots customers upload with a manual payment. Kept private (never served under /media).
+  BILLING_PROOF_DIR: z.string().optional(),
 
   APP_URL: z.string().url().default('http://localhost:5173'),
   CORS_ORIGINS: z.string().default(''),
@@ -167,6 +169,10 @@ export const config = Object.freeze({
   media: {
     localDir: path.resolve(backendRoot, env.MEDIA_LOCAL_DIR || 'data/media'),
     maxUploadBytes: env.MEDIA_MAX_UPLOAD_MB * 1024 * 1024,
+  },
+  billing: {
+    proofDir: path.resolve(backendRoot, env.BILLING_PROOF_DIR || 'data/payment-proofs'),
+    maxProofBytes: 5 * 1024 * 1024,
   },
   appUrl: env.APP_URL.replace(/\/+$/, ''),
   corsOrigins: env.CORS_ORIGINS.split(',')

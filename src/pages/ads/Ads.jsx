@@ -35,10 +35,10 @@ import {
 } from '../../services/api/adsApi';
 import { getMediaItems } from '../../services/api/mediaApi';
 import { apiErrorMessage } from '../../services/api/axiosClient';
-import { AD_DATE_RANGES, AD_NETWORKS, AD_OBJECTIVES, AD_RULE_COMPARATORS, AD_RULE_METRICS, AD_STATUS, AD_STATUS_LABELS } from '../../config/adPlatforms';
+import { AD_DATE_RANGES, AD_NETWORKS, AD_OBJECTIVES, AD_RULE_COMPARATORS, AD_RULE_METRICS, AD_STATUS } from '../../config/adPlatforms';
 import { getPlatformByKey, PLATFORMS } from '../../config/platforms';
 import { MEDIA_TYPE, REQUEST_STATUS } from '../../config/constants';
-import { adsToday, CONVERSIONS_NOT_TRACKED, percentChange, seriesForAds, spendByPlatform, sliceRange, sumDaily, totalsForAds } from '../../utils/adMetrics';
+import { adsToday, percentChange, seriesForAds, spendByPlatform, sliceRange, sumDaily, totalsForAds } from '../../utils/adMetrics';
 import { downloadAdsDailyCsv, downloadAdsSummaryCsv, printAdsReport } from '../../utils/adReports';
 import { formatCompactNumber, formatCurrency, formatDate, formatNumber, formatPercent, formatRelativeTime } from '../../utils/formatters';
 import { useToast } from '../../components/common/ToastProvider';
@@ -46,29 +46,35 @@ import { useI18n } from '../../i18n/useI18n';
 
 const AD_PLATFORM_KEYS = [...new Set(AD_NETWORKS.flatMap((network) => network.platforms))];
 const TABS = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'accounts', label: 'Ad accounts' },
-  { key: 'library', label: 'Creative Library' },
-  { key: 'rules', label: 'Automated Rules' },
+  { key: 'overview', labelKey: 'overview' },
+  { key: 'accounts', labelKey: 'accounts' },
+  { key: 'library', labelKey: 'library' },
+  { key: 'rules', labelKey: 'rules' },
 ];
 
 // Compared with the period just before; a huge jump means there was nothing to compare with.
-const deltaHint = (change) => {
+const deltaHint = (change, t) => {
   if (change === null) return undefined;
-  if (change > 300) return 'New activity';
-  return `${change >= 0 ? '▲' : '▼'} ${Math.abs(change).toFixed(1)}% vs before`;
+  if (change > 300) return t('ads.newActivity');
+  return t('ads.vsBeforeTemplate', { arrow: change >= 0 ? '▲' : '▼', percent: Math.abs(change).toFixed(1) });
 };
-const objectiveLabel = (key) => AD_OBJECTIVES.find((objective) => objective.key === key)?.label || key;
+const objectiveLabel = (key, t) => {
+  const objective = AD_OBJECTIVES.find((item) => item.key === key);
+  return objective ? t(`ads.objectives.${objective.labelKey}`) : key;
+};
 
 const EMPTY_AD_ACCOUNTS = { facebookConnected: false, hasAdsToken: false, hasAdsPermission: false, accounts: [] };
 
-// Turns a rule's raw fields into the one-line English sentence its card shows — e.g.
-// "If Spend is more than ₹1,000 over the last 7 days → Pause the ad".
-function describeRule(rule) {
+// Turns a rule's raw fields into the one-line sentence its card shows — e.g.
+// "If Spend is more than ₹1,000 over the last 7 days".
+function describeRule(rule, t) {
   const metric = AD_RULE_METRICS.find((item) => item.key === rule.metric);
   const comparator = AD_RULE_COMPARATORS.find((item) => item.key === rule.comparator);
   const value = metric?.unit === 'currency' ? formatCurrency(rule.threshold) : metric?.unit === 'percent' ? formatPercent(rule.threshold) : formatNumber(rule.threshold);
-  return `If ${metric?.label || rule.metric} ${comparator?.label || rule.comparator} ${value} over the last ${rule.windowDays} ${rule.windowDays === 1 ? 'day' : 'days'}`;
+  const metricLabel = metric ? t(`ads.ruleMetrics.${metric.labelKey}`) : rule.metric;
+  const comparatorLabel = comparator ? t(`ads.ruleComparators.${comparator.labelKey}`) : rule.comparator;
+  const unit = t(rule.windowDays === 1 ? 'ads.windowDayOne' : 'ads.windowDayOther');
+  return t('ads.ruleDescription', { metric: metricLabel, comparator: comparatorLabel, value, windowDays: rule.windowDays, unit });
 }
 
 function Ads() {
@@ -126,9 +132,9 @@ function Ads() {
         setTemplates((current) => (editingTemplate ? current.map((item) => (item.id === template.id ? template : item)) : [template, ...current]));
         setIsTemplateFormOpen(false);
         setEditingTemplate(null);
-        showToast({ type: 'success', title: editingTemplate ? 'Template updated' : 'Template saved', message: template.name });
+        showToast({ type: 'success', title: t(editingTemplate ? 'ads.templateUpdatedToast' : 'ads.templateSavedToast'), message: template.name });
       })
-      .catch((error) => showToast({ type: 'error', title: 'Could not save the template', message: apiErrorMessage(error) }));
+      .catch((error) => showToast({ type: 'error', title: t('ads.templateSaveError'), message: apiErrorMessage(error) }));
   }
 
   function handleDeleteTemplateConfirmed() {
@@ -136,7 +142,7 @@ function Ads() {
     deleteAdCreativeTemplate(id).then(() => {
       setTemplates((current) => current.filter((item) => item.id !== id));
       setDeleteTemplateTarget(null);
-      showToast({ type: 'success', title: 'Template deleted' });
+      showToast({ type: 'success', title: t('ads.templateDeletedToast') });
     });
   }
 
@@ -147,18 +153,18 @@ function Ads() {
         setRules((current) => (editingRule ? current.map((item) => (item.id === rule.id ? rule : item)) : [rule, ...current]));
         setIsRuleFormOpen(false);
         setEditingRule(null);
-        showToast({ type: 'success', title: editingRule ? 'Rule updated' : 'Rule created', message: rule.name });
+        showToast({ type: 'success', title: t(editingRule ? 'ads.ruleUpdatedToast' : 'ads.ruleCreatedToast'), message: rule.name });
       })
-      .catch((error) => showToast({ type: 'error', title: 'Could not save the rule', message: apiErrorMessage(error) }));
+      .catch((error) => showToast({ type: 'error', title: t('ads.ruleSaveError'), message: apiErrorMessage(error) }));
   }
 
   function handleToggleRule(rule) {
     updateAdRule(rule.id, { ...rule, isActive: !rule.isActive })
       .then((updated) => {
         setRules((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-        showToast({ type: 'success', title: updated.isActive ? 'Rule turned on' : 'Rule turned off', message: updated.name });
+        showToast({ type: 'success', title: t(updated.isActive ? 'ads.ruleTurnedOnToast' : 'ads.ruleTurnedOffToast'), message: updated.name });
       })
-      .catch((error) => showToast({ type: 'error', title: 'Could not update the rule', message: apiErrorMessage(error) }));
+      .catch((error) => showToast({ type: 'error', title: t('ads.ruleUpdateError'), message: apiErrorMessage(error) }));
   }
 
   function handleDeleteRuleConfirmed() {
@@ -166,7 +172,7 @@ function Ads() {
     deleteAdRule(id).then(() => {
       setRules((current) => current.filter((item) => item.id !== id));
       setDeleteRuleTarget(null);
-      showToast({ type: 'success', title: 'Rule deleted' });
+      showToast({ type: 'success', title: t('ads.ruleDeletedToast') });
     });
   }
 
@@ -177,11 +183,11 @@ function Ads() {
         setAdAccountsData(accountData);
         showToast({
           type: 'success',
-          title: 'Ad accounts synced',
-          message: `${accountData.accounts.length} ${accountData.accounts.length === 1 ? 'account' : 'accounts'} found.`,
+          title: t('ads.accountsSyncedToast'),
+          message: t(accountData.accounts.length === 1 ? 'ads.accountsFoundOne' : 'ads.accountsFoundOther', { count: accountData.accounts.length }),
         });
       })
-      .catch((error) => showToast({ type: 'error', title: 'Could not sync ad accounts', message: apiErrorMessage(error) }))
+      .catch((error) => showToast({ type: 'error', title: t('ads.syncError'), message: apiErrorMessage(error) }))
       .finally(() => setIsSyncing(false));
   }
 
@@ -227,13 +233,14 @@ function Ads() {
       return ad && (status === AD_STATUS.PAUSED ? ad.status === AD_STATUS.ACTIVE : ad.status === AD_STATUS.PAUSED);
     });
     if (ids.length === 0) {
-      showToast({ type: 'info', title: 'Nothing to change', message: status === AD_STATUS.PAUSED ? 'Only active ads can be paused.' : 'Only paused ads can be resumed.' });
+      showToast({ type: 'info', title: t('ads.nothingToChangeTitle'), message: t(status === AD_STATUS.PAUSED ? 'ads.onlyActiveCanPause' : 'ads.onlyPausedCanResume') });
       return;
     }
     updateAdsStatus(ids, status).then(() => {
       setAds((currentAds) => currentAds.map((ad) => (ids.includes(ad.id) ? { ...ad, status } : ad)));
       selection.clear();
-      showToast({ type: 'success', title: `${ids.length} ${ids.length === 1 ? 'ad' : 'ads'} ${status === AD_STATUS.PAUSED ? 'paused' : 'resumed'}` });
+      const statusWord = t(status === AD_STATUS.PAUSED ? 'ads.pausedWord' : 'ads.resumedWord');
+      showToast({ type: 'success', title: t(ids.length === 1 ? 'ads.bulkStatusToastOne' : 'ads.bulkStatusToastOther', { count: ids.length, statusWord }) });
     });
   }
 
@@ -243,53 +250,53 @@ function Ads() {
       setAds((currentAds) => currentAds.filter((ad) => !ids.includes(ad.id)));
       selection.clear();
       setIsBulkDeleteOpen(false);
-      showToast({ type: 'success', title: `${ids.length} ${ids.length === 1 ? 'ad' : 'ads'} deleted` });
+      showToast({ type: 'success', title: t(ids.length === 1 ? 'ads.bulkDeletedToastOne' : 'ads.bulkDeletedToastOther', { count: ids.length }) });
     });
   }
 
   const filterLabel =
     [
       platformFilter !== 'all' ? getPlatformByKey(platformFilter)?.label : null,
-      statusFilter !== 'all' ? AD_STATUS_LABELS[statusFilter] : null,
+      statusFilter !== 'all' ? t(`common.status.${statusFilter}`) : null,
       adAccountFilter !== 'all' ? adAccountsData.accounts.find((account) => account.id === adAccountFilter)?.name : null,
       campaignFilter !== 'all' ? campaignFilter : null,
       searchTerm.trim() ? `"${searchTerm.trim()}"` : null,
     ]
       .filter(Boolean)
-      .join(' · ') || 'All ads';
+      .join(' · ') || t('ads.allAds');
 
   function handlePrint() {
     if (!printAdsReport(filteredAds, days, filterLabel)) {
-      showToast({ type: 'error', title: 'Pop-up blocked', message: 'Allow pop-ups for this site to open the PDF report.' });
+      showToast({ type: 'error', title: t('ads.popupBlockedTitle'), message: t('ads.popupBlockedMessage') });
     }
   }
 
   const reportOptions = [
     {
-      label: 'Summary (CSV)',
-      description: 'One row per ad — opens in Excel or Sheets',
+      label: t('ads.reportSummaryLabel'),
+      description: t('ads.reportSummaryDesc'),
       icon: 'FileSpreadsheet',
       onClick: () => {
         downloadAdsSummaryCsv(filteredAds, days);
-        showToast({ type: 'success', title: 'Report downloaded', message: `${filteredAds.length} ads · last ${days} days` });
+        showToast({ type: 'success', title: t('ads.reportDownloadedToast'), message: t('ads.reportSummaryMessage', { count: filteredAds.length, days }) });
       },
     },
     {
-      label: 'Day-by-day (CSV)',
-      description: 'Every ad, every day in the range',
+      label: t('ads.reportDailyLabel'),
+      description: t('ads.reportDailyDesc'),
       icon: 'CalendarRange',
       onClick: () => {
         downloadAdsDailyCsv(filteredAds, days);
-        showToast({ type: 'success', title: 'Report downloaded', message: `Daily figures · last ${days} days` });
+        showToast({ type: 'success', title: t('ads.reportDownloadedToast'), message: t('ads.reportDailyMessage', { days }) });
       },
     },
-    { label: 'PDF report', description: 'Print view — choose “Save as PDF”', icon: 'FileText', onClick: handlePrint },
+    { label: t('ads.reportPdfLabel'), description: t('ads.reportPdfDesc'), icon: 'FileText', onClick: handlePrint },
   ];
 
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.ads')} subtitle="Loading your ads..." />
+        <PageHeader title={t('nav.ads')} subtitle={t('ads.loading')} />
         <SkeletonKpiRow />
       </>
     );
@@ -307,12 +314,12 @@ function Ads() {
   const connectedCount = adAccountsData.accounts.length;
 
   const statCards = [
-    { key: 'spend', label: 'Total Spend', value: formatCurrency(current.spend), icon: 'Wallet', tone: 'primary', hint: deltaHint(percentChange(current.spend, previous.spend)) },
-    { key: 'impressions', label: 'Impressions', value: formatCompactNumber(current.impressions), icon: 'Eye', tone: 'sky', hint: deltaHint(percentChange(current.impressions, previous.impressions)) },
-    { key: 'clicks', label: 'Clicks', value: formatNumber(current.clicks), icon: 'MousePointerClick', tone: 'purple', hint: deltaHint(percentChange(current.clicks, previous.clicks)) },
-    { key: 'ctr', label: 'CTR', value: formatPercent(current.ctr), icon: 'Percent', tone: 'green' },
-    { key: 'cpc', label: 'Avg. CPC', value: formatCurrency(current.cpc), icon: 'Coins', tone: 'amber' },
-    { key: 'results', label: 'Results', value: CONVERSIONS_NOT_TRACKED, icon: 'Target', tone: 'red', hint: 'No Pixel or Lead Form is set up for these ads' },
+    { key: 'spend', label: t('ads.statSpend'), value: formatCurrency(current.spend), icon: 'Wallet', tone: 'primary', hint: deltaHint(percentChange(current.spend, previous.spend), t) },
+    { key: 'impressions', label: t('ads.statImpressions'), value: formatCompactNumber(current.impressions), icon: 'Eye', tone: 'sky', hint: deltaHint(percentChange(current.impressions, previous.impressions), t) },
+    { key: 'clicks', label: t('ads.statClicks'), value: formatNumber(current.clicks), icon: 'MousePointerClick', tone: 'purple', hint: deltaHint(percentChange(current.clicks, previous.clicks), t) },
+    { key: 'ctr', label: t('ads.statCtr'), value: formatPercent(current.ctr), icon: 'Percent', tone: 'green' },
+    { key: 'cpc', label: t('ads.statCpc'), value: formatCurrency(current.cpc), icon: 'Coins', tone: 'amber' },
+    { key: 'results', label: t('ads.statResults'), value: t('ads.notTracked'), icon: 'Target', tone: 'red', hint: t('ads.noPixelHint') },
   ];
 
   return (
@@ -323,10 +330,10 @@ function Ads() {
         guideChapterId="ads"
         actions={
           <>
-            <DownloadReportMenu options={reportOptions} disabled={filteredAds.length === 0} />
+            <DownloadReportMenu options={reportOptions} disabled={filteredAds.length === 0} label={t('ads.downloadReportButton')} />
             <button type="button" className="btn btn-primary" onClick={() => navigate('/ads/create')}>
               <Icon name="Plus" size={16} />
-              Create Ad
+              {t('ads.createAd')}
             </button>
           </>
         }
@@ -335,7 +342,7 @@ function Ads() {
       <div className="tab-strip mb-4">
         {TABS.map((tab) => (
           <button key={tab.key} type="button" className={`tab-strip__item ${activeTab === tab.key ? 'is-active' : ''}`.trim()} onClick={() => updateTab(tab.key)}>
-            {tab.label}
+            {t(`ads.tabs.${tab.labelKey}`)}
             {tab.key === 'accounts' ? <span className="ads-tab-count">{connectedCount}</span> : null}
           </button>
         ))}
@@ -346,8 +353,7 @@ function Ads() {
           <div className="callout-banner callout-banner--info">
             <Icon name="Wallet" size={16} />
             <span>
-              Ads run on <strong>your own ad accounts</strong>. The ad platforms’ APIs are free to use, and the money you spend on ads is billed by each platform to the payment
-              method on your ad account — Social never charges for ads or takes a cut of your budget.
+              {t('ads.accountsInfo1')}<strong>{t('ads.accountsInfoBold')}</strong>{t('ads.accountsInfo2')}
             </span>
           </div>
 
@@ -355,41 +361,40 @@ function Ads() {
             <div className="callout-banner callout-banner--warning">
               <Icon name="AlertTriangle" size={16} />
               <span>
-                Facebook is not connected yet. <Link to="/social-accounts/connect/facebook">Connect it in Social Accounts</Link> — Meta Ads uses that same connection, there is
-                no separate login for Ads.
+                {t('ads.fbNotConnected1')}<Link to="/social-accounts/connect/facebook">{t('ads.fbNotConnectedLink')}</Link>{t('ads.fbNotConnected2')}
               </span>
             </div>
           ) : !adAccountsData.hasAdsToken ? (
             <div className="callout-banner callout-banner--warning">
               <Icon name="AlertTriangle" size={16} />
               <span>
-                Facebook is connected, but your Ads token hasn’t been added yet.{' '}
-                <Link to="/social-accounts/connect/facebook">Open Social Accounts → Facebook</Link> and fill in the “User access token — Ads access” field.
+                {t('ads.noToken1')}
+                <Link to="/social-accounts/connect/facebook">{t('ads.noTokenLink')}</Link>{t('ads.noToken2')}
               </span>
             </div>
           ) : !adAccountsData.hasAdsPermission ? (
             <div className="callout-banner callout-banner--warning">
               <Icon name="AlertTriangle" size={16} />
               <span>
-                Your saved Ads token doesn’t have the right permissions.{' '}
-                <Link to="/social-accounts/connect/facebook">Open Social Accounts → Facebook</Link> and paste a new one with ads_management and ads_read granted.
+                {t('ads.noPermission1')}
+                <Link to="/social-accounts/connect/facebook">{t('ads.noTokenLink')}</Link>{t('ads.noPermission2')}
               </span>
             </div>
           ) : (
             <div className="panel-card mb-4">
               <div className="panel-card__body d-flex align-items-center justify-content-between flex-wrap gap-3">
                 <div>
-                  <div className="fw-semibold">Facebook connection ready for Ads</div>
-                  <p className="text-muted-custom small mb-0">Ad accounts below come straight from Meta — nothing is entered here by hand.</p>
+                  <div className="fw-semibold">{t('ads.connectionReady')}</div>
+                  <p className="text-muted-custom small mb-0">{t('ads.connectionReadyText')}</p>
                 </div>
                 <button type="button" className="btn btn-outline-primary-custom" onClick={handleSync} disabled={isSyncing}>
                   {isSyncing ? (
                     <>
-                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" /> Syncing...
+                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" /> {t('ads.syncing')}
                     </>
                   ) : (
                     <>
-                      <Icon name="RefreshCw" size={16} /> Sync Ad Accounts
+                      <Icon name="RefreshCw" size={16} /> {t('ads.syncButton')}
                     </>
                   )}
                 </button>
@@ -400,18 +405,14 @@ function Ads() {
           {adAccountsData.accounts.length === 0 ? (
             <EmptyState
               icon="Wallet"
-              title="No ad accounts found yet"
-              description={
-                adAccountsData.hasAdsPermission
-                  ? 'Click "Sync Ad Accounts" above to look for real Meta ad accounts on this connection.'
-                  : 'Connect Facebook with Ads access, then sync to see your real Meta ad accounts here.'
-              }
+              title={t('ads.noAccountsTitle')}
+              description={t(adAccountsData.hasAdsPermission ? 'ads.noAccountsDescSynced' : 'ads.noAccountsDescNotConnected')}
             />
           ) : (
             <div className="connect-list">
               {adAccountsData.accounts.map((account) => (
                 <div key={account.id} className="connect-row">
-                  <NetworkIcons network={{ platforms: ['facebook', 'instagram'], subtitle: 'Facebook & Instagram' }} size={52} />
+                  <NetworkIcons network={{ platforms: ['facebook', 'instagram'], subtitle: t('ads.metaSubtitle') }} size={52} />
                   <span className="connect-row__text">
                     <span className="connect-row__label">{account.name}</span>
                     <span className="connect-row__badge">
@@ -422,12 +423,12 @@ function Ads() {
                     {account.disableReason ? (
                       <span className="network-placements">
                         <span className="network-placement is-missing">
-                          <Icon name="AlertCircle" size={12} /> Needs attention on Meta’s side (status {account.accountStatus})
+                          <Icon name="AlertCircle" size={12} /> {t('ads.needsAttention', { status: account.accountStatus })}
                         </span>
                       </span>
                     ) : null}
                   </span>
-                  <span className="status-badge status-badge--connected ms-auto">Ready</span>
+                  <span className="status-badge status-badge--connected ms-auto">{t('ads.readyBadge')}</span>
                 </div>
               ))}
             </div>
@@ -437,9 +438,7 @@ function Ads() {
         <>
           <div className="callout-banner callout-banner--info">
             <Icon name="LayoutTemplate" size={16} />
-            <span>
-              Save a headline, text, link and image once, then start from it whenever you build a new ad — no retyping. A template is never launched on its own.
-            </span>
+            <span>{t('ads.libraryIntro')}</span>
           </div>
 
           <div className="d-flex justify-content-end mb-4">
@@ -451,16 +450,16 @@ function Ads() {
                 setIsTemplateFormOpen(true);
               }}
             >
-              <Icon name="Plus" size={16} /> New Template
+              <Icon name="Plus" size={16} /> {t('ads.newTemplate')}
             </button>
           </div>
 
           {templates.length === 0 ? (
             <EmptyState
               icon="LayoutTemplate"
-              title="No templates yet"
-              description="Save your first creative template to reuse it next time you build an ad."
-              actionLabel="New Template"
+              title={t('ads.noTemplatesTitle')}
+              description={t('ads.noTemplatesText')}
+              actionLabel={t('ads.newTemplate')}
               onAction={() => {
                 setEditingTemplate(null);
                 setIsTemplateFormOpen(true);
@@ -481,10 +480,10 @@ function Ads() {
                       )}
                       <div className="flex-grow-1 overflow-hidden">
                         <div className="table-row-title text-truncate">{template.name}</div>
-                        <div className="table-row-subtitle text-truncate">{template.headline || 'No headline'}</div>
+                        <div className="table-row-subtitle text-truncate">{template.headline || t('ads.noHeadline')}</div>
                       </div>
                     </div>
-                    <p className="text-secondary-custom small mb-3 ad-template-text">{template.text || 'No ad text'}</p>
+                    <p className="text-secondary-custom small mb-3 ad-template-text">{template.text || t('ads.noAdText')}</p>
                     <div className="d-flex gap-2">
                       <button
                         type="button"
@@ -494,7 +493,7 @@ function Ads() {
                           setIsTemplateFormOpen(true);
                         }}
                       >
-                        <Icon name="Pencil" size={14} /> Edit
+                        <Icon name="Pencil" size={14} /> {t('common.edit')}
                       </button>
                       <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setDeleteTemplateTarget(template)}>
                         <Icon name="Trash2" size={14} />
@@ -511,8 +510,7 @@ function Ads() {
           <div className="callout-banner callout-banner--info">
             <Icon name="Zap" size={16} />
             <span>
-              A rule watches a real number and <strong>pauses or resumes an ad automatically</strong> when it crosses your threshold — it never changes budget or spends anything on
-              your behalf. Every time a rule acts, it's a real Meta call, logged in Activity Logs, exactly like a manual pause/resume.
+              {t('ads.rulesIntro1')}<strong>{t('ads.rulesIntroBold')}</strong>{t('ads.rulesIntro2')}
             </span>
           </div>
 
@@ -526,16 +524,16 @@ function Ads() {
               }}
               disabled={adAccountsData.accounts.length === 0}
             >
-              <Icon name="Plus" size={16} /> New Rule
+              <Icon name="Plus" size={16} /> {t('ads.newRule')}
             </button>
           </div>
 
           {rules.length === 0 ? (
             <EmptyState
               icon="Zap"
-              title="No automated rules yet"
-              description={adAccountsData.accounts.length === 0 ? 'Set up an ad account first, then create a rule.' : 'Create a rule to pause or resume ads automatically based on real performance.'}
-              actionLabel={adAccountsData.accounts.length > 0 ? 'New Rule' : undefined}
+              title={t('ads.noRulesTitle')}
+              description={t(adAccountsData.accounts.length === 0 ? 'ads.noRulesDescNoAccount' : 'ads.noRulesDescHasAccount')}
+              actionLabel={adAccountsData.accounts.length > 0 ? t('ads.newRule') : undefined}
               onAction={adAccountsData.accounts.length > 0 ? () => setIsRuleFormOpen(true) : undefined}
             />
           ) : (
@@ -546,16 +544,16 @@ function Ads() {
                     <div className="flex-grow-1">
                       <div className="d-flex align-items-center gap-2 mb-1">
                         <span className="table-row-title">{rule.name}</span>
-                        <StatusBadge status={rule.isActive ? 'active' : 'paused'} label={rule.isActive ? 'Active' : 'Off'} />
+                        <StatusBadge status={rule.isActive ? 'active' : 'paused'} label={rule.isActive ? t('common.status.active') : t('common.off')} />
                       </div>
-                      <p className="text-secondary-custom small mb-1">{describeRule(rule)} → {rule.action === 'pause' ? 'Pause the ad' : 'Resume the ad'}</p>
+                      <p className="text-secondary-custom small mb-1">{describeRule(rule, t)} → {t(`ads.ruleActions.${rule.action}`)}</p>
                       <p className="text-muted-custom small mb-0">
-                        {rule.adAccountName} · {rule.lastFiredAt ? `Last acted ${formatRelativeTime(rule.lastFiredAt)}` : 'Has not fired yet'}
+                        {rule.adAccountName} · {rule.lastFiredAt ? t('ads.lastActed', { when: formatRelativeTime(rule.lastFiredAt) }) : t('ads.neverFired')}
                       </p>
                     </div>
                     <div className="d-flex align-items-center gap-2">
-                      <div className="form-check form-switch mb-0" title={rule.isActive ? 'Turn off' : 'Turn on'}>
-                        <input className="form-check-input" type="checkbox" role="switch" checked={rule.isActive} onChange={() => handleToggleRule(rule)} aria-label={`${rule.isActive ? 'Turn off' : 'Turn on'} ${rule.name}`} />
+                      <div className="form-check form-switch mb-0" title={t(rule.isActive ? 'ads.turnOffAria' : 'ads.turnOnAria', { name: rule.name })}>
+                        <input className="form-check-input" type="checkbox" role="switch" checked={rule.isActive} onChange={() => handleToggleRule(rule)} aria-label={t(rule.isActive ? 'ads.turnOffAria' : 'ads.turnOnAria', { name: rule.name })} />
                       </div>
                       <button
                         type="button"
@@ -565,7 +563,7 @@ function Ads() {
                           setIsRuleFormOpen(true);
                         }}
                       >
-                        <Icon name="Pencil" size={14} /> Edit
+                        <Icon name="Pencil" size={14} /> {t('common.edit')}
                       </button>
                       <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setDeleteRuleTarget(rule)}>
                         <Icon name="Trash2" size={14} />
@@ -583,7 +581,7 @@ function Ads() {
             <div className="callout-banner callout-banner--warning">
               <Icon name="AlertTriangle" size={16} />
               <span>
-                No ad account found yet. <Link to="/ads?tab=accounts">Set up Ad accounts</Link> to start running ads.
+                {t('ads.noAccountBanner1')}<Link to="/ads?tab=accounts">{t('ads.setupAccountsLink')}</Link>{t('ads.noAccountBanner2')}
               </span>
             </div>
           ) : null}
@@ -592,22 +590,22 @@ function Ads() {
             <div className="panel-card__body filter-bar">
               <div className="filter-bar__field">
                 <span className="filter-bar__label">
-                  <Icon name="CalendarRange" size={13} /> Period
+                  <Icon name="CalendarRange" size={13} /> {t('ads.period')}
                 </span>
                 <select className="form-select" value={days} onChange={(event) => setDays(Number(event.target.value))}>
                   {AD_DATE_RANGES.map((range) => (
                     <option key={range.value} value={range.value}>
-                      {range.label}
+                      {t(`ads.dateRanges.${range.labelKey}`)}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="filter-bar__field">
                 <span className="filter-bar__label">
-                  <Icon name="Share2" size={13} /> Platform
+                  <Icon name="Share2" size={13} /> {t('ads.platformFilter')}
                 </span>
                 <select className="form-select" value={platformFilter} onChange={(event) => setPlatformFilter(event.target.value)}>
-                  <option value="all">All platforms</option>
+                  <option value="all">{t('ads.allPlatforms')}</option>
                   {PLATFORMS.filter((platform) => AD_PLATFORM_KEYS.includes(platform.key)).map((platform) => (
                     <option key={platform.key} value={platform.key}>
                       {platform.label}
@@ -617,13 +615,13 @@ function Ads() {
               </div>
               <div className="filter-bar__field">
                 <span className="filter-bar__label">
-                  <Icon name="Activity" size={13} /> Status
+                  <Icon name="Activity" size={13} /> {t('posts.colStatus')}
                 </span>
                 <select className="form-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                  <option value="all">All statuses</option>
+                  <option value="all">{t('ads.allStatuses')}</option>
                   {Object.values(AD_STATUS).map((status) => (
                     <option key={status} value={status}>
-                      {AD_STATUS_LABELS[status]}
+                      {t(`common.status.${status}`)}
                     </option>
                   ))}
                 </select>
@@ -631,10 +629,10 @@ function Ads() {
               {adAccountsData.accounts.length > 1 ? (
                 <div className="filter-bar__field">
                   <span className="filter-bar__label">
-                    <Icon name="Wallet" size={13} /> Ad account
+                    <Icon name="Wallet" size={13} /> {t('ads.adAccount')}
                   </span>
                   <select className="form-select" value={adAccountFilter} onChange={(event) => setAdAccountFilter(event.target.value)}>
-                    <option value="all">All ad accounts</option>
+                    <option value="all">{t('ads.allAdAccounts')}</option>
                     {adAccountsData.accounts.map((account) => (
                       <option key={account.id} value={account.id}>{account.name}</option>
                     ))}
@@ -644,10 +642,10 @@ function Ads() {
               {campaignNames.length > 1 ? (
                 <div className="filter-bar__field">
                   <span className="filter-bar__label">
-                    <Icon name="Megaphone" size={13} /> Campaign
+                    <Icon name="Megaphone" size={13} /> {t('composer.campaign')}
                   </span>
                   <select className="form-select" value={campaignFilter} onChange={(event) => setCampaignFilter(event.target.value)}>
-                    <option value="all">All campaigns</option>
+                    <option value="all">{t('ads.allCampaigns')}</option>
                     {campaignNames.map((name) => (
                       <option key={name} value={name}>{name}</option>
                     ))}
@@ -656,9 +654,9 @@ function Ads() {
               ) : null}
               <div className="filter-bar__field">
                 <span className="filter-bar__label">
-                  <Icon name="Search" size={13} /> Ad name
+                  <Icon name="Search" size={13} /> {t('ads.adName')}
                 </span>
-                <input type="search" className="form-control" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search ads..." />
+                <input type="search" className="form-control" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder={t('ads.searchAdsPlaceholder')} />
               </div>
             </div>
           </div>
@@ -666,12 +664,12 @@ function Ads() {
           <StatCardGrid cards={statCards} className="stat-card-grid--three" />
 
           <div className="ads-chart-grid">
-            <AdsPerformanceChart series={series} title="Performance" />
+            <AdsPerformanceChart series={series} title={t('ads.performanceTitle')} />
             <div className="panel-card">
               <div className="panel-card__header">
-                <h3 className="panel-card__title">Estimated spend by platform</h3>
+                <h3 className="panel-card__title">{t('ads.spendByPlatform')}</h3>
                 <span
-                  data-tooltip="Meta reports spend at the ad level, not per placement — when an ad runs on more than one platform, its spend is split evenly across them here, not measured separately by Meta."
+                  data-tooltip={t('ads.spendByPlatformTooltip')}
                   data-tooltip-position="bottom"
                 >
                   <Icon name="Info" size={14} className="text-muted-custom" />
@@ -679,7 +677,7 @@ function Ads() {
               </div>
               <div className="panel-card__body d-flex flex-column gap-3">
                 {platformSpend.length === 0 ? (
-                  <p className="text-muted-custom mb-0">No spend in this period.</p>
+                  <p className="text-muted-custom mb-0">{t('ads.noSpendInPeriod')}</p>
                 ) : (
                   platformSpend.map((row) => {
                     const share = current.spend ? (row.spend / current.spend) * 100 : 0;
@@ -707,27 +705,27 @@ function Ads() {
 
           <div className="panel-card">
             <div className="panel-card__header">
-              <h3 className="panel-card__title">Your ads</h3>
-              <span className="text-muted-custom small">{filteredAds.length} of {ads.length}</span>
+              <h3 className="panel-card__title">{t('ads.yourAds')}</h3>
+              <span className="text-muted-custom small">{t('ads.filteredOfTotal', { filtered: filteredAds.length, total: ads.length })}</span>
             </div>
             {filteredAds.length > 0 ? <TableToolbar pagination={pagination} /> : null}
             <BulkActionBar selection={selection} show={filteredAds.length > 0}>
               <button type="button" className="btn btn-sm btn-outline-secondary-custom" onClick={() => handleBulkStatus(AD_STATUS.PAUSED)}>
-                <Icon name="Pause" size={14} /> Pause
+                <Icon name="Pause" size={14} /> {t('ads.pause')}
               </button>
               <button type="button" className="btn btn-sm btn-outline-secondary-custom" onClick={() => handleBulkStatus(AD_STATUS.ACTIVE)}>
-                <Icon name="Play" size={14} /> Resume
+                <Icon name="Play" size={14} /> {t('ads.resume')}
               </button>
               <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setIsBulkDeleteOpen(true)}>
-                <Icon name="Trash2" size={14} /> Delete
+                <Icon name="Trash2" size={14} /> {t('common.delete')}
               </button>
             </BulkActionBar>
 
             <div className="panel-card__body panel-card__body--flush">
               {ads.length === 0 ? (
-                <EmptyState icon="Megaphone" title="No ads yet" description="Create your first ad to start reaching new people." actionLabel="Create Ad" onAction={() => navigate('/ads/create')} />
+                <EmptyState icon="Megaphone" title={t('ads.noAdsYetTitle')} description={t('ads.noAdsYetText')} actionLabel={t('ads.createAd')} onAction={() => navigate('/ads/create')} />
               ) : filteredAds.length === 0 ? (
-                <EmptyState icon="Megaphone" title="No ads match" description="Try another platform or status." />
+                <EmptyState icon="Megaphone" title={t('ads.noAdsMatchTitle')} description={t('ads.noAdsMatchText')} />
               ) : isMobile ? (
                 <div className="d-flex flex-column gap-3 p-4">
                   {pagination.pageItems.map((ad) => {
@@ -735,18 +733,18 @@ function Ads() {
                     return (
                       <div key={ad.id} className="surface-card">
                         <div className="d-flex align-items-start gap-2">
-                          <RowCheckbox id={ad.id} selection={selection} label={`Select ${ad.name}`} />
+                          <RowCheckbox id={ad.id} selection={selection} label={t('ads.selectAdAria', { name: ad.name })} />
                           <div className="flex-grow-1 overflow-hidden" role="button" tabIndex={0} onClick={() => navigate(`/ads/${ad.id}`)}>
                             <div className="table-row-title text-truncate">{ad.name}</div>
-                            <div className="table-row-subtitle">{objectiveLabel(ad.objective)}</div>
+                            <div className="table-row-subtitle">{objectiveLabel(ad.objective, t)}</div>
                           </div>
-                          <StatusBadge status={ad.status} label={AD_STATUS_LABELS[ad.status]} />
+                          <StatusBadge status={ad.status} />
                         </div>
                         <div className="ad-mobile-metrics" onClick={() => navigate(`/ads/${ad.id}`)} role="button" tabIndex={0}>
-                          <div><span>Spent</span><strong>{formatCurrency(totals.spend)}</strong></div>
-                          <div><span>Clicks</span><strong>{formatNumber(totals.clicks)}</strong></div>
-                          <div><span>CTR</span><strong>{formatPercent(totals.ctr)}</strong></div>
-                          <div><span>Results</span><strong className="text-muted-custom">{CONVERSIONS_NOT_TRACKED}</strong></div>
+                          <div><span>{t('ads.spent')}</span><strong>{formatCurrency(totals.spend)}</strong></div>
+                          <div><span>{t('ads.statClicks')}</span><strong>{formatNumber(totals.clicks)}</strong></div>
+                          <div><span>{t('ads.statCtr')}</span><strong>{formatPercent(totals.ctr)}</strong></div>
+                          <div><span>{t('ads.statResults')}</span><strong className="text-muted-custom">{t('ads.notTracked')}</strong></div>
                         </div>
                         <div className="d-flex gap-1 mt-2">
                           {ad.platforms.map((key) => <PlatformIcon key={key} platformKey={key} size={22} />)}
@@ -761,14 +759,14 @@ function Ads() {
                     <thead>
                       <tr>
                         <th className="table-checkbox-col"><SelectAllCheckbox ids={pageIds} selection={selection} /></th>
-                        <th>Ad</th>
-                        <th>Status</th>
-                        <th>Budget</th>
-                        <th className="text-end">Spent</th>
-                        <th className="text-end">Impressions</th>
-                        <th className="text-end">Clicks</th>
-                        <th className="text-end">CTR</th>
-                        <th className="text-end">Results</th>
+                        <th>{t('ads.colAd')}</th>
+                        <th>{t('posts.colStatus')}</th>
+                        <th>{t('ads.colBudget')}</th>
+                        <th className="text-end">{t('ads.spent')}</th>
+                        <th className="text-end">{t('ads.statImpressions')}</th>
+                        <th className="text-end">{t('ads.statClicks')}</th>
+                        <th className="text-end">{t('ads.statCtr')}</th>
+                        <th className="text-end">{t('ads.statResults')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -776,7 +774,7 @@ function Ads() {
                         const totals = perAdTotals.get(ad.id);
                         return (
                           <tr key={ad.id} className={selection.isSelected(ad.id) ? 'is-selected' : ''}>
-                            <td className="table-checkbox-col"><RowCheckbox id={ad.id} selection={selection} label={`Select ${ad.name}`} /></td>
+                            <td className="table-checkbox-col"><RowCheckbox id={ad.id} selection={selection} label={t('ads.selectAdAria', { name: ad.name })} /></td>
                             <td role="button" onClick={() => navigate(`/ads/${ad.id}`)}>
                               <div className="d-flex align-items-center gap-3">
                                 <div className="d-flex gap-1">
@@ -784,17 +782,17 @@ function Ads() {
                                 </div>
                                 <div>
                                   <div className="table-row-title">{ad.name}</div>
-                                  <div className="table-row-subtitle">{objectiveLabel(ad.objective)} · {formatDate(ad.startDate)} – {formatDate(ad.endDate)}</div>
+                                  <div className="table-row-subtitle">{objectiveLabel(ad.objective, t)} · {formatDate(ad.startDate)} – {formatDate(ad.endDate)}</div>
                                 </div>
                               </div>
                             </td>
-                            <td><StatusBadge status={ad.status} label={AD_STATUS_LABELS[ad.status]} /></td>
-                            <td>{formatCurrency(ad.budget)}<span className="text-muted-custom small"> {ad.budgetType === 'daily' ? '/ day' : 'total'}</span></td>
+                            <td><StatusBadge status={ad.status} /></td>
+                            <td>{formatCurrency(ad.budget)}<span className="text-muted-custom small"> {t(ad.budgetType === 'daily' ? 'ads.perDay' : 'ads.totalBudget')}</span></td>
                             <td className="text-end">{formatCurrency(totals.spend)}</td>
                             <td className="text-end">{formatNumber(totals.impressions)}</td>
                             <td className="text-end">{formatNumber(totals.clicks)}</td>
                             <td className="text-end">{formatPercent(totals.ctr)}</td>
-                            <td className="text-end text-muted-custom">{CONVERSIONS_NOT_TRACKED}</td>
+                            <td className="text-end text-muted-custom">{t('ads.notTracked')}</td>
                           </tr>
                         );
                       })}
@@ -812,9 +810,9 @@ function Ads() {
         isOpen={isBulkDeleteOpen}
         onClose={() => setIsBulkDeleteOpen(false)}
         onConfirm={handleBulkDeleteConfirmed}
-        title={`Delete ${selection.count} ${selection.count === 1 ? 'ad' : 'ads'}?`}
-        message="This removes them from Social. Ads that are already running on the platform should also be stopped in that platform’s own Ads Manager."
-        confirmLabel="Delete"
+        title={t(selection.count === 1 ? 'ads.bulkDeleteTitleOne' : 'ads.bulkDeleteTitleOther', { count: selection.count })}
+        message={t('ads.bulkDeleteMessage')}
+        confirmLabel={t('common.delete')}
         isDanger
       />
 
@@ -832,9 +830,9 @@ function Ads() {
         isOpen={Boolean(deleteTemplateTarget)}
         onClose={() => setDeleteTemplateTarget(null)}
         onConfirm={handleDeleteTemplateConfirmed}
-        title={`Delete "${deleteTemplateTarget?.name}"?`}
-        message="This removes the template from your library. Ads already built from it are not affected."
-        confirmLabel="Delete"
+        title={t('ads.deleteNamedTitle', { name: deleteTemplateTarget?.name })}
+        message={t('ads.deleteTemplateMessage')}
+        confirmLabel={t('common.delete')}
         isDanger
       />
 
@@ -852,9 +850,9 @@ function Ads() {
         isOpen={Boolean(deleteRuleTarget)}
         onClose={() => setDeleteRuleTarget(null)}
         onConfirm={handleDeleteRuleConfirmed}
-        title={`Delete "${deleteRuleTarget?.name}"?`}
-        message="This rule will never act again. It does not undo anything it already did."
-        confirmLabel="Delete"
+        title={t('ads.deleteNamedTitle', { name: deleteRuleTarget?.name })}
+        message={t('ads.deleteRuleMessage')}
+        confirmLabel={t('common.delete')}
         isDanger
       />
     </div>

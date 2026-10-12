@@ -5,22 +5,24 @@ import { formatCompactNumber, formatCurrency } from '../../utils/formatters';
 import chartColors from '../../config/chartColors';
 import useChartPrimaryColor from '../../hooks/useChartPrimaryColor';
 import useUiScale from '../../hooks/useUiScale';
+import { useI18n } from '../../i18n/useI18n';
 
-function MetricTooltip({ active, payload, label, metric }) {
+function MetricTooltip({ active, payload, label, metric, t }) {
   if (!active || !payload?.length) return null;
   const value = payload[0].value;
   return (
     <div className="growth-tooltip">
       <div className="growth-tooltip__date">{label}</div>
       <div className="growth-tooltip__value">
-        {metric.label}: {metric.isMoney ? formatCurrency(value) : value.toLocaleString()}
+        {t(`ads.ruleMetrics.${metric.labelKey}`)}: {metric.isMoney ? formatCurrency(value) : value.toLocaleString()}
       </div>
     </div>
   );
 }
 
 // Daily performance with a Spend / Impressions / Clicks / Results switch.
-function AdsPerformanceChart({ series, title = 'Performance', height = 300, actions = null }) {
+function AdsPerformanceChart({ series, title, height = 300, actions = null }) {
+  const { t } = useI18n();
   const primary = useChartPrimaryColor();
   const uiScale = useUiScale();
   const axisFont = Math.round(12 * uiScale);
@@ -31,9 +33,9 @@ function AdsPerformanceChart({ series, title = 'Performance', height = 300, acti
   return (
     <div className="panel-card">
       <div className="panel-card__header flex-wrap gap-3">
-        <h3 className="panel-card__title">{title}</h3>
+        <h3 className="panel-card__title">{title ?? t('ads.performanceTitle')}</h3>
         <div className="d-flex gap-3 align-items-center flex-wrap">
-          <div className="segmented-control" role="group" aria-label="Metric">
+          <div className="segmented-control" role="group" aria-label={t('ads.metricLabel')}>
             {AD_METRICS.map((item) => (
               <button
                 key={item.key}
@@ -42,7 +44,7 @@ function AdsPerformanceChart({ series, title = 'Performance', height = 300, acti
                 onClick={() => setMetricKey(item.key)}
                 aria-pressed={item.key === metricKey}
               >
-                {item.label}
+                {t(`ads.ruleMetrics.${item.labelKey}`)}
               </button>
             ))}
           </div>
@@ -68,7 +70,7 @@ function AdsPerformanceChart({ series, title = 'Performance', height = 300, acti
               width={Math.round(58 * uiScale)}
               tickFormatter={(value) => (metric.isMoney ? formatCurrency(value, { compact: true }) : formatCompactNumber(value))}
             />
-            <Tooltip content={<MetricTooltip metric={metric} />} cursor={{ stroke: primary, strokeOpacity: 0.3, strokeDasharray: '4 4' }} />
+            <Tooltip content={<MetricTooltip metric={metric} t={t} />} cursor={{ stroke: primary, strokeOpacity: 0.3, strokeDasharray: '4 4' }} />
             <Area
               type="monotone"
               dataKey={metricKey}

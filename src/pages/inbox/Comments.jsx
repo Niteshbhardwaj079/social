@@ -39,7 +39,7 @@ function Comments() {
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.comments')} subtitle="Loading comments..." />
+        <PageHeader title={t('nav.comments')} subtitle={t('inbox.loadingComments')} />
         <SkeletonTable rows={5} columns={3} />
       </>
     );
@@ -61,7 +61,7 @@ function Comments() {
       <div className="panel-card">
         <div className="panel-card__body panel-card__body--flush">
           {comments.length === 0 ? (
-            <EmptyState icon="MessageSquare" title="No comments yet" description="Comments from your posts will appear here." />
+            <EmptyState icon="MessageSquare" title={t('inbox.noCommentsTitle')} description={t('inbox.noCommentsText')} />
           ) : (
             <div className="d-flex flex-column">
               {comments.map((comment) => (

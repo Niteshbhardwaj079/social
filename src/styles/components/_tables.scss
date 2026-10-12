@@ -80,3 +80,114 @@
   background-color: var(--color-primary-soft);
   color: var(--color-primary-text);
 }
+
+// ---- Phone: a table marked "data-table--stack" becomes one card per row ---------------------------
+// Each cell shows its column name (data-label, filled in from the headings by
+// hooks/useStackedTableLabels.js) beside its value, so nothing hides off the side of the screen.
+// The row's first cell (after a checkbox) is the card's title; cells without a heading (action buttons)
+// sit at the bottom without a label.
+@include m.respond-down(v.$breakpoint-md) {
+  .data-table.data-table--stack {
+    thead {
+      // Still read out by screen readers, just not drawn.
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+
+    tbody,
+    tr,
+    td {
+      display: block;
+      width: 100%;
+    }
+
+    tbody tr {
+      margin-bottom: v.$space-3;
+      padding: v.$space-2 v.$space-4;
+      border: 1px solid var(--color-border);
+      border-radius: v.$radius-md;
+      background-color: var(--color-surface);
+    }
+
+    tbody tr:last-child {
+      margin-bottom: 0;
+    }
+
+    tbody td,
+    tbody tr:last-child td {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: v.$space-2 v.$space-3;
+      padding: v.$space-2 0;
+      border-bottom: 1px dashed var(--color-border);
+      text-align: end;
+      overflow-wrap: anywhere;
+      min-width: 0;
+    }
+
+    tbody td::before {
+      content: attr(data-label);
+      flex-shrink: 0;
+      max-width: 45%;
+      // Pushes the value(s) to the other side; several values (plan + badge) stay together.
+      margin-inline-end: auto;
+      text-align: start;
+      font-size: v.$font-size-xs;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--color-text-muted);
+    }
+
+    tbody tr > td:last-child {
+      border-bottom: none;
+    }
+
+    // The card's title, an empty-message row, and action-button cells: no label.
+    tbody td:first-child:not(.table-checkbox-col),
+    tbody .table-checkbox-col + td,
+    tbody td[colspan],
+    tbody td[data-label=''] {
+      text-align: start;
+
+      &::before {
+        display: none;
+      }
+    }
+
+    tbody td:first-child:not(.table-checkbox-col),
+    tbody .table-checkbox-col + td {
+      display: block;
+      border-bottom-style: solid;
+    }
+
+    tbody td[colspan] {
+      display: block;
+      border-bottom: none;
+    }
+
+    tbody td[data-label='']:not(:first-child) {
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    tbody td.table-checkbox-col {
+      width: auto;
+      border-bottom: none;
+      padding-bottom: 0;
+
+      &::before {
+        display: none;
+      }
+    }
+
+    .table-cell-truncate {
+      max-width: none;
+    }
+  }
+}

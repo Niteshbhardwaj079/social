@@ -13,6 +13,8 @@ function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    // The phone's status bar (installed app / mobile browser) takes the colour of the top bar.
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#171833' : '#ffffff');
   }, [theme]);
 
   // iOS Safari (and some other touch browsers) apply :hover styles on tap

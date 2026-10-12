@@ -11,8 +11,13 @@ import { SkeletonKpiRow } from '../common/LoadingSkeleton';
 import { getRoles, createRole, updateRole, deleteRole, cloneRole } from '../../services/api/rolesApi';
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { useToast } from '../common/ToastProvider';
+import { useI18n } from '../../i18n/useI18n';
+import { USER_ROLES } from '../../config/constants';
+
+const BUILTIN_ROLE_IDS = new Set(Object.values(USER_ROLES));
 
 function RolesPanel() {
+  const { t } = useI18n();
   const { showToast } = useToast();
   const [roles, setRoles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,11 +73,11 @@ function RolesPanel() {
         setIsSaving(false);
         setIsDirty(false);
         setRoles((current) => current.map((role) => (role.id === updatedRole.id ? updatedRole : role)));
-        showToast({ type: 'success', title: 'Permissions saved' });
+        showToast({ type: 'success', title: t('rolesPanel.permissionsSaved') });
       })
       .catch((error) => {
         setIsSaving(false);
-        showToast({ type: 'error', title: apiErrorMessage(error, 'Could not save permissions.') });
+        showToast({ type: 'error', title: apiErrorMessage(error, t('rolesPanel.saveError')) });
       });
   }
 
@@ -88,9 +93,9 @@ function RolesPanel() {
         setSelectedRoleId(clonedRole.id);
         setDraftPermissions(clonedRole.permissions);
         setIsDirty(false);
-        showToast({ type: 'success', title: 'Role duplicated', message: clonedRole.name });
+        showToast({ type: 'success', title: t('rolesPanel.roleDuplicated'), message: clonedRole.name });
       })
-      .catch((error) => showToast({ type: 'error', title: apiErrorMessage(error, 'Could not duplicate this role.') }));
+      .catch((error) => showToast({ type: 'error', title: apiErrorMessage(error, t('rolesPanel.duplicateError')) }));
   }
 
   function handleDetailsSubmit(formValues) {
@@ -99,9 +104,9 @@ function RolesPanel() {
         .then((updatedRole) => {
           setRoles((current) => current.map((role) => (role.id === updatedRole.id ? updatedRole : role)));
           setIsDetailsModalOpen(false);
-          showToast({ type: 'success', title: 'Role updated' });
+          showToast({ type: 'success', title: t('rolesPanel.roleUpdated') });
         })
-        .catch((error) => showToast({ type: 'error', title: apiErrorMessage(error, 'Could not update this role.') }));
+        .catch((error) => showToast({ type: 'error', title: apiErrorMessage(error, t('rolesPanel.updateError')) }));
     } else {
       createRole({ ...formValues, permissions: {} })
         .then((newRole) => {
@@ -110,9 +115,9 @@ function RolesPanel() {
           setDraftPermissions(newRole.permissions);
           setIsDirty(false);
           setIsDetailsModalOpen(false);
-          showToast({ type: 'success', title: 'Role created', message: 'Set its permissions below.' });
+          showToast({ type: 'success', title: t('rolesPanel.roleCreated'), message: t('rolesPanel.roleCreatedHint') });
         })
-        .catch((error) => showToast({ type: 'error', title: apiErrorMessage(error, 'Could not create this role.') }));
+        .catch((error) => showToast({ type: 'error', title: apiErrorMessage(error, t('rolesPanel.createError')) }));
     }
   }
 
@@ -130,11 +135,11 @@ function RolesPanel() {
           setDraftPermissions(nextRole?.permissions || {});
           setIsDirty(false);
         }
-        showToast({ type: 'success', title: 'Role deleted' });
+        showToast({ type: 'success', title: t('rolesPanel.roleDeleted') });
       })
       .catch((error) => {
         setRolePendingDelete(null);
-        showToast({ type: 'error', title: apiErrorMessage(error, 'Could not delete this role.') });
+        showToast({ type: 'error', title: apiErrorMessage(error, t('rolesPanel.deleteError')) });
       });
   }
 
@@ -148,13 +153,10 @@ function RolesPanel() {
 
   return (
     <>
-      <CalloutBanner icon="Sparkles">
-        Build any role your workspace needs. Duplicate an existing role to save time, or start from scratch and
-        tick exactly the permissions it should have.
-      </CalloutBanner>
+      <CalloutBanner icon="Sparkles">{t('rolesPanel.intro')}</CalloutBanner>
 
       {roles.length === 0 ? (
-        <EmptyState icon="ShieldCheck" title="No roles yet" description="Create a role to control workspace permissions." />
+        <EmptyState icon="ShieldCheck" title={t('rolesPanel.emptyTitle')} description={t('rolesPanel.emptyText')} />
       ) : (
         <div className="roles-grid">
           {roles.map((role) => (
@@ -182,10 +184,8 @@ function RolesPanel() {
             <span className="role-select-card--new__icon">
               <Icon name="Plus" size={22} />
             </span>
-            <span className="role-select-card--new__title">New Role</span>
-            <span className="role-select-card--new__hint">
-              Duplicating an existing role saves time — you can change every tick afterwards.
-            </span>
+            <span className="role-select-card--new__title">{t('rolesPanel.newRoleTitle')}</span>
+            <span className="role-select-card--new__hint">{t('rolesPanel.newRoleHint')}</span>
           </button>
         </div>
       )}
@@ -198,18 +198,18 @@ function RolesPanel() {
                 <Icon name={selectedRole.icon || 'User'} size={18} />
               </span>
               <div>
-                <h3 className="panel-card__title mb-1">Permissions for {selectedRole.name}</h3>
+                <h3 className="panel-card__title mb-1">
+                  {t('rolesPanel.permissionsFor', { name: BUILTIN_ROLE_IDS.has(selectedRole.id) ? t(`roles.${selectedRole.id}`) : selectedRole.name })}
+                </h3>
                 <p className="permissions-panel__subtitle">
-                  {selectedRole.isProtected
-                    ? 'The Super Admin role always has every permission and cannot be changed.'
-                    : 'Tick a box to allow it, untick to block it, then save your changes.'}
+                  {selectedRole.isProtected ? t('rolesPanel.protectedHint') : t('rolesPanel.editHint')}
                 </p>
               </div>
             </div>
             <div className="permissions-panel__actions">
               {isDirty && !selectedRole.isProtected ? (
                 <button type="button" className="btn btn-outline-secondary-custom" onClick={handleDiscardChanges}>
-                  Discard
+                  {t('rolesPanel.discard')}
                 </button>
               ) : null}
               {selectedRole.isProtected ? null : (
@@ -217,10 +217,10 @@ function RolesPanel() {
                 {isSaving ? (
                   <>
                     <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                    Saving...
+                    {t('common.saving')}
                   </>
                 ) : (
-                  'Save Changes'
+                  t('common.saveChanges')
                 )}
               </button>
               )}
@@ -243,9 +243,9 @@ function RolesPanel() {
         isOpen={Boolean(rolePendingDelete)}
         onClose={() => setRolePendingDelete(null)}
         onConfirm={handleDeleteConfirmed}
-        title="Delete this role?"
-        message="Users assigned to this role will need to be reassigned."
-        confirmLabel="Delete"
+        title={t('rolesPanel.deleteTitle')}
+        message={t('rolesPanel.deleteMessage')}
+        confirmLabel={t('common.delete')}
         isDanger
       />
     </>

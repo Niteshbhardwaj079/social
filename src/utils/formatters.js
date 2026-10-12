@@ -41,6 +41,14 @@ export function formatDate(isoString, options = { day: 'numeric', month: 'short'
   return new Intl.DateTimeFormat(dateLocale, options).format(new Date(isoString));
 }
 
+export function formatWeekdayShort(date) {
+  return new Intl.DateTimeFormat(dateLocale, { weekday: 'short' }).format(date);
+}
+
+export function formatMonthYear(date) {
+  return new Intl.DateTimeFormat(dateLocale, { month: 'long', year: 'numeric' }).format(date);
+}
+
 export function formatDateTime(isoString) {
   if (!isoString) return '—';
   return new Intl.DateTimeFormat(dateLocale, {

@@ -4,8 +4,11 @@ import PlatformIcon from '../common/PlatformIcon';
 import { getPosts } from '../../services/api/postsApi';
 import { POST_STATUS } from '../../config/constants';
 import RECYCLE_INTERVALS from '../../config/recyclingIntervals';
+import { useI18n } from '../../i18n/useI18n';
+import brand from '../../config/brand';
 
 function AddToRecyclingModal({ isOpen, onClose, onSubmit, excludePostIds }) {
+  const { t } = useI18n();
   const [publishedPosts, setPublishedPosts] = useState([]);
   const [selectedPostId, setSelectedPostId] = useState(null);
   const [intervalDays, setIntervalDays] = useState(RECYCLE_INTERVALS[1].value);
@@ -31,22 +34,20 @@ function AddToRecyclingModal({ isOpen, onClose, onSubmit, excludePostIds }) {
   const footer = (
     <>
       <button type="button" className="btn btn-outline-secondary-custom" onClick={onClose}>
-        Cancel
+        {t('common.cancel')}
       </button>
       <button type="submit" form="add-recycling-form" className="btn btn-primary" disabled={!selectedPostId}>
-        Add to Recycling
+        {t('recycling.addToRecycling')}
       </button>
     </>
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add to Recycling" footer={footer} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={t('recycling.addToRecycling')} footer={footer} size="lg">
       <form id="add-recycling-form" onSubmit={handleSubmit}>
-        <label className="form-label-custom">Pick a published post</label>
+        <label className="form-label-custom">{t('recycling.addModal.pickPost')}</label>
         {publishedPosts.length === 0 ? (
-          <p className="text-muted-custom small">
-            No eligible published posts — everything published is already in your recycling queue.
-          </p>
+          <p className="text-muted-custom small">{t('recycling.addModal.noEligible')}</p>
         ) : (
           <div className="recycling-post-picker mb-4">
             {publishedPosts.map((post) => (
@@ -73,7 +74,7 @@ function AddToRecyclingModal({ isOpen, onClose, onSubmit, excludePostIds }) {
         )}
 
         <label htmlFor="recycleInterval" className="form-label-custom">
-          Repeat interval
+          {t('recycling.addModal.repeatInterval')}
         </label>
         <select
           id="recycleInterval"
@@ -83,13 +84,11 @@ function AddToRecyclingModal({ isOpen, onClose, onSubmit, excludePostIds }) {
         >
           {RECYCLE_INTERVALS.map((interval) => (
             <option key={interval.value} value={interval.value}>
-              {interval.label}
+              {t(`recycling.intervals.${interval.labelKey}`)}
             </option>
           ))}
         </select>
-        <p className="form-hint mb-0">
-          Social will automatically re-share this post on this schedule until you pause or remove it.
-        </p>
+        <p className="form-hint mb-0">{t('recycling.addModal.hint', { product: brand.productName })}</p>
       </form>
     </Modal>
   );

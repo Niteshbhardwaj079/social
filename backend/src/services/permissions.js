@@ -116,3 +116,8 @@ export const canAssignRole = (actor, targetRole) => actor.roleIsProtected === tr
 /** May `actor` change or remove `target` (a user row carrying its own role's rank/isProtected)? */
 export const canManageTarget = (actor, target) =>
   actor.roleIsProtected === true || (target.roleIsProtected !== true && target.roleRank < actor.roleRank);
+
+// ---------------------------------------------------------------- AI Studio
+// (On top of these, the organization's plan and the platform owner's switches decide — see aiAccessService.js.)
+export const canUseAi = (actor) => actor.permissions?.aiUse === true;
+export const canManageAutopilots = (actor) => actor.permissions?.aiAutopilot === true;

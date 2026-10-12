@@ -9,6 +9,7 @@ import { PROFILE_FIELD_META, resolveProfileFields } from '../../config/platformP
 import { getAccountApiTier, getAccountStatus } from '../../services/api/socialAccountsApi';
 import { getAssignableUsers } from '../../services/api/inboxApi';
 import { formatCompactNumber, formatDate } from '../../utils/formatters';
+import { useI18n } from '../../i18n/useI18n';
 
 function formatFieldValue(key, value) {
   if (key === 'joinedAt') return formatDate(value);
@@ -16,24 +17,24 @@ function formatFieldValue(key, value) {
   return value;
 }
 
-function ProfileRow({ field }) {
+function ProfileRow({ field, t }) {
   const meta = PROFILE_FIELD_META[field.key];
   let valueNode;
 
   if (field.key === 'verified') {
     valueNode = field.value ? (
       <span className="profile-chip profile-chip--yes">
-        <Icon name="BadgeCheck" size={13} /> Verified
+        <Icon name="BadgeCheck" size={13} /> {t('inbox.verifiedYes')}
       </span>
     ) : (
-      <span className="text-muted-custom">No</span>
+      <span className="text-muted-custom">{t('inbox.no')}</span>
     );
   } else if (field.key === 'followsYou' || field.key === 'youFollow') {
-    valueNode = <span className={`profile-chip ${field.value ? 'profile-chip--yes' : ''}`.trim()}>{field.value ? 'Yes' : 'No'}</span>;
+    valueNode = <span className={`profile-chip ${field.value ? 'profile-chip--yes' : ''}`.trim()}>{field.value ? t('inbox.yes') : t('inbox.no')}</span>;
   } else if (field.key === 'profileUrl') {
     valueNode = (
       <a href={field.value} target="_blank" rel="noopener noreferrer" className="profile-link">
-        Open profile <Icon name="ExternalLink" size={13} />
+        {t('inbox.openProfile')} <Icon name="ExternalLink" size={13} />
       </a>
     );
   } else if (field.key === 'userId') {
@@ -45,8 +46,8 @@ function ProfileRow({ field }) {
   return (
     <div className="customer-info-panel__section">
       <span className="customer-info-panel__label">
-        {meta.label}
-        {field.isPaid ? <span className="profile-paid-dot" data-tooltip="From your paid API plan" /> : null}
+        {t(`inbox.profileFields.${meta.labelKey}`)}
+        {field.isPaid ? <span className="profile-paid-dot" data-tooltip={t('inbox.paidPlanTooltip')} /> : null}
       </span>
       {valueNode}
     </div>
@@ -54,6 +55,7 @@ function ProfileRow({ field }) {
 }
 
 function CustomerInfoPanel({ conversation, onAssign, onStatusChange }) {
+  const { t } = useI18n();
   const [teamMembers, setTeamMembers] = useState([]);
 
   useEffect(() => {
@@ -79,7 +81,7 @@ function CustomerInfoPanel({ conversation, onAssign, onStatusChange }) {
         <Avatar name={conversation.customerName} size="lg" className="mx-auto mb-3" />
         <div className="fw-semibold">{conversation.customerName}</div>
         {handle ? <div className="small text-primary-custom">{handle.value}</div> : null}
-        <div className="small text-muted-custom">via {platform?.label}</div>
+        <div className="small text-muted-custom">{t('inbox.viaPlatform', { platform: platform?.label })}</div>
       </div>
 
       {stats.length > 0 ? (
@@ -87,7 +89,7 @@ function CustomerInfoPanel({ conversation, onAssign, onStatusChange }) {
           {stats.map((field) => (
             <div key={field.key} className="profile-stat-tile">
               <span className="profile-stat-tile__value">{formatFieldValue(field.key, field.value)}</span>
-              <span className="profile-stat-tile__label">{PROFILE_FIELD_META[field.key].label}</span>
+              <span className="profile-stat-tile__label">{t(`inbox.profileFields.${PROFILE_FIELD_META[field.key].labelKey}`)}</span>
             </div>
           ))}
         </div>
@@ -96,16 +98,18 @@ function CustomerInfoPanel({ conversation, onAssign, onStatusChange }) {
       {bio ? <p className="profile-bio">{bio.value}</p> : null}
 
       {rows.filter((field) => field.key !== 'handle').map((field) => (
-        <ProfileRow key={field.key} field={field} />
+        <ProfileRow key={field.key} field={field} t={t} />
       ))}
 
       {locked.length > 0 ? (
         <div className="profile-locked">
           <Icon name="Lock" size={14} />
           <span>
-            {locked.map((key) => PROFILE_FIELD_META[key].label.toLowerCase()).slice(0, 4).join(', ')} and more show here with{' '}
-            {access.paidPlanName || 'a paid API plan'}.{' '}
-            <Link to={`/social-accounts/connect/${conversation.platform}`}>Use a paid key</Link>
+            {t('inbox.lockedFields1', {
+              fields: locked.map((key) => t(`inbox.profileFields.${PROFILE_FIELD_META[key].labelKey}`).toLowerCase()).slice(0, 4).join(', '),
+              plan: access.paidPlanNameKey ? t(`inbox.paidPlanNames.${access.paidPlanNameKey}`) : t('inbox.defaultPaidPlanName'),
+            })}
+            <Link to={`/social-accounts/connect/${conversation.platform}`}>{t('inbox.usePaidKeyLink')}</Link>
           </span>
         </div>
       ) : null}
@@ -113,36 +117,36 @@ function CustomerInfoPanel({ conversation, onAssign, onStatusChange }) {
       <div className="profile-source">
         <Icon name="Plug" size={12} />
         <span>
-          {platform?.label} API · {apiTier === 'paid' ? 'paid plan' : 'free plan'}
+          {t('inbox.apiSource', { platform: platform?.label, tier: apiTier === 'paid' ? t('inbox.paidPlanWord') : t('inbox.freePlanWord') })}
         </span>
       </div>
       {!isConnected ? (
         <div className="profile-source is-warning">
           <Icon name="AlertTriangle" size={12} />
           <span>
-            Connection needs attention — <Link to={`/social-accounts/connect/${conversation.platform}`}>reconnect</Link> to refresh this data.
+            {t('inbox.connectionWarning1')}<Link to={`/social-accounts/connect/${conversation.platform}`}>{t('inbox.reconnectLink')}</Link>{t('inbox.connectionWarning2')}
           </span>
         </div>
       ) : null}
-      {access.note ? <p className="profile-note">{access.note}</p> : null}
+      {access.noteKey ? <p className="profile-note">{t(`inbox.notes.${access.noteKey}`)}</p> : null}
 
       <hr />
 
       <div className="customer-info-panel__section">
-        <span className="customer-info-panel__label">First message</span>
+        <span className="customer-info-panel__label">{t('inbox.firstMessage')}</span>
         <span>{firstMessage ? formatDate(firstMessage.time) : '—'}</span>
       </div>
       <div className="customer-info-panel__section">
-        <span className="customer-info-panel__label">Messages</span>
+        <span className="customer-info-panel__label">{t('inbox.messagesLabel')}</span>
         <span>{conversation.messages.length}</span>
       </div>
       <div className="customer-info-panel__section">
-        <span className="customer-info-panel__label">Assigned to</span>
+        <span className="customer-info-panel__label">{t('inbox.assignedToLabel')}</span>
         <DropdownMenu
           align="start"
           trigger={
             <button type="button" className="btn btn-sm btn-outline-secondary-custom">
-              {conversation.assignedTo || 'Unassigned'} <Icon name="ChevronDown" size={14} />
+              {conversation.assignedTo || t('inbox.unassigned')} <Icon name="ChevronDown" size={14} />
             </button>
           }
         >
@@ -170,14 +174,14 @@ function CustomerInfoPanel({ conversation, onAssign, onStatusChange }) {
           className="btn btn-sm btn-outline-secondary-custom"
           onClick={() => onStatusChange(CONVERSATION_STATUS.PENDING)}
         >
-          Mark as Pending
+          {t('inbox.markPending')}
         </button>
         <button
           type="button"
           className="btn btn-sm btn-primary"
           onClick={() => onStatusChange(CONVERSATION_STATUS.CLOSED)}
         >
-          Close Conversation
+          {t('inbox.closeConversation')}
         </button>
       </div>
     </div>

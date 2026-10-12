@@ -42,9 +42,44 @@ describe('first-run setup', () => {
     }
   });
 
-  it('closes registration once someone exists', async () => {
-    const response = await createClient(server.baseUrl).post('/auth/register', { name: 'Intruder', email: 'intruder@example.com', password: PASSWORD });
-    assert.equal(response.status, 403);
+  it('makes the very first person the platform owner', async () => {
+    const owner = createClient(server.baseUrl);
+    const response = await owner.signIn('owner@example.com');
+    assert.equal(response.body.user.isPlatformAdmin, true);
+    assert.equal(response.body.user.organization.name, 'Acme');
+  });
+
+  it('lets anyone else sign up into their OWN organization, which cannot see the first one', async () => {
+    const other = createClient(server.baseUrl);
+    const response = await other.post('/auth/register', { name: 'Second Co Owner', email: 'second@example.com', password: PASSWORD, companyName: 'Second Co' });
+    assert.equal(response.status, 201);
+    assert.equal(response.body.user.role, 'superAdmin');
+    assert.equal(response.body.user.isPlatformAdmin, false, 'only the very first sign-up runs the platform');
+    assert.equal(response.body.user.organization.name, 'Second Co');
+    other.accessToken = response.body.accessToken;
+
+    const users = await other.get('/users');
+    assert.deepEqual(users.body.users.map((user) => user.email), ['second@example.com'], 'the first organization’s people are invisible');
+    assert.equal((await other.get('/platform/organizations')).status, 403, 'an organization admin is not the platform owner');
+  });
+
+  it('refuses a second account with an email that already exists anywhere on the platform', async () => {
+    const response = await createClient(server.baseUrl).post('/auth/register', { name: 'Copy', email: 'OWNER@example.com', password: PASSWORD });
+    assert.equal(response.status, 409);
+  });
+
+  it('closes sign-up when the platform owner turns it off', async () => {
+    const owner = createClient(server.baseUrl);
+    await owner.signIn('owner@example.com');
+    assert.equal((await owner.put('/platform/settings', { signupEnabled: false })).status, 200);
+    try {
+      const anonymous = createClient(server.baseUrl);
+      assert.equal((await anonymous.get('/public/config')).body.signupEnabled, false);
+      const response = await anonymous.post('/auth/register', { name: 'Intruder', email: 'intruder@example.com', password: PASSWORD });
+      assert.equal(response.status, 403);
+    } finally {
+      await owner.put('/platform/settings', { signupEnabled: true });
+    }
   });
 
   it('rejects weak or malformed input with a clear message', async () => {

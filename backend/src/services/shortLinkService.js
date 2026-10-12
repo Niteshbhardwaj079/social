@@ -135,9 +135,9 @@ export async function deleteLinks({ ids, actor, ip, userAgent }) {
 
 /** GET /l/:slug — records the visit and says where to send the browser, or null if this slug does not exist. */
 export async function resolveAndRecordClick(slug) {
-  const result = await query('SELECT id, destination_url FROM short_links WHERE slug = $1', [normalizeSlug(slug)]);
+  const result = await query('SELECT id, organization_id, destination_url FROM short_links WHERE slug = $1', [normalizeSlug(slug)]);
   const link = result.rows[0];
   if (!link) return null;
-  await query('INSERT INTO short_link_clicks (short_link_id) VALUES ($1)', [link.id]);
+  await query('INSERT INTO short_link_clicks (organization_id, short_link_id) VALUES ($1, $2)', [link.organization_id, link.id]);
   return link.destination_url;
 }

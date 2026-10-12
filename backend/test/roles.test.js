@@ -76,8 +76,14 @@ describe('reading roles', () => {
       activityLogsDelete: false,
       settingsView: false,
       settingsEdit: false,
+      // AI Studio: an Editor may use AI and run autopilots (they can publish anyway).
+      aiUse: true,
+      aiAutopilot: true,
     });
     assert.equal(byId.contributor.permissions.postsPublish, false);
+    assert.equal(byId.contributor.permissions.aiUse, true, 'a Contributor may draft with AI');
+    assert.equal(byId.contributor.permissions.aiAutopilot, false, 'but not set up auto-posting');
+    assert.equal(byId.analyst.permissions.aiUse, false);
     assert.equal(byId.contributor.permissions.postsDelete, false);
     assert.equal(byId.analyst.permissions.postsWrite, false);
   });

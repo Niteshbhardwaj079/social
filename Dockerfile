@@ -16,11 +16,15 @@ RUN npm run build
 # ---- 2. the API (production dependencies only; the dev-only embedded Postgres is left out) ---
 FROM node:24-alpine
 ENV NODE_ENV=production
+# Hindi/Devanagari font for AI video captions and graphic cards (Latin comes bundled via npm: dejavu-fonts-ttf).
+RUN apk add --no-cache font-noto-devanagari
 WORKDIR /app/backend
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --omit=dev
 COPY backend/ ./
 COPY --from=web /app/dist /app/dist
+# Writable by the app user, so the data volume (media + payment screenshots) works on first start too.
+RUN mkdir -p /app/backend/data/media /app/backend/data/payment-proofs && chown -R node:node /app/backend/data
 
 USER node
 EXPOSE 4000

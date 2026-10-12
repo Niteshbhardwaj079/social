@@ -17,6 +17,13 @@ import useUiScale from '../../hooks/useUiScale';
 import useMediaQuery from '../../hooks/useMediaQuery';
 import { useI18n } from '../../i18n/useI18n';
 
+const KPI_LABEL_KEYS = {
+  followers: 'analytics.kpiFollowersGrowth',
+  engagement: 'campaigns.statEngagement',
+  reach: 'campaigns.statReach',
+  impressions: 'ads.statImpressions',
+};
+
 function AnalyticsOverview() {
   const { t } = useI18n();
   const chartPrimary = useChartPrimaryColor();
@@ -44,7 +51,7 @@ function AnalyticsOverview() {
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.analyticsOverview')} subtitle="Loading your analytics..." />
+        <PageHeader title={t('nav.analyticsOverview')} subtitle={t('analytics.loading')} />
         <SkeletonKpiRow />
         <SkeletonCard />
       </>
@@ -70,12 +77,12 @@ function AnalyticsOverview() {
       />
 
       <div className="kpi-grid">
-        {overview.summary.map(({ key, ...kpi }) => (
-          <KpiCard key={key} {...kpi} />
+        {overview.summary.map(({ key, label, ...kpi }) => (
+          <KpiCard key={key} label={KPI_LABEL_KEYS[key] ? t(KPI_LABEL_KEYS[key]) : label} {...kpi} />
         ))}
       </div>
 
-      <ChartCard title="Engagement Over Time">
+      <ChartCard title={t('analytics.engagementOverTime')}>
         <ResponsiveContainer width="100%" height={Math.round(300 * uiScale)}>
           <AreaChart data={overview.series}>
             <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
@@ -89,7 +96,7 @@ function AnalyticsOverview() {
 
       <div className="panel-card mt-5">
         <div className="panel-card__header">
-          <h3 className="panel-card__title">Platform Performance</h3>
+          <h3 className="panel-card__title">{t('analytics.platformPerformance')}</h3>
         </div>
         <div className="panel-card__body panel-card__body--flush">
           {isMobile ? (
@@ -104,19 +111,19 @@ function AnalyticsOverview() {
                     </div>
                     <div className="d-flex flex-wrap gap-4">
                       <div>
-                        <div className="small text-muted-custom">Followers</div>
+                        <div className="small text-muted-custom">{t('inbox.profileFields.followers')}</div>
                         <div className="fw-semibold">{formatCompactNumber(row.followers)}</div>
                       </div>
                       <div>
-                        <div className="small text-muted-custom">Engagement</div>
+                        <div className="small text-muted-custom">{t('campaigns.statEngagement')}</div>
                         <div className="fw-semibold">{row.engagement}%</div>
                       </div>
                       <div>
-                        <div className="small text-muted-custom">Reach</div>
+                        <div className="small text-muted-custom">{t('campaigns.statReach')}</div>
                         <div className="fw-semibold">{formatCompactNumber(row.reach)}</div>
                       </div>
                       <div>
-                        <div className="small text-muted-custom">Posts</div>
+                        <div className="small text-muted-custom">{t('campaigns.statPosts')}</div>
                         <div className="fw-semibold">{row.posts}</div>
                       </div>
                     </div>
@@ -129,11 +136,11 @@ function AnalyticsOverview() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Platform</th>
-                    <th>Followers</th>
-                    <th>Engagement</th>
-                    <th>Reach</th>
-                    <th>Posts</th>
+                    <th>{t('ads.platformFilter')}</th>
+                    <th>{t('inbox.profileFields.followers')}</th>
+                    <th>{t('campaigns.statEngagement')}</th>
+                    <th>{t('campaigns.statReach')}</th>
+                    <th>{t('campaigns.statPosts')}</th>
                   </tr>
                 </thead>
                 <tbody>

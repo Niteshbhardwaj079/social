@@ -4,11 +4,13 @@ import Icon from '../common/Icon';
 import UtmBuilderModal from '../common/UtmBuilderModal';
 import TextField from '../forms/TextField';
 import { AD_CTAS } from '../../config/adPlatforms';
+import { useI18n } from '../../i18n/useI18n';
 
 const EMPTY_FORM = { name: '', headline: '', text: '', cta: 'Learn more', destinationUrl: '', mediaId: '' };
 
 // Pass `template` to edit an existing one instead of creating a new one — the form prefills from it.
 function TemplateFormModal({ isOpen, onClose, onSubmit, template, images }) {
+  const { t } = useI18n();
   const isEditing = Boolean(template);
   const [form, setForm] = useState(EMPTY_FORM);
   const [isUtmBuilderOpen, setIsUtmBuilderOpen] = useState(false);
@@ -32,34 +34,34 @@ function TemplateFormModal({ isOpen, onClose, onSubmit, template, images }) {
   const footer = (
     <>
       <button type="button" className="btn btn-outline-secondary-custom" onClick={onClose}>
-        Cancel
+        {t('common.cancel')}
       </button>
       <button type="submit" form="template-form" className="btn btn-primary">
-        {isEditing ? 'Save Changes' : 'Save Template'}
+        {isEditing ? t('common.saveChanges') : t('ads.saveTemplateButton')}
       </button>
     </>
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? 'Edit Template' : 'New Creative Template'} footer={footer} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? t('ads.editTemplateTitle') : t('ads.newTemplateTitle')} footer={footer} size="lg">
       <form id="template-form" onSubmit={handleSubmit}>
-        <TextField id="templateName" label="Template name (only you see this)" value={form.name} onChange={(event) => update({ name: event.target.value })} placeholder="e.g. Diwali Sale" required />
+        <TextField id="templateName" label={t('ads.templateNameLabel')} value={form.name} onChange={(event) => update({ name: event.target.value })} placeholder={t('ads.templateNamePlaceholder')} required />
         <div className="mb-4">
-          <label htmlFor="templateText" className="form-label-custom">Ad text</label>
-          <textarea id="templateText" className="form-control" rows={4} maxLength={500} value={form.text} onChange={(event) => update({ text: event.target.value })} placeholder="What do you want people to know?" />
+          <label htmlFor="templateText" className="form-label-custom">{t('ads.adTextLabel')}</label>
+          <textarea id="templateText" className="form-control" rows={4} maxLength={500} value={form.text} onChange={(event) => update({ text: event.target.value })} placeholder={t('ads.adTextPlaceholder')} />
         </div>
         <div className="form-grid-2">
-          <TextField id="templateHeadline" label="Headline" value={form.headline} onChange={(event) => update({ headline: event.target.value })} maxLength={80} placeholder="Short and clear" />
+          <TextField id="templateHeadline" label={t('ads.headlineLabel')} value={form.headline} onChange={(event) => update({ headline: event.target.value })} maxLength={80} placeholder={t('ads.headlinePlaceholder')} />
           <div className="mb-4">
-            <label htmlFor="templateCta" className="form-label-custom">Button</label>
+            <label htmlFor="templateCta" className="form-label-custom">{t('ads.buttonLabel')}</label>
             <select id="templateCta" className="form-select" value={form.cta} onChange={(event) => update({ cta: event.target.value })}>
               {AD_CTAS.map((cta) => <option key={cta} value={cta}>{cta}</option>)}
             </select>
           </div>
         </div>
-        <TextField id="templateUrl" label="Where should the button go?" type="url" value={form.destinationUrl} onChange={(event) => update({ destinationUrl: event.target.value })} placeholder="https://yoursite.com/offer" />
+        <TextField id="templateUrl" label={t('ads.destinationUrlLabel')} type="url" value={form.destinationUrl} onChange={(event) => update({ destinationUrl: event.target.value })} placeholder="https://yoursite.com/offer" />
         <button type="button" className="btn btn-link p-0 mb-4" onClick={() => setIsUtmBuilderOpen(true)}>
-          Add campaign tracking (UTM)
+          {t('ads.addUtmButton')}
         </button>
         <UtmBuilderModal
           isOpen={isUtmBuilderOpen}
@@ -71,10 +73,10 @@ function TemplateFormModal({ isOpen, onClose, onSubmit, template, images }) {
           }}
         />
         <div className="mb-0">
-          <span className="form-label-custom d-block">Image (from your Media Library)</span>
+          <span className="form-label-custom d-block">{t('ads.imageLabel')}</span>
           <div className="ad-image-grid">
             <button type="button" className={`ad-image-option ${form.mediaId === '' ? 'is-selected' : ''}`.trim()} onClick={() => update({ mediaId: '' })}>
-              <Icon name="ImageOff" size={20} /> None
+              <Icon name="ImageOff" size={20} /> {t('ads.noneOption')}
             </button>
             {images.slice(0, 8).map((image) => (
               <button key={image.id} type="button" className={`ad-image-option ${form.mediaId === image.id ? 'is-selected' : ''}`.trim()} onClick={() => update({ mediaId: image.id })} title={image.name}>

@@ -142,15 +142,15 @@ function PostComposer({ postId }) {
 
   function handleSave(status, successMessage) {
     if (!content.trim()) {
-      showToast({ type: 'error', title: 'Add content', message: 'Write something before saving this post.' });
+      showToast({ type: 'error', title: t('composer.addContentTitle'), message: t('composer.addContentMessage') });
       return;
     }
     if (selectedPlatforms.length === 0) {
-      showToast({ type: 'error', title: 'Select a platform', message: 'Choose at least one platform to post to.' });
+      showToast({ type: 'error', title: t('composer.selectPlatformTitle'), message: t('composer.selectPlatformMessage') });
       return;
     }
     if (status !== POST_STATUS.DRAFT && selectedPlatforms.includes('pinterest') && !pinterestBoardId) {
-      showToast({ type: 'error', title: 'Choose a Pinterest board', message: 'Pinterest needs a board to pin to.' });
+      showToast({ type: 'error', title: t('composer.choosePinterestBoardTitle'), message: t('composer.pinterestNeedsBoardMessage') });
       return;
     }
 
@@ -164,7 +164,7 @@ function PostComposer({ postId }) {
           // The post exists and some platforms may have worked: say which one did not, and why.
           showToast({
             type: 'error',
-            title: 'Not everything was published',
+            title: t('composer.notAllPublishedTitle'),
             message: `${getPlatformByKey(failedTarget.platform)?.label || failedTarget.platform}: ${failedTarget.error}`,
           });
         } else {
@@ -175,7 +175,7 @@ function PostComposer({ postId }) {
       .catch((error) => {
         setIsSubmitting(false);
         setPendingStatus(null);
-        showToast({ type: 'error', title: apiErrorMessage(error, 'The post could not be saved.') });
+        showToast({ type: 'error', title: apiErrorMessage(error, t('composer.postSaveError')) });
       });
   }
 
@@ -207,17 +207,17 @@ function PostComposer({ postId }) {
 
       {isLocked ? (
         <div className="callout-banner callout-banner--info mb-4" role="status">
-          <span>This post is {existingPost.status === POST_STATUS.PUBLISHING ? 'being published right now' : 'already published'}, so it can no longer be edited.</span>
+          <span>{existingPost.status === POST_STATUS.PUBLISHING ? t('composer.lockedPublishing') : t('composer.lockedPublished')}</span>
         </div>
       ) : null}
       {!canWrite ? (
         <div className="callout-banner callout-banner--info mb-4" role="status">
-          <span>Your role can view posts but not create or change them.</span>
+          <span>{t('composer.readOnlyNotice')}</span>
         </div>
       ) : null}
       {canWrite && !canPublish ? (
         <div className="callout-banner callout-banner--info mb-4" role="status">
-          <span>Your role can save drafts and submit posts for approval. An Editor or Admin schedules and publishes them.</span>
+          <span>{t('composer.limitedRoleNotice')}</span>
         </div>
       ) : null}
 
@@ -225,7 +225,7 @@ function PostComposer({ postId }) {
         <div className="composer-layout__main">
           <div className="panel-card mb-5">
             <div className="panel-card__header">
-              <h3 className="panel-card__title">Platforms</h3>
+              <h3 className="panel-card__title">{t('composer.platforms')}</h3>
             </div>
             <div className="panel-card__body">
               <PlatformSelector
@@ -235,17 +235,17 @@ function PostComposer({ postId }) {
               />
               {connectedPlatformKeys.length === 0 ? (
                 <p className="form-hint mt-3 mb-0">
-                  No accounts connected yet.{' '}
+                  {t('composer.noAccountsConnected')}{' '}
                   <button type="button" className="btn btn-link p-0 small" onClick={() => navigate('/social-accounts/connect')}>
-                    Connect an account
+                    {t('composer.connectAccountLink')}
                   </button>{' '}
-                  to enable posting.
+                  {t('composer.toEnablePosting')}
                 </p>
               ) : null}
               {selectedPlatforms.includes('pinterest') ? (
                 <div className="mt-3">
                   <label htmlFor="pinterestBoard" className="form-label-custom">
-                    Pinterest board
+                    {t('composer.pinterestBoard')}
                   </label>
                   <select
                     id="pinterestBoard"
@@ -253,7 +253,7 @@ function PostComposer({ postId }) {
                     value={pinterestBoardId}
                     onChange={(event) => setPinterestBoardId(event.target.value)}
                   >
-                    <option value="">Choose a board...</option>
+                    <option value="">{t('composer.choosePinterestBoardOption')}</option>
                     {pinterestBoards.map((board) => (
                       <option key={board.id} value={board.id}>
                         {board.name}
@@ -261,7 +261,7 @@ function PostComposer({ postId }) {
                     ))}
                   </select>
                   {pinterestBoards.length === 0 ? (
-                    <p className="form-hint mt-2 mb-0">No boards found — check that Pinterest is connected and has at least one board.</p>
+                    <p className="form-hint mt-2 mb-0">{t('composer.noPinterestBoards')}</p>
                   ) : null}
                 </div>
               ) : null}
@@ -270,13 +270,13 @@ function PostComposer({ postId }) {
 
           <div className="panel-card mb-5">
             <div className="panel-card__header">
-              <h3 className="panel-card__title">Content</h3>
+              <h3 className="panel-card__title">{t('composer.content')}</h3>
             </div>
             <div className="panel-card__body">
               <textarea
                 ref={textareaRef}
                 className="form-control composer-textarea"
-                placeholder="What would you like to share?"
+                placeholder={t('composer.contentPlaceholder')}
                 value={content}
                 onChange={(event) => setContent(event.target.value)}
                 rows={6}
@@ -284,10 +284,10 @@ function PostComposer({ postId }) {
               <div className="d-flex justify-content-between align-items-center mt-2">
                 <div className="d-flex gap-2">
                   <EmojiPicker onSelect={(emoji) => insertAtCursor(emoji)} />
-                  <button type="button" className="btn btn-icon-sm btn-outline-secondary-custom" title="Add hashtag" onClick={() => insertAtCursor('#')}>
+                  <button type="button" className="btn btn-icon-sm btn-outline-secondary-custom" title={t('composer.addHashtag')} onClick={() => insertAtCursor('#')}>
                     #
                   </button>
-                  <button type="button" className="btn btn-icon-sm btn-outline-secondary-custom" title="Mention someone" onClick={() => insertAtCursor('@')}>
+                  <button type="button" className="btn btn-icon-sm btn-outline-secondary-custom" title={t('composer.mentionSomeone')} onClick={() => insertAtCursor('@')}>
                     @
                   </button>
                 </div>
@@ -300,7 +300,7 @@ function PostComposer({ postId }) {
 
           <div className="panel-card mb-5">
             <div className="panel-card__header">
-              <h3 className="panel-card__title">Media</h3>
+              <h3 className="panel-card__title">{t('composer.media')}</h3>
             </div>
             <div className="panel-card__body">
               <MediaUploader
@@ -309,23 +309,23 @@ function PostComposer({ postId }) {
                 onRemove={(id) => setMediaItems((current) => current.filter((item) => item.id !== id))}
               />
               {API_ENABLED ? (
-                <p className="form-hint mt-3 mb-0">Google Business posts aren't supported yet — every other platform, including Pinterest, can include a photo or video.</p>
+                <p className="form-hint mt-3 mb-0">{t('composer.googleBusinessNote')}</p>
               ) : null}
             </div>
           </div>
 
           <div className="panel-card mb-5">
             <div className="panel-card__header">
-              <h3 className="panel-card__title">Campaign</h3>
+              <h3 className="panel-card__title">{t('composer.campaign')}</h3>
             </div>
             <div className="panel-card__body">
               <select
                 className="form-select"
-                aria-label="Campaign"
+                aria-label={t('composer.campaign')}
                 value={campaignId}
                 onChange={(event) => setCampaignId(event.target.value)}
               >
-                <option value="">No campaign</option>
+                <option value="">{t('composer.noCampaign')}</option>
                 {campaigns.map((campaign) => (
                   <option key={campaign.id} value={campaign.id}>
                     {campaign.name}
@@ -337,7 +337,7 @@ function PostComposer({ postId }) {
 
           <div className="panel-card">
             <div className="panel-card__header">
-              <h3 className="panel-card__title">Schedule</h3>
+              <h3 className="panel-card__title">{t('composer.schedule')}</h3>
             </div>
             <div className="panel-card__body">
               <SchedulePicker scheduledAt={scheduledAt} onChange={setScheduledAt} />
@@ -348,11 +348,11 @@ function PostComposer({ postId }) {
         <div className="composer-layout__preview">
           <div className="panel-card">
             <div className="panel-card__header">
-              <h3 className="panel-card__title">Preview</h3>
+              <h3 className="panel-card__title">{t('composer.preview')}</h3>
             </div>
             <div className="panel-card__body d-flex flex-column gap-4">
               {selectedPlatforms.length === 0 ? (
-                <p className="text-muted-custom mb-0">Select a platform to see a live preview.</p>
+                <p className="text-muted-custom mb-0">{t('composer.selectPlatformPreview')}</p>
               ) : (
                 selectedPlatforms.map((platformKey) => (
                   <PostPreview key={platformKey} platformKey={platformKey} content={content} mediaItems={mediaItems} />
@@ -364,19 +364,19 @@ function PostComposer({ postId }) {
       </div>
 
       <div className="composer-action-bar">
-        <button type="button" className="btn btn-outline-secondary-custom" disabled={isSubmitting || isBlocked} onClick={() => handleSave(POST_STATUS.DRAFT, 'Draft saved')}>
-          {busyLabel(POST_STATUS.DRAFT, 'Save Draft', 'Saving...')}
+        <button type="button" className="btn btn-outline-secondary-custom" disabled={isSubmitting || isBlocked} onClick={() => handleSave(POST_STATUS.DRAFT, t('composer.draftSavedToast'))}>
+          {busyLabel(POST_STATUS.DRAFT, t('composer.saveDraft'), t('common.saving'))}
         </button>
-        <button type="button" className="btn btn-outline-secondary-custom" disabled={isSubmitting || isBlocked} onClick={() => handleSave(POST_STATUS.PENDING_APPROVAL, 'Submitted for approval')}>
-          {busyLabel(POST_STATUS.PENDING_APPROVAL, 'Submit for Approval', 'Submitting...')}
+        <button type="button" className="btn btn-outline-secondary-custom" disabled={isSubmitting || isBlocked} onClick={() => handleSave(POST_STATUS.PENDING_APPROVAL, t('composer.submittedForApprovalToast'))}>
+          {busyLabel(POST_STATUS.PENDING_APPROVAL, t('composer.submitForApproval'), t('composer.submitting'))}
         </button>
         {canPublish ? (
           <>
-            <button type="button" className="btn btn-soft-primary" disabled={isSubmitting || isBlocked || !scheduledAt} onClick={() => handleSave(POST_STATUS.SCHEDULED, 'Post scheduled')}>
-              {busyLabel(POST_STATUS.SCHEDULED, 'Schedule', 'Scheduling...')}
+            <button type="button" className="btn btn-soft-primary" disabled={isSubmitting || isBlocked || !scheduledAt} onClick={() => handleSave(POST_STATUS.SCHEDULED, t('composer.postScheduledToast'))}>
+              {busyLabel(POST_STATUS.SCHEDULED, t('composer.schedule'), t('composer.scheduling'))}
             </button>
-            <button type="button" className="btn btn-primary" disabled={isSubmitting || isBlocked} onClick={() => handleSave(POST_STATUS.PUBLISHED, 'Post published')}>
-              {busyLabel(POST_STATUS.PUBLISHED, 'Publish Now', 'Publishing...')}
+            <button type="button" className="btn btn-primary" disabled={isSubmitting || isBlocked} onClick={() => handleSave(POST_STATUS.PUBLISHED, t('composer.postPublishedToast'))}>
+              {busyLabel(POST_STATUS.PUBLISHED, t('composer.publishNow'), t('composer.publishing'))}
             </button>
           </>
         ) : null}

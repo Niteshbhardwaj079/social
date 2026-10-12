@@ -20,6 +20,7 @@ import { canCreateAds, canDeleteAds, canEditAccounts, canEditAds } from './permi
 import { HttpError, badRequest, forbidden, notFound } from '../utils/httpError.js';
 import { logger } from '../utils/logger.js';
 import { recordActivity } from './auditService.js';
+import { forEachOrganization } from './organizationService.js';
 
 // Meta is the only ad network this app can run for real — see providers/adsMeta.js's header comment.
 const NETWORK_LABELS = { meta: 'Meta Ads', google: 'Google Ads', linkedin: 'LinkedIn Ads', x: 'X Ads', tiktok: 'TikTok Ads', pinterest: 'Pinterest Ads' };
@@ -110,7 +111,7 @@ export async function syncAdAccounts({ actor, ip, userAgent }) {
     await query(
       `INSERT INTO ad_accounts (network, source_platform, external_account_id, name, currency, timezone, account_status, business_name, disable_reason, last_synced_at)
        VALUES ('meta', 'facebook', $1, $2, $3, $4, $5, $6, $7, now())
-       ON CONFLICT (network, external_account_id) DO UPDATE SET
+       ON CONFLICT (organization_id, network, external_account_id) DO UPDATE SET
          name = EXCLUDED.name, currency = EXCLUDED.currency, timezone = EXCLUDED.timezone,
          account_status = EXCLUDED.account_status, business_name = EXCLUDED.business_name,
          disable_reason = EXCLUDED.disable_reason, last_synced_at = now(), updated_at = now()`,
@@ -632,7 +633,7 @@ export async function refreshAdMetrics(refreshIntervalMin) {
 export function startAdsRefresher() {
   if (!config.ads.refreshIntervalMs) return () => {};
   const timer = setInterval(() => {
-    refreshAdMetrics(config.ads.refreshIntervalMin).catch((error) => logger.error('Ad metrics refresh pass failed', error));
+    forEachOrganization('Ad metrics refresh', () => refreshAdMetrics(config.ads.refreshIntervalMin)).catch((error) => logger.error('Ad metrics refresh pass failed', error));
   }, config.ads.refreshIntervalMs);
   timer.unref();
   return () => clearInterval(timer);

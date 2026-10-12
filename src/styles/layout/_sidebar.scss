@@ -12,6 +12,8 @@
   z-index: v.$z-index-sidebar;
   display: flex;
   flex-direction: column;
+  // Clear of the notch / status bar when installed as an app on a phone.
+  padding-top: env(safe-area-inset-top, 0px);
   transition: transform v.$transition-base, width v.$sidebar-collapse-duration;
   will-change: width;
 

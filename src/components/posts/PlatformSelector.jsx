@@ -1,8 +1,10 @@
 import PlatformIcon from '../common/PlatformIcon';
 import Icon from '../common/Icon';
 import { PLATFORMS } from '../../config/platforms';
+import { useI18n } from '../../i18n/useI18n';
 
 function PlatformSelector({ selectedPlatforms, onChange, connectedPlatformKeys }) {
+  const { t } = useI18n();
   function togglePlatform(platformKey) {
     if (selectedPlatforms.includes(platformKey)) {
       onChange(selectedPlatforms.filter((key) => key !== platformKey));
@@ -24,7 +26,7 @@ function PlatformSelector({ selectedPlatforms, onChange, connectedPlatformKeys }
             className={`platform-chip ${isSelected ? 'is-selected' : ''}`.trim()}
             onClick={() => togglePlatform(platform.key)}
             disabled={!isConnected}
-            title={isConnected ? platform.label : `${platform.label} is not connected`}
+            title={isConnected ? platform.label : t('composer.platformNotConnected', { label: platform.label })}
           >
             <PlatformIcon platformKey={platform.key} size={22} />
             {platform.label}

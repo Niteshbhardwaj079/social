@@ -3,6 +3,7 @@ import { query, transaction } from '../db/pool.js';
 import { roleLabel } from '../emails/builder.js';
 import { BUILTIN_ROLE_IDS, canAssignRole, canCreateUsers, canDeleteUsers, canEditUsers, canManageTarget } from './permissions.js';
 import { getRoleOrNull } from './roleService.js';
+import { assertWithinPlanLimit } from './planService.js';
 import { createStoredToken, invalidateStoredTokens, revokeAllRefreshTokens } from './tokenService.js';
 import { dispatchEmail } from './systemEmailService.js';
 import { effectiveLanguage } from './settingsService.js';
@@ -38,6 +39,9 @@ export function toApiUser(row) {
     user.permissions = row.permissions;
     user.roleRank = row.roleRank;
     user.roleIsProtected = row.roleIsProtected;
+    // SaaS: which organization this person works in, and whether they run the whole platform.
+    user.organization = { id: row.organization_id, name: row.organization_name };
+    user.isPlatformAdmin = row.is_platform_admin === true;
   }
   return user;
 }
@@ -52,7 +56,7 @@ const USER_COLUMNS_QUALIFIED = USER_COLUMNS.split(', ')
 export async function findUserWithRole(runner, id, { forUpdate = false } = {}) {
   const result = await runner(
     `SELECT ${USER_COLUMNS_QUALIFIED}, roles.rank AS role_rank, roles.is_protected AS role_is_protected, roles.name AS role_name
-       FROM users JOIN roles ON roles.id = users.role
+       FROM users JOIN roles ON roles.organization_id = users.organization_id AND roles.id = users.role
       WHERE users.id = $1${forUpdate ? ' FOR UPDATE' : ''}`,
     [id]
   );
@@ -79,7 +83,7 @@ export async function listUsers({ search, role, status } = {}) {
  *  that keeps a bad edit from ever locking everyone out of the app with no recovery path. */
 async function activeProtectedRoleUsersCount(client, excludingId = null) {
   const result = await client.query(
-    `SELECT count(*) AS n FROM users JOIN roles ON roles.id = users.role
+    `SELECT count(*) AS n FROM users JOIN roles ON roles.organization_id = users.organization_id AND roles.id = users.role
       WHERE roles.is_protected AND users.status = 'active' AND ($1::uuid IS NULL OR users.id <> $1)`,
     [excludingId]
   );
@@ -93,6 +97,7 @@ export async function createUser(actor, { name, email, role, language }, ip, use
   if (!targetRole) throw badRequest('That role does not exist.');
   if (!targetRole.isActive) throw badRequest('That role is archived and cannot be assigned. Reactivate it first.');
   if (!canAssignRole(actor, targetRole)) throw forbidden('You cannot invite someone with that role');
+  await assertWithinPlanLimit('users');
   const invitedLanguage = await effectiveLanguage(language);
 
   let created;
@@ -119,7 +124,7 @@ export async function createUser(actor, { name, email, role, language }, ip, use
 
   // Every Super Admin (the protected role) gets a heads-up, each in their own language.
   const admins = await query(
-    "SELECT users.name, users.email, users.language FROM users JOIN roles ON roles.id = users.role WHERE roles.is_protected AND users.status = 'active' AND users.id <> $1",
+    "SELECT users.name, users.email, users.language FROM users JOIN roles ON roles.organization_id = users.organization_id AND roles.id = users.role WHERE roles.is_protected AND users.status = 'active' AND users.id <> $1",
     [created.id]
   );
   await dispatchEmail('users.created', admins.rows, (language) => ({

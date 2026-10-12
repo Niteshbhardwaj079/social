@@ -8,8 +8,10 @@ import { apiErrorMessage } from '../../services/api/axiosClient';
 import { API_ENABLED } from '../../config/runtime';
 import { useToast } from '../common/ToastProvider';
 import { MEDIA_TYPE } from '../../config/constants';
+import { useI18n } from '../../i18n/useI18n';
 
 function MediaUploader({ mediaItems, onAdd, onRemove }) {
+  const { t } = useI18n();
   const ensureUploadAllowed = useUploadGuard();
   const { showToast } = useToast();
   const imageInputRef = useRef(null);
@@ -33,7 +35,7 @@ function MediaUploader({ mediaItems, onAdd, onRemove }) {
       },
       (error) => {
         setIsUploading(false);
-        showToast({ type: 'error', title: `Could not upload ${name}`, message: apiErrorMessage(error) });
+        showToast({ type: 'error', title: t('composer.couldNotUploadTitle', { name }), message: apiErrorMessage(error) });
       }
     );
   }
@@ -78,7 +80,7 @@ function MediaUploader({ mediaItems, onAdd, onRemove }) {
           disabled={isUploading}
           onClick={() => ensureUploadAllowed() && imageInputRef.current?.click()}
         >
-          <Icon name="ImagePlus" size={16} /> {isUploading ? 'Uploading...' : 'Upload Image'}
+          <Icon name="ImagePlus" size={16} /> {isUploading ? t('composer.uploading') : t('composer.uploadImage')}
         </button>
         <button
           type="button"
@@ -86,10 +88,10 @@ function MediaUploader({ mediaItems, onAdd, onRemove }) {
           disabled={isUploading}
           onClick={() => ensureUploadAllowed() && videoInputRef.current?.click()}
         >
-          <Icon name="Video" size={16} /> {isUploading ? 'Uploading...' : 'Upload Video'}
+          <Icon name="Video" size={16} /> {isUploading ? t('composer.uploading') : t('composer.uploadVideo')}
         </button>
         <button type="button" className="btn btn-outline-secondary-custom btn-sm" onClick={() => setIsLibraryOpen(true)}>
-          <Icon name="Images" size={16} /> Media Library
+          <Icon name="Images" size={16} /> {t('composer.mediaLibraryButton')}
         </button>
         <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageFileChange} />
         <input ref={videoInputRef} type="file" accept="video/*" multiple hidden onChange={handleVideoFileChange} />
@@ -108,7 +110,7 @@ function MediaUploader({ mediaItems, onAdd, onRemove }) {
                 type="button"
                 className="media-uploader-grid__remove"
                 onClick={() => onRemove(item.id)}
-                aria-label={`Remove ${item.name}`}
+                aria-label={t('composer.removeMediaAria', { name: item.name })}
               >
                 <Icon name="X" size={14} />
               </button>

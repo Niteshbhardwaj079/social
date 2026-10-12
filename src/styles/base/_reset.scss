@@ -6,11 +6,16 @@
 
 html {
   overflow-x: hidden;
+  // Phones in landscape would otherwise enlarge text on their own.
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
   overflow-x: hidden;
+  // No grey/blue flash on every tap — buttons show their own pressed state, like a native app.
+  -webkit-tap-highlight-color: transparent;
   background-color: var(--color-bg);
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;

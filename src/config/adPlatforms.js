@@ -167,11 +167,11 @@ export function getNetworkForPlatform(platformKey) {
 }
 
 export const AD_OBJECTIVES = [
-  { key: 'awareness', label: 'Brand awareness', icon: 'Megaphone', description: 'Show your brand to as many of the right people as possible.' },
-  { key: 'traffic', label: 'Website traffic', icon: 'MousePointerClick', description: 'Send people to your website, shop or landing page.' },
-  { key: 'engagement', label: 'Engagement', icon: 'Heart', description: 'Get more likes, comments, shares and video views.' },
-  { key: 'leads', label: 'Leads', icon: 'UserPlus', description: 'Collect enquiries, sign-ups and contact details.' },
-  { key: 'sales', label: 'Sales', icon: 'ShoppingBag', description: 'Drive purchases and other valuable actions.' },
+  { key: 'awareness', label: 'Brand awareness', labelKey: 'awareness', icon: 'Megaphone', description: 'Show your brand to as many of the right people as possible.' },
+  { key: 'traffic', label: 'Website traffic', labelKey: 'traffic', icon: 'MousePointerClick', description: 'Send people to your website, shop or landing page.' },
+  { key: 'engagement', label: 'Engagement', labelKey: 'engagement', icon: 'Heart', description: 'Get more likes, comments, shares and video views.' },
+  { key: 'leads', label: 'Leads', labelKey: 'leads', icon: 'UserPlus', description: 'Collect enquiries, sign-ups and contact details.' },
+  { key: 'sales', label: 'Sales', labelKey: 'sales', icon: 'ShoppingBag', description: 'Drive purchases and other valuable actions.' },
 ];
 
 export const AD_STATUS = {
@@ -208,36 +208,36 @@ export const AD_LOCATIONS = ['India', 'United States', 'United Kingdom', 'UAE', 
 export const MAX_AD_VARIATIONS = 6;
 
 export const AD_DATE_RANGES = [
-  { value: 7, label: 'Last 7 days' },
-  { value: 30, label: 'Last 30 days' },
-  { value: 90, label: 'Last 90 days' },
+  { value: 7, label: 'Last 7 days', labelKey: 'days7' },
+  { value: 30, label: 'Last 30 days', labelKey: 'days30' },
+  { value: 90, label: 'Last 90 days', labelKey: 'days90' },
 ];
 
 export const AD_METRICS = [
-  { key: 'spend', label: 'Spend', isMoney: true },
-  { key: 'impressions', label: 'Impressions' },
-  { key: 'clicks', label: 'Clicks' },
-  { key: 'conversions', label: 'Results' },
+  { key: 'spend', label: 'Spend', labelKey: 'spend', isMoney: true },
+  { key: 'impressions', label: 'Impressions', labelKey: 'impressions' },
+  { key: 'clicks', label: 'Clicks', labelKey: 'clicks' },
+  { key: 'conversions', label: 'Results', labelKey: 'results' },
 ];
 
 // Automated Rules (Phase 8) — pause/resume only, never budget (see backend/README.md's Ads section for
 // why). "Results" is deliberately excluded: it's never tracked, so a rule could never honestly evaluate it.
 export const AD_RULE_METRICS = [
-  { key: 'spend', label: 'Spend', unit: 'currency' },
-  { key: 'impressions', label: 'Impressions', unit: 'number' },
-  { key: 'clicks', label: 'Clicks', unit: 'number' },
-  { key: 'ctr', label: 'CTR', unit: 'percent' },
-  { key: 'cpc', label: 'Avg. CPC', unit: 'currency' },
+  { key: 'spend', label: 'Spend', labelKey: 'spend', unit: 'currency' },
+  { key: 'impressions', label: 'Impressions', labelKey: 'impressions', unit: 'number' },
+  { key: 'clicks', label: 'Clicks', labelKey: 'clicks', unit: 'number' },
+  { key: 'ctr', label: 'CTR', labelKey: 'ctr', unit: 'percent' },
+  { key: 'cpc', label: 'Avg. CPC', labelKey: 'cpc', unit: 'currency' },
 ];
 
 export const AD_RULE_COMPARATORS = [
-  { key: 'gt', label: 'is more than' },
-  { key: 'lt', label: 'is less than' },
+  { key: 'gt', label: 'is more than', labelKey: 'gt' },
+  { key: 'lt', label: 'is less than', labelKey: 'lt' },
 ];
 
 export const AD_RULE_ACTIONS = [
-  { key: 'pause', label: 'Pause the ad' },
-  { key: 'resume', label: 'Resume the ad' },
+  { key: 'pause', label: 'Pause the ad', labelKey: 'pause' },
+  { key: 'resume', label: 'Resume the ad', labelKey: 'resume' },
 ];
 
 export const AD_RULE_WINDOWS = [1, 3, 7, 14, 30];

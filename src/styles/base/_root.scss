@@ -11,11 +11,12 @@ html {
   }
 }
 
-// ---- Large screens (Full HD -> QHD -> 4K) ------------------------------------
+// ---- Large screens (Full HD -> QHD -> 4K -> 5K -> 8K) -------------------------
 // The design is tuned for a 1920 x 1080 screen. On bigger screens the same
 // layout would just get tiny, so the root size grows with the screen and rem
 // carries it into every font, field, gap, icon and modal at once. A 3840 x 2160
-// screen ends up at ~2x, so it looks exactly like the 1920 x 1080 layout, only sharper.
+// screen ends up at ~2x and a 7680 x 4320 (8K) screen at ~4x, so both look exactly
+// like the 1920 x 1080 layout, only sharper.
 //
 // Step values (fallback for old browsers, and easy to tune): each pairs a width
 // with a minimum height, so a short-but-wide window (an ultrawide monitor, or a
@@ -44,13 +45,25 @@ html {
   }
 }
 
+@media (min-width: 5000px) and (min-height: 2700px) {
+  html {
+    font-size: 27.5px;
+  }
+}
+
+@media (min-width: 7600px) and (min-height: 4200px) {
+  html {
+    font-size: 41.5px;
+  }
+}
+
 // Where the browser supports min()/clamp() the steps above become a smooth curve:
-// 0.552vw = 10.6px at 1920 wide (21.2px at 3840); 0.98vh = 10.6px at 1080 tall.
+// 0.552vw = 10.6px at 1920 wide (21.2px at 3840, 42.4px at 7680 = 8K); 0.98vh = 10.6px at 1080 tall.
 // Whichever is smaller wins, so the UI never outgrows the screen in either direction.
 @supports (font-size: clamp(1px, min(1vw, 1vh), 2px)) {
   @media (min-width: 1920px) {
     html {
-      font-size: clamp(10.6px, min(0.552vw, 0.98vh), 26px);
+      font-size: clamp(10.6px, min(0.552vw, 0.98vh), 43px);
     }
   }
 }

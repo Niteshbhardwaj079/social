@@ -3,7 +3,7 @@ import { createSlice } from '@reduxjs/toolkit';
 const THEME_STORAGE_KEY = 'social-app-theme';
 const THEME_COLOR_STORAGE_KEY = 'social-app-theme-color';
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'social-app-sidebar-collapsed';
-const DEFAULT_THEME_COLOR_KEY = 'indigo';
+const DEFAULT_THEME_COLOR_KEY = 'blue';
 
 function getStoredTheme() {
   try {

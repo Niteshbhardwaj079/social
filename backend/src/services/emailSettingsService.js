@@ -1,5 +1,5 @@
 import { config } from '../config/env.js';
-import { query } from '../db/pool.js';
+import { currentOrganizationId, query } from '../db/pool.js';
 import { decryptJson, encryptJson } from '../utils/crypto.js';
 import { badRequest } from '../utils/httpError.js';
 import { recordActivity } from './auditService.js';
@@ -150,28 +150,31 @@ function parseMailFrom(raw) {
 // SMTP_* environment variables so a deployment that never opens this UI keeps working exactly as
 // before. Cached in memory (no need to hit the database on every single email) and invalidated on
 // every save/disconnect above, so a change here takes effect on the very next email.
-let cachedProvider;
+// Cached per organization (each customer connects its own mail provider), so one organization's
+// settings are never used for another's emails.
+const cachedProviders = new Map();
 
+/** Forgets the cached provider: of the current organization, or (no organization, e.g. tests) of everyone. */
 export function invalidateProviderCache() {
-  cachedProvider = undefined;
+  const organizationId = currentOrganizationId();
+  if (organizationId) cachedProviders.delete(organizationId);
+  else cachedProviders.clear();
 }
 
-export async function resolveProvider() {
-  if (cachedProvider !== undefined) return cachedProvider;
-
+async function loadProvider() {
   const row = await getRow();
-  const saved = row.provider_key && row.credentials ? decryptJson(row.credentials) : null;
-  if (saved) {
-    cachedProvider = { key: row.provider_key, values: saved };
-    return cachedProvider;
-  }
+  const saved = row?.provider_key && row.credentials ? decryptJson(row.credentials) : null;
+  if (saved) return { key: row.provider_key, values: saved };
 
   if (config.smtp) {
     const { name, email: fromEmail } = parseMailFrom(config.mailFrom);
-    cachedProvider = { key: 'smtp', values: { host: config.smtp.host, port: config.smtp.port, secure: config.smtp.secure, username: config.smtp.user, password: config.smtp.pass, fromEmail, fromName: name } };
-    return cachedProvider;
+    return { key: 'smtp', values: { host: config.smtp.host, port: config.smtp.port, secure: config.smtp.secure, username: config.smtp.user, password: config.smtp.pass, fromEmail, fromName: name } };
   }
+  return null;
+}
 
-  cachedProvider = null;
-  return cachedProvider;
+export async function resolveProvider() {
+  const organizationId = currentOrganizationId() ?? 'none';
+  if (!cachedProviders.has(organizationId)) cachedProviders.set(organizationId, await loadProvider());
+  return cachedProviders.get(organizationId);
 }

@@ -2,6 +2,7 @@ import { query } from '../db/pool.js';
 import { logger } from '../utils/logger.js';
 import { resolveProvider } from './emailSettingsService.js';
 import * as email from '../email/index.js';
+import { forEachOrganization } from './organizationService.js';
 
 /**
  * Sends email through whatever the client connects — either in-app under Settings → Email
@@ -73,20 +74,22 @@ export async function sendEmailInBackground(message) {
 
 /** Retries failed or stuck messages, backing off 2 minutes per earlier attempt. Returns a stop function. */
 export function startOutboxWorker() {
-  const timer = setInterval(async () => {
-    try {
-      const due = await query(
-        `SELECT id FROM email_outbox
-          WHERE status IN ('queued', 'failed') AND attempts < $1
-            AND created_at + (attempts * interval '2 minutes') < now()
-          ORDER BY created_at LIMIT 20`,
-        [MAX_ATTEMPTS]
-      );
-      for (const row of due.rows) await deliver(row.id);
-    } catch (error) {
-      logger.error('Email worker pass failed', error);
-    }
+  const timer = setInterval(() => {
+    // Each organization's emails go out through that organization's own mail settings.
+    forEachOrganization('Email outbox', deliverDueEmails).catch((error) => logger.error('Email worker pass failed', error));
   }, WORKER_INTERVAL_MS);
   timer.unref();
   return () => clearInterval(timer);
+}
+
+/** One organization's share of the worker: retry what is due. */
+async function deliverDueEmails() {
+  const due = await query(
+    `SELECT id FROM email_outbox
+      WHERE status IN ('queued', 'failed') AND attempts < $1
+        AND created_at + (attempts * interval '2 minutes') < now()
+      ORDER BY created_at LIMIT 20`,
+    [MAX_ATTEMPTS]
+  );
+  for (const row of due.rows) await deliver(row.id);
 }

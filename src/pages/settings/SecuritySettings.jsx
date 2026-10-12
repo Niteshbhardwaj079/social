@@ -14,6 +14,7 @@ import {
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { API_ENABLED } from '../../config/runtime';
 import { formatDateTime } from '../../utils/formatters';
+import { useI18n } from '../../i18n/useI18n';
 
 const MOCK_SESSIONS = [
   { id: 'session-1', device: 'Chrome on Windows', location: 'Delhi, India', lastActiveAt: '2026-09-18T06:00:00Z', isCurrent: true },
@@ -21,6 +22,7 @@ const MOCK_SESSIONS = [
 ];
 
 function SecuritySettings() {
+  const { t } = useI18n();
   const { showToast } = useToast();
   const [sessions, setSessions] = useState(API_ENABLED ? [] : MOCK_SESSIONS);
   const [isTwoFactorEnabled, setIsTwoFactorEnabled] = useState(false);
@@ -39,15 +41,15 @@ function SecuritySettings() {
   function handleRevokeSession(sessionId) {
     if (!API_ENABLED) {
       setSessions((current) => current.filter((session) => session.id !== sessionId));
-      showToast({ type: 'info', title: 'Session revoked' });
+      showToast({ type: 'info', title: t('settings.security.sessionRevokedToast') });
       return;
     }
     revokeSessionRequest(sessionId).then(
       () => {
         setSessions((current) => current.filter((session) => session.id !== sessionId));
-        showToast({ type: 'info', title: 'Session revoked', message: 'That device is signed out.' });
+        showToast({ type: 'info', title: t('settings.security.sessionRevokedToast'), message: t('settings.security.sessionRevokedMessage') });
       },
-      (error) => showToast({ type: 'error', title: 'Could not revoke that session', message: apiErrorMessage(error) })
+      (error) => showToast({ type: 'error', title: t('settings.security.couldNotRevokeTitle'), message: apiErrorMessage(error) })
     );
   }
 
@@ -61,7 +63,7 @@ function SecuritySettings() {
         if (pendingAction === 'disable') {
           setIsTwoFactorEnabled(false);
           setPendingAction(null);
-          showToast({ type: 'info', title: 'Two-factor authentication turned off' });
+          showToast({ type: 'info', title: t('settings.security.twoFactorOffToast') });
         } else {
           setNewBackupCodes(response.backupCodes);
           setPendingAction(null);
@@ -69,7 +71,7 @@ function SecuritySettings() {
       },
       (error) => {
         setIsActionSubmitting(false);
-        setActionError(apiErrorMessage(error, 'Your password is not correct.'));
+        setActionError(apiErrorMessage(error, t('settings.security.passwordIncorrectDefault')));
       }
     );
   }
@@ -79,15 +81,15 @@ function SecuritySettings() {
       <div className="surface-card">
         <div className="d-flex justify-content-between align-items-center">
           <div>
-            <h3 className="h5 mb-1">Two-Factor Authentication</h3>
-            <p className="text-secondary-custom small mb-0">Add an extra layer of security to your account with an authenticator app.</p>
+            <h3 className="h5 mb-1">{t('settings.security.twoFactorTitle')}</h3>
+            <p className="text-secondary-custom small mb-0">{t('settings.security.twoFactorSubtitle')}</p>
           </div>
           {!API_ENABLED ? (
-            <span className="badge bg-secondary-subtle text-secondary-custom">Needs the real API</span>
+            <span className="badge bg-secondary-subtle text-secondary-custom">{t('settings.security.needsRealApi')}</span>
           ) : isTwoFactorEnabled ? (
-            <span className="badge bg-success-subtle text-success">On</span>
+            <span className="badge bg-success-subtle text-success">{t('common.on')}</span>
           ) : (
-            <span className="badge bg-secondary-subtle text-secondary-custom">Off</span>
+            <span className="badge bg-secondary-subtle text-secondary-custom">{t('common.off')}</span>
           )}
         </div>
         {API_ENABLED ? (
@@ -95,15 +97,15 @@ function SecuritySettings() {
             {isTwoFactorEnabled ? (
               <>
                 <button type="button" className="btn btn-sm btn-outline-secondary-custom" onClick={() => setPendingAction('regenerate')}>
-                  Regenerate backup codes
+                  {t('settings.security.regenerateBackupCodes')}
                 </button>
                 <button type="button" className="btn btn-sm btn-outline-secondary-custom text-danger" onClick={() => setPendingAction('disable')}>
-                  Turn off
+                  {t('settings.security.turnOff')}
                 </button>
               </>
             ) : (
               <button type="button" className="btn btn-sm btn-primary" onClick={() => setIsSetupModalOpen(true)}>
-                Turn on
+                {t('settings.security.turnOn')}
               </button>
             )}
           </div>
@@ -111,9 +113,9 @@ function SecuritySettings() {
       </div>
 
       <div className="surface-card">
-        <h3 className="h5 mb-4">Active Sessions</h3>
+        <h3 className="h5 mb-4">{t('settings.security.activeSessionsTitle')}</h3>
         <div className="d-flex flex-column gap-3">
-          {sessions.length === 0 ? <p className="text-muted-custom mb-0">No other active sessions.</p> : null}
+          {sessions.length === 0 ? <p className="text-muted-custom mb-0">{t('settings.security.noOtherSessions')}</p> : null}
           {sessions.map((session) => (
             <div key={session.id} className="d-flex justify-content-between align-items-center">
               <div className="d-flex align-items-center gap-3">
@@ -122,7 +124,7 @@ function SecuritySettings() {
                 </span>
                 <div>
                   <div className="fw-semibold small">
-                    {session.device} {session.isCurrent ? <span className="text-success">(This device)</span> : null}
+                    {session.device} {session.isCurrent ? <span className="text-success">{t('settings.security.thisDevice')}</span> : null}
                   </div>
                   <div className="small text-muted-custom">
                     {session.location} · {formatDateTime(session.lastActiveAt)}
@@ -131,7 +133,7 @@ function SecuritySettings() {
               </div>
               {!session.isCurrent ? (
                 <button type="button" className="btn btn-sm btn-outline-secondary-custom text-danger" onClick={() => handleRevokeSession(session.id)}>
-                  Revoke
+                  {t('settings.security.revoke')}
                 </button>
               ) : null}
             </div>
@@ -144,7 +146,7 @@ function SecuritySettings() {
         onClose={() => setIsSetupModalOpen(false)}
         onEnabled={() => {
           setIsTwoFactorEnabled(true);
-          showToast({ type: 'success', title: 'Two-factor authentication is on' });
+          showToast({ type: 'success', title: t('settings.security.twoFactorEnabledToast') });
         }}
       />
 
@@ -155,9 +157,9 @@ function SecuritySettings() {
           setActionError('');
         }}
         onConfirm={handlePasswordConfirmed}
-        title="Turn off two-factor authentication?"
-        message="Enter your password to confirm. Your backup codes will stop working."
-        confirmLabel="Turn off"
+        title={t('settings.security.turnOffConfirmTitle')}
+        message={t('settings.security.turnOffConfirmMessage')}
+        confirmLabel={t('settings.security.turnOff')}
         isDanger
         isSubmitting={isActionSubmitting}
         error={actionError}
@@ -170,9 +172,9 @@ function SecuritySettings() {
           setActionError('');
         }}
         onConfirm={handlePasswordConfirmed}
-        title="Regenerate backup codes?"
-        message="Enter your password to confirm. Your existing backup codes will stop working."
-        confirmLabel="Regenerate"
+        title={t('settings.security.regenerateConfirmTitle')}
+        message={t('settings.security.regenerateConfirmMessage')}
+        confirmLabel={t('settings.security.regenerateLabel')}
         isSubmitting={isActionSubmitting}
         error={actionError}
       />
@@ -181,8 +183,8 @@ function SecuritySettings() {
         isOpen={Boolean(newBackupCodes)}
         onClose={() => setNewBackupCodes(null)}
         codes={newBackupCodes}
-        title="Your new backup codes"
-        intro="Your old backup codes no longer work. Save these somewhere safe — they won't be shown again."
+        title={t('settings.security.newBackupCodesTitle')}
+        intro={t('settings.security.newBackupCodesIntro')}
       />
     </div>
   );

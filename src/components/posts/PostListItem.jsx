@@ -1,8 +1,10 @@
 import StatusBadge from '../common/StatusBadge';
 import PlatformIcon from '../common/PlatformIcon';
 import { formatDateTime } from '../../utils/formatters';
+import { useI18n } from '../../i18n/useI18n';
 
 function PostListItem({ post, onClick }) {
+  const { t } = useI18n();
   return (
     <button type="button" className="post-list-item" onClick={onClick}>
       <div className="post-list-item__platforms">
@@ -16,7 +18,7 @@ function PostListItem({ post, onClick }) {
       <div className="post-list-item__content">
         <p className="post-list-item__text">{post.content}</p>
         <span className="post-list-item__meta">
-          {post.scheduledAt ? formatDateTime(post.scheduledAt) : 'Not scheduled'}
+          {post.scheduledAt ? formatDateTime(post.scheduledAt) : t('posts.notScheduled')}
         </span>
       </div>
       <StatusBadge status={post.status} />

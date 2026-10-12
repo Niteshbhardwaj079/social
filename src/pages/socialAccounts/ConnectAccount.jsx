@@ -5,20 +5,24 @@ import PlatformIcon from '../../components/common/PlatformIcon';
 import Icon from '../../components/common/Icon';
 import { PLATFORMS } from '../../config/platforms';
 import { getConnectGuide } from '../../config/platformConnectGuides';
+import { useI18n } from '../../i18n/useI18n';
+import { localizeConnectGuide, useGuideText } from '../../i18n/guideText';
 
 function ConnectAccount() {
+  const { t } = useI18n();
+  const guideText = useGuideText();
   return (
     <div className="fade-in">
-      <Breadcrumb items={[{ label: 'Social Accounts', to: '/social-accounts' }, { label: 'Connect account' }]} />
+      <Breadcrumb items={[{ label: t('nav.socialAccounts'), to: '/social-accounts' }, { label: t('socialAccounts.connectAccountTitle') }]} />
       <PageHeader
-        title="Connect account"
-        subtitle="Choose a platform. Each one connects with your own developer credentials — Social never charges for a connection."
+        title={t('socialAccounts.connectAccountTitle')}
+        subtitle={t('socialAccounts.chooseAPlatform')}
         guideChapterId="social-accounts"
       />
 
       <div className="connect-list">
         {PLATFORMS.map((platform) => {
-          const guide = getConnectGuide(platform.key);
+          const guide = localizeConnectGuide(platform.key, getConnectGuide(platform.key), guideText);
           return (
             <Link key={platform.key} to={`/social-accounts/connect/${platform.key}`} className="connect-row">
               <PlatformIcon platformKey={platform.key} size={52} />

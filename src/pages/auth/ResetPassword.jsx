@@ -6,10 +6,12 @@ import CalloutBanner from '../../components/common/CalloutBanner';
 import { API_ENABLED } from '../../config/runtime';
 import { apiErrorMessage } from '../../services/api/axiosClient';
 import { resetPasswordRequest } from '../../services/api/authApi';
+import { useI18n } from '../../i18n/useI18n';
 
 const RESET_SIMULATION_DELAY_MS = 800;
 
 function ResetPassword() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
@@ -27,12 +29,12 @@ function ResetPassword() {
   function validate() {
     const errors = {};
     if (!formValues.password) {
-      errors.password = 'Password is required';
+      errors.password = t('auth.passwordRequired');
     } else if (formValues.password.length < 8) {
-      errors.password = 'Password must be at least 8 characters';
+      errors.password = t('auth.passwordShort');
     }
     if (formValues.confirmPassword !== formValues.password) {
-      errors.confirmPassword = 'Passwords do not match';
+      errors.confirmPassword = t('auth.passwordsDoNotMatch');
     }
     return errors;
   }
@@ -51,7 +53,7 @@ function ResetPassword() {
     if (API_ENABLED) {
       resetPasswordRequest({ token, password: formValues.password })
         .then(() => {
-          showToast({ type: 'success', title: 'Password updated', message: 'You can now sign in with your new password.' });
+          showToast({ type: 'success', title: t('auth.resetPasswordUpdatedToast'), message: t('auth.resetPasswordUpdatedMessage') });
           navigate('/login');
         })
         .catch((requestError) => {
@@ -62,19 +64,19 @@ function ResetPassword() {
     }
     window.setTimeout(() => {
       setIsSubmitting(false);
-      showToast({ type: 'success', title: 'Password updated', message: 'You can now sign in with your new password.' });
+      showToast({ type: 'success', title: t('auth.resetPasswordUpdatedToast'), message: t('auth.resetPasswordUpdatedMessage') });
       navigate('/login');
     }, RESET_SIMULATION_DELAY_MS);
   }
 
   return (
     <div className="fade-in">
-      <h2 className="mb-1">Set a new password</h2>
-      <p className="text-secondary-custom mb-5">Choose a strong password you haven&apos;t used before.</p>
+      <h2 className="mb-1">{t('auth.resetTitle')}</h2>
+      <p className="text-secondary-custom mb-5">{t('auth.resetSubtitle')}</p>
 
       {API_ENABLED && !token ? (
         <CalloutBanner icon="AlertCircle" tone="danger">
-          This reset link is incomplete. Open the link from your email again, or request a new one.
+          {t('auth.resetLinkIncomplete')}
         </CalloutBanner>
       ) : null}
       {formError ? (
@@ -86,8 +88,8 @@ function ResetPassword() {
       <form onSubmit={handleSubmit} noValidate>
         <PasswordField
           id="password"
-          label="New password"
-          placeholder="At least 8 characters"
+          label={t('auth.resetNewPasswordLabel')}
+          placeholder={t('auth.passwordHint')}
           value={formValues.password}
           error={formErrors.password}
           onChange={(event) => handleChange('password', event.target.value)}
@@ -95,8 +97,8 @@ function ResetPassword() {
         />
         <PasswordField
           id="confirmPassword"
-          label="Confirm new password"
-          placeholder="Re-enter your password"
+          label={t('auth.confirmNewPasswordLabel')}
+          placeholder={t('auth.reenterPasswordPlaceholder')}
           value={formValues.confirmPassword}
           error={formErrors.confirmPassword}
           onChange={(event) => handleChange('confirmPassword', event.target.value)}
@@ -107,17 +109,17 @@ function ResetPassword() {
           {isSubmitting ? (
             <>
               <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-              Updating password...
+              {t('auth.updatingPasswordEllipsis')}
             </>
           ) : (
-            'Reset Password'
+            t('auth.resetPasswordButton')
           )}
         </button>
       </form>
 
       <p className="text-center mt-5 mb-0 small text-secondary-custom">
         <Link to="/login" className="fw-semibold text-decoration-none">
-          Back to Sign In
+          {t('auth.backToSignIn')}
         </Link>
       </p>
     </div>

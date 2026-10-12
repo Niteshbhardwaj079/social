@@ -1,10 +1,12 @@
 import Icon from '../common/Icon';
 import { formatFileSize } from '../../utils/formatters';
 import { MEDIA_TYPE } from '../../config/constants';
+import { useI18n } from '../../i18n/useI18n';
 
 // Adds up what is really stored. Files added by link (storage: 'linked') live
 // somewhere else, so they cost nothing here.
 function StorageUsageBanner({ items, limitBytes }) {
+  const { t } = useI18n();
   const bytesFor = (storage) =>
     items.filter((item) => item.storage === storage).reduce((sum, item) => sum + item.sizeKb * 1024, 0);
 
@@ -20,12 +22,14 @@ function StorageUsageBanner({ items, limitBytes }) {
       <Icon name="HardDrive" size={22} />
       <div className="storage-banner__text">
         <div className="storage-banner__title">
-          {formatFileSize(usedBytes)} used
-          {limitBytes ? ` of ${formatFileSize(limitBytes)} (${percent}%)` : ''}
+          {t('media.storageBanner.used', { size: formatFileSize(usedBytes) })}
+          {limitBytes ? ` ${t('media.storageBanner.ofLimit', { limit: formatFileSize(limitBytes), percent })}` : ''}
         </div>
         <div className="storage-banner__detail">
-          {formatFileSize(serverBytes)} on the app server · {formatFileSize(externalBytes)} in external storage
-          {linkedCount ? ` · ${linkedCount} linked (not stored here)` : ''} · videos take {formatFileSize(videoBytes)}
+          {t('media.storageBanner.onServer', { size: formatFileSize(serverBytes) })} · {t('media.storageBanner.inExternal', { size: formatFileSize(externalBytes) })}
+          {linkedCount ? ` · ${t(linkedCount === 1 ? 'media.storageBanner.linkedCountOne' : 'media.storageBanner.linkedCountOther', { count: linkedCount })}` : ''}
+          {' · '}
+          {t('media.storageBanner.videosTake', { size: formatFileSize(videoBytes) })}
         </div>
         {limitBytes ? (
           <div className="storage-banner__bar" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>

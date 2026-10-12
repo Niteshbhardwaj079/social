@@ -2,44 +2,40 @@ import Icon from '../common/Icon';
 import { MEDIA_TYPE } from '../../config/constants';
 import { formatDate, formatFileSize } from '../../utils/formatters';
 import { summarizeUsage, describeAtRisk } from '../../utils/mediaUsage';
-
-const STORAGE_BADGE_CLASS = {
-  server: 'media-card__badge--server',
-  external: 'media-card__badge--external',
-  linked: 'media-card__badge--linked',
-};
+import { useI18n } from '../../i18n/useI18n';
 
 function MediaGridItem({ item, onOpen, onCopyLink, onCrop, onDelete }) {
+  const { t } = useI18n();
   const usage = summarizeUsage(item);
   const isImage = item.type === MEDIA_TYPE.IMAGE;
   const canCrop = isImage && Boolean(item.url) && item.url.startsWith('data:');
-  const dimensions = item.width && item.height ? `${item.width} × ${item.height} px · ` : '';
+  const dimensions = item.width && item.height ? `${t('media.dimensions', { width: item.width, height: item.height })} · ` : '';
 
   let usageNode;
   if (usage.atRisk.length > 0) {
     usageNode = (
-      <span className="media-card__usage is-risk" title="Deleting this file would break these">
-        <Icon name="AlertTriangle" size={12} /> In use: {describeAtRisk(usage.atRisk)}
+      <span className="media-card__usage is-risk" title={t('media.gridItem.riskTooltip')}>
+        <Icon name="AlertTriangle" size={12} /> {t('media.gridItem.inUsePrefix', { list: describeAtRisk(usage.atRisk, t) })}
       </span>
     );
   } else if (usage.published.length > 0) {
     usageNode = (
       <span className="media-card__usage">
-        <Icon name="CheckCircle2" size={12} /> Only in {usage.published.length} published{' '}
-        {usage.published.length > 1 ? 'posts' : 'post'} — safe to delete
+        <Icon name="CheckCircle2" size={12} />{' '}
+        {t(usage.published.length === 1 ? 'media.gridItem.onlyInPublishedOne' : 'media.gridItem.onlyInPublishedOther', { count: usage.published.length })}
       </span>
     );
   } else {
     usageNode = (
       <span className="media-card__usage">
-        <Icon name="Circle" size={12} /> Not used anywhere yet
+        <Icon name="Circle" size={12} /> {t('media.gridItem.notUsedYet')}
       </span>
     );
   }
 
   return (
     <div className="media-card">
-      <button type="button" className="media-card__thumb" onClick={onOpen} aria-label={`Open ${item.name}`}>
+      <button type="button" className="media-card__thumb" onClick={onOpen} aria-label={t('media.gridItem.openAria', { name: item.name })}>
         {item.url && isImage ? (
           <img src={item.url} alt={item.name} className="media-card__image" />
         ) : (
@@ -58,12 +54,12 @@ function MediaGridItem({ item, onOpen, onCopyLink, onCrop, onDelete }) {
             {item.name}
           </span>
           <span className={`media-card__badge ${STORAGE_BADGE_CLASS[item.storage] || ''}`.trim()}>
-            {item.storageLabel || 'Server'}
+            {item.storageLabel || t('media.gridItem.server')}
           </span>
         </div>
         <div className="media-card__meta">
           {dimensions}
-          {formatFileSize(item.sizeKb * 1024)} · Added {formatDate(item.uploadedAt)}
+          {formatFileSize(item.sizeKb * 1024)} · {t('media.addedOn', { date: formatDate(item.uploadedAt) })}
         </div>
         {usageNode}
 
@@ -72,7 +68,7 @@ function MediaGridItem({ item, onOpen, onCopyLink, onCrop, onDelete }) {
             {item.publicUrl}
           </code>
           <button type="button" className="media-card__copy" onClick={onCopyLink}>
-            Copy link
+            {t('media.copyLink')}
           </button>
         </div>
 
@@ -82,8 +78,8 @@ function MediaGridItem({ item, onOpen, onCopyLink, onCrop, onDelete }) {
               type="button"
               className="btn btn-icon-sm btn-outline-secondary-custom"
               onClick={onCrop}
-              aria-label={`Crop ${item.name}`}
-              data-tooltip="Crop or compress"
+              aria-label={t('media.gridItem.cropAria', { name: item.name })}
+              data-tooltip={t('media.gridItem.cropTooltip')}
             >
               <Icon name="Crop" size={16} />
             </button>
@@ -92,8 +88,8 @@ function MediaGridItem({ item, onOpen, onCopyLink, onCrop, onDelete }) {
             type="button"
             className="btn btn-icon-sm btn-outline-secondary-custom text-danger"
             onClick={onDelete}
-            aria-label={`Delete ${item.name}`}
-            data-tooltip="Delete"
+            aria-label={t('media.gridItem.deleteAria', { name: item.name })}
+            data-tooltip={t('common.delete')}
           >
             <Icon name="Trash2" size={16} />
           </button>
@@ -102,5 +98,11 @@ function MediaGridItem({ item, onOpen, onCopyLink, onCrop, onDelete }) {
     </div>
   );
 }
+
+const STORAGE_BADGE_CLASS = {
+  server: 'media-card__badge--server',
+  external: 'media-card__badge--external',
+  linked: 'media-card__badge--linked',
+};
 
 export default MediaGridItem;

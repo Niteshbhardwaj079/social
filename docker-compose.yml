@@ -33,6 +33,10 @@ services:
       NODE_ENV: production
     ports:
       - "${PORT:-4000}:4000"
+    volumes:
+      # Uploaded media ("Server" storage) and customers' payment screenshots — kept across rebuilds.
+      - social-data:/app/backend/data
 
 volumes:
   social-db:
+  social-data:

@@ -64,9 +64,9 @@ function LinkShortener() {
         setLinks((current) => [newLink, ...current]);
         setIsCreateModalOpen(false);
         setUtmPrefillUrl('');
-        showToast({ type: 'success', title: 'Short link created', message: `${brand.website}/l/${newLink.slug}` });
+        showToast({ type: 'success', title: t('links.createdToast'), message: `${brand.website}/l/${newLink.slug}` });
       },
-      (error) => showToast({ type: 'error', title: 'Could not create that link', message: apiErrorMessage(error) })
+      (error) => showToast({ type: 'error', title: t('links.createErrorTitle'), message: apiErrorMessage(error) })
     );
   }
 
@@ -83,8 +83,8 @@ function LinkShortener() {
     copyToClipboard(`https://${shortUrl}`).then((copied) =>
       showToast(
         copied
-          ? { type: 'success', title: 'Copied to clipboard', message: shortUrl }
-          : { type: 'error', title: 'Could not copy', message: shortUrl }
+          ? { type: 'success', title: t('links.copiedToast'), message: shortUrl }
+          : { type: 'error', title: t('links.copyErrorTitle'), message: shortUrl }
       )
     );
   }
@@ -96,9 +96,9 @@ function LinkShortener() {
         setLinks((current) => current.filter((link) => !ids.includes(link.id)));
         selection.clear();
         setIsBulkDeleteOpen(false);
-        showToast({ type: 'success', title: `${ids.length} ${ids.length === 1 ? 'link' : 'links'} deleted` });
+        showToast({ type: 'success', title: t(ids.length === 1 ? 'links.bulkDeletedToastOne' : 'links.bulkDeletedToastOther', { count: ids.length }) });
       },
-      (error) => showToast({ type: 'error', title: 'Could not delete those links', message: apiErrorMessage(error) })
+      (error) => showToast({ type: 'error', title: t('links.bulkDeleteErrorTitle'), message: apiErrorMessage(error) })
     );
   }
 
@@ -108,9 +108,9 @@ function LinkShortener() {
       () => {
         setLinks((current) => current.filter((link) => link.id !== linkPendingDelete.id));
         setLinkPendingDelete(null);
-        showToast({ type: 'success', title: 'Link deleted' });
+        showToast({ type: 'success', title: t('links.deletedToast') });
       },
-      (error) => showToast({ type: 'error', title: 'Could not delete that link', message: apiErrorMessage(error) })
+      (error) => showToast({ type: 'error', title: t('links.deleteErrorTitle'), message: apiErrorMessage(error) })
     );
   }
 
@@ -119,7 +119,7 @@ function LinkShortener() {
   if (requestStatus === REQUEST_STATUS.LOADING) {
     return (
       <>
-        <PageHeader title={t('nav.linkShortener')} subtitle="Loading your links..." />
+        <PageHeader title={t('nav.linkShortener')} subtitle={t('links.loading')} />
         <SkeletonTable rows={4} columns={4} />
       </>
     );
@@ -144,11 +144,11 @@ function LinkShortener() {
           <>
             <button type="button" className="btn btn-outline-secondary-custom" onClick={() => setIsUtmBuilderOpen(true)}>
               <Icon name="Tags" size={16} />
-              Build UTM Link
+              {t('links.buildUtmLink')}
             </button>
             <button type="button" className="btn btn-primary" onClick={() => setIsCreateModalOpen(true)}>
               <Icon name="Link2" size={16} />
-              Create Link
+              {t('links.createLink')}
             </button>
           </>
         }
@@ -156,10 +156,10 @@ function LinkShortener() {
 
       <StatCardGrid
         cards={[
-          { key: 'links', label: 'Total Links', value: links.length, icon: 'Link2', tone: 'primary' },
-          { key: 'clicks', label: 'Total Clicks', value: stats.totalClicks.toLocaleString(), icon: 'MousePointerClick', tone: 'sky' },
-          { key: 'avg', label: 'Avg. Clicks / Link', value: stats.average.toLocaleString(), icon: 'BarChart3', tone: 'purple' },
-          { key: 'top', label: 'Top Link', value: stats.top ? stats.top.clicks.toLocaleString() : '—', icon: 'TrendingUp', tone: 'green', hint: stats.top?.label },
+          { key: 'links', label: t('links.statTotalLinks'), value: links.length, icon: 'Link2', tone: 'primary' },
+          { key: 'clicks', label: t('links.statTotalClicks'), value: stats.totalClicks.toLocaleString(), icon: 'MousePointerClick', tone: 'sky' },
+          { key: 'avg', label: t('links.statAvgClicks'), value: stats.average.toLocaleString(), icon: 'BarChart3', tone: 'purple' },
+          { key: 'top', label: t('links.statTopLink'), value: stats.top ? stats.top.clicks.toLocaleString() : '—', icon: 'TrendingUp', tone: 'green', hint: stats.top?.label },
         ]}
       />
 
@@ -167,16 +167,16 @@ function LinkShortener() {
         {links.length > 0 ? <TableToolbar pagination={pagination} /> : null}
         <BulkActionBar selection={selection} show={links.length > 0}>
           <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setIsBulkDeleteOpen(true)}>
-            <Icon name="Trash2" size={14} /> Delete
+            <Icon name="Trash2" size={14} /> {t('common.delete')}
           </button>
         </BulkActionBar>
         <div className="panel-card__body panel-card__body--flush">
           {links.length === 0 ? (
             <EmptyState
               icon="Link2"
-              title="No links yet"
-              description="Create a short link to start tracking clicks on anything you share."
-              actionLabel="Create Link"
+              title={t('links.noLinksTitle')}
+              description={t('links.noLinksText')}
+              actionLabel={t('links.createLink')}
               onAction={() => setIsCreateModalOpen(true)}
             />
           ) : isMobile ? (
@@ -184,7 +184,7 @@ function LinkShortener() {
               {pagination.pageItems.map((link) => (
                 <div key={link.id} className="surface-card">
                   <div className="d-flex align-items-start gap-2">
-                    <RowCheckbox id={link.id} selection={selection} label={`Select link ${link.label}`} />
+                    <RowCheckbox id={link.id} selection={selection} label={t('links.selectLinkAria', { label: link.label })} />
                     <div className="table-row-title mb-1">{link.label}</div>
                   </div>
                   <div className="small text-primary-custom mb-2">
@@ -192,21 +192,21 @@ function LinkShortener() {
                   </div>
                   <div className="small text-muted-custom text-truncate mb-3">{link.destinationUrl}</div>
                   <div className="d-flex align-items-center justify-content-between">
-                    <span className="fw-semibold">{link.clicks.toLocaleString()} clicks</span>
+                    <span className="fw-semibold">{t('links.clicksCount', { count: link.clicks.toLocaleString() })}</span>
                     <span className="small text-muted-custom">{formatDate(link.createdAt)}</span>
                   </div>
                   <div className="d-flex gap-2 mt-3">
                     <button type="button" className="btn btn-sm btn-outline-secondary-custom flex-grow-1" onClick={() => setActiveLinkId(link.id)}>
-                      View Stats
+                      {t('links.viewStats')}
                     </button>
-                    <button type="button" className="btn btn-icon-sm btn-outline-secondary-custom" onClick={() => handleCopy(link)} aria-label="Copy link">
+                    <button type="button" className="btn btn-icon-sm btn-outline-secondary-custom" onClick={() => handleCopy(link)} aria-label={t('links.copyLinkAria')}>
                       <Icon name="Copy" size={14} />
                     </button>
                     <button
                       type="button"
                       className="btn btn-icon-sm btn-outline-secondary-custom text-danger"
                       onClick={() => setLinkPendingDelete(link)}
-                      aria-label="Delete link"
+                      aria-label={t('links.deleteLinkAria')}
                     >
                       <Icon name="Trash2" size={14} />
                     </button>
@@ -222,10 +222,10 @@ function LinkShortener() {
                     <th className="table-checkbox-col">
                       <SelectAllCheckbox ids={pageIds} selection={selection} />
                     </th>
-                    <th>Link</th>
-                    <th>Destination</th>
-                    <th>Clicks</th>
-                    <th>Created</th>
+                    <th>{t('links.colLink')}</th>
+                    <th>{t('links.colDestination')}</th>
+                    <th>{t('links.colClicks')}</th>
+                    <th>{t('links.colCreated')}</th>
                     <th />
                   </tr>
                 </thead>
@@ -233,7 +233,7 @@ function LinkShortener() {
                   {pagination.pageItems.map((link) => (
                     <tr key={link.id} className={selection.isSelected(link.id) ? 'is-selected' : ''}>
                       <td className="table-checkbox-col">
-                        <RowCheckbox id={link.id} selection={selection} label={`Select link ${link.label}`} />
+                        <RowCheckbox id={link.id} selection={selection} label={t('links.selectLinkAria', { label: link.label })} />
                       </td>
                       <td role="button" onClick={() => setActiveLinkId(link.id)}>
                         <div className="table-row-title">{link.label}</div>
@@ -256,8 +256,8 @@ function LinkShortener() {
                             type="button"
                             className="btn btn-icon-sm btn-outline-secondary-custom"
                             onClick={() => handleCopy(link)}
-                            aria-label="Copy link"
-                            data-tooltip="Copy"
+                            aria-label={t('links.copyLinkAria')}
+                            data-tooltip={t('links.copyTooltip')}
                           >
                             <Icon name="Copy" size={14} />
                           </button>
@@ -265,8 +265,8 @@ function LinkShortener() {
                             type="button"
                             className="btn btn-icon-sm btn-outline-secondary-custom"
                             onClick={() => setLinkPendingDelete(link)}
-                            aria-label="Delete link"
-                            data-tooltip="Delete"
+                            aria-label={t('links.deleteLinkAria')}
+                            data-tooltip={t('common.delete')}
                           >
                             <Icon name="Trash2" size={14} />
                           </button>
@@ -286,9 +286,9 @@ function LinkShortener() {
         isOpen={isBulkDeleteOpen}
         onClose={() => setIsBulkDeleteOpen(false)}
         onConfirm={handleBulkDeleteConfirmed}
-        title={`Delete ${selection.count} ${selection.count === 1 ? 'link' : 'links'}?`}
-        message="Anyone who already has these short links will get a broken link once they are deleted."
-        confirmLabel="Delete"
+        title={t(selection.count === 1 ? 'links.bulkDeleteTitleOne' : 'links.bulkDeleteTitleOther', { count: selection.count })}
+        message={t('links.bulkDeleteMessage')}
+        confirmLabel={t('common.delete')}
         isDanger
       />
 
@@ -310,9 +310,9 @@ function LinkShortener() {
         isOpen={Boolean(linkPendingDelete)}
         onClose={() => setLinkPendingDelete(null)}
         onConfirm={handleDeleteConfirmed}
-        title="Delete this link?"
-        message="Anyone who already has this short link will get a broken link once it's deleted."
-        confirmLabel="Delete"
+        title={t('links.deleteConfirmTitle')}
+        message={t('links.deleteConfirmMessage')}
+        confirmLabel={t('common.delete')}
         isDanger
       />
     </div>
